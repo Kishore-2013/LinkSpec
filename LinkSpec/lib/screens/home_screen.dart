@@ -12,6 +12,8 @@ import 'profile_screen.dart';
 import 'notifications_screen.dart';
 import 'jobs_screen.dart';
 import 'post_create_screen.dart';
+import 'saved_items_screen.dart';
+import '../widgets/aw_logo.dart';
 import 'dart:async';
 
 /// Home Screen with Feed and Messages
@@ -218,6 +220,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     
     return Scaffold(
       backgroundColor: const Color(0xFFF4F2EE), // LinkedIn Background Color
+      drawer: isWideScreen ? null : Drawer(
+        width: MediaQuery.of(context).size.width * 0.8,
+        backgroundColor: const Color(0xFFF4F2EE),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildLeftSideBar(),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ListTile(
+                    leading: const Icon(Icons.settings_outlined),
+                    title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onTap: () {
+                      Navigator.pop(context); // Close drawer
+                      Navigator.pushNamed(context, '/settings');
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ListTile(
+                    leading: const Icon(Icons.logout, color: Colors.red),
+                    title: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                    onTap: _handleSignOut,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
@@ -225,25 +260,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         leadingWidth: 64,
         leading: Padding(
           padding: const EdgeInsets.only(left: 14.0, top: 10.0, bottom: 10.0),
-          child: GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfileScreen()),
-              );
-            },
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.grey[200],
-              backgroundImage: _currentUserProfile?.avatarUrl != null && _currentUserProfile!.avatarUrl!.isNotEmpty
-                  ? NetworkImage(_currentUserProfile!.avatarUrl!)
-                  : null,
-              child: _currentUserProfile?.avatarUrl == null || _currentUserProfile!.avatarUrl!.isEmpty
-                  ? Text(
-                      _currentUserProfile?.fullName.isNotEmpty == true ? _currentUserProfile!.fullName[0].toUpperCase() : 'U',
-                      style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 16),
-                    )
-                  : null,
+          child: Builder(
+            builder: (context) => GestureDetector(
+              onTap: () {
+                if (isWideScreen) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                  );
+                } else {
+                  Scaffold.of(context).openDrawer();
+                }
+              },
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.grey[200],
+                backgroundImage: _currentUserProfile?.avatarUrl != null && _currentUserProfile!.avatarUrl!.isNotEmpty
+                    ? NetworkImage(_currentUserProfile!.avatarUrl!)
+                    : null,
+                child: _currentUserProfile?.avatarUrl == null || _currentUserProfile!.avatarUrl!.isEmpty
+                    ? Text(
+                        _currentUserProfile?.fullName.isNotEmpty == true ? _currentUserProfile!.fullName[0].toUpperCase() : 'U',
+                        style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 16),
+                      )
+                    : null,
+              ),
             ),
           ),
         ),
@@ -579,10 +620,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
-              _buildSidebarStat('Profile viewers', '0'),
-              _buildSidebarStat('Post impressions', '0'),
+              // Profile viewers/impressions removed as requested
               const Divider(height: 1),
-              _buildSidebarItem(Icons.bookmark, 'Saved items'),
+              _buildSidebarItem(Icons.bookmark, 'Saved items', onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SavedItemsScreen(),
+                  ),
+                );
+              }),
+              const Divider(height: 1),
+              _buildSidebarItem(Icons.settings_outlined, 'Settings', onTap: () {
+                Navigator.pushNamed(context, '/settings');
+              }),
             ],
           ),
         ),
@@ -598,18 +649,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Recent', style: TextStyle(fontSize: 12)),
+              const Text('Recent', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              _buildRecentItem('${_currentUserProfile?.domainId.toUpperCase() ?? 'Domain'} Experts'),
-              _buildRecentItem('Hiring Trends 2026'),
+              if (_posts.isEmpty) ...[
+                _buildRecentItem('${_currentUserProfile?.domainId.toUpperCase() ?? 'Domain'} Experts'),
+                _buildRecentItem('Hiring Trends 2026'),
+              ] else ...[
+                _buildRecentItem('# ${_currentUserProfile?.domainId ?? 'Professional'}'),
+                ..._posts.take(2).map((p) => _buildRecentItem(p.content.split('\n').first, isPost: true)),
+              ],
               const SizedBox(height: 12),
-              const Text('Groups', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13)),
+              InkWell(
+                onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading Groups...'))),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Text('Groups', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+              ),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Events', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13)),
-                  Icon(Icons.add, size: 16, color: Colors.grey[600]),
+                  InkWell(
+                    onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading Events...'))),
+                    child: const Text('Events', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add, size: 16, color: Colors.grey),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _showCreatePostDialog(postType: PostType.event),
+                  ),
                 ],
               ),
             ],
@@ -632,28 +702,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildSidebarItem(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: Colors.grey[600]),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-        ],
+  Widget _buildSidebarItem(IconData icon, String label, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.grey[600]),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildRecentItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(Icons.groups_outlined, size: 16, color: Colors.grey[600]),
-          const SizedBox(width: 8),
-          Text(text, style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold, fontSize: 12)),
-        ],
+  Widget _buildRecentItem(String text, {bool isPost = false}) {
+    return InkWell(
+      onTap: () {
+        if (isPost) {
+          _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Icon(isPost ? Icons.article_outlined : Icons.groups_outlined, size: 16, color: Colors.grey[600]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text, 
+                style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold, fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -683,11 +770,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _buildRecommendationItem('Top Recruiter', 'Hiring for Tech Roles', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1974&auto=format&fit=crop'),
               _buildRecommendationItem('Industry Lead', 'Insights into AI & Dev', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1974&auto=format&fit=crop'),
               const SizedBox(height: 8),
-              const Row(
-                children: [
-                  Text('View all recommendations', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 14)),
-                  Icon(Icons.arrow_forward, size: 14, color: Colors.grey),
-                ],
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _currentIndex = 1; // Switch to Network tab
+                    _visitedTabs.add(1);
+                  });
+                },
+                child: const Row(
+                  children: [
+                    Text('View all recommendations', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 14)),
+                    Icon(Icons.arrow_forward, size: 14, color: Colors.grey),
+                  ],
+                ),
               ),
             ],
           ),
@@ -715,8 +810,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.business_center, size: 16, color: Colors.blue),
-            const SizedBox(width: 4),
+            const AWLogo(size: 18),
+            const SizedBox(width: 6),
             Text('LinkSpec Corporation © 2026', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
           ],
         ),
@@ -743,7 +838,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Text(bio, style: TextStyle(color: Colors.grey[600], fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Following $name')),
+                    );
+                  },
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Follow'),
                   style: OutlinedButton.styleFrom(

@@ -162,7 +162,7 @@ class CreatePostExample {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Post created successfully!'),
-            backgroundColor: Colors.green,
+            backgroundColor: Colors.blue[700],
           ),
         );
       }
@@ -288,7 +288,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             content: Text(
               'Post created in ${createdPost['domain_id']} domain!',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: Colors.blue[700],
           ),
         );
 

@@ -163,7 +163,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green,
+        backgroundColor: Colors.blue[700],
         behavior: SnackBarBehavior.floating,
       ),
     );

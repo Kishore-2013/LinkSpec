@@ -113,7 +113,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 60),
+            const Icon(Icons.check_circle, color: Colors.blue[700], size: 60),
             const SizedBox(height: 16),
             Text('Your application for "${job.title}" at ${job.company} has been submitted successfully.'),
           ],
@@ -346,7 +346,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
                 Text(
                   job.salary,
                   style: const TextStyle(
-                    color: Colors.green,
+                    color: Colors.blue[700],
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
                   ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../widgets/aw_logo.dart';
 
 /// Login Screen with Email/Password Authentication
 class LoginScreen extends StatefulWidget {
@@ -120,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green,
+        backgroundColor: Colors.blue[700],
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -149,32 +150,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Logo
-                      const Icon(
-                        Icons.business_center,
-                        size: 80,
-                        color: Colors.blue,
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // App Name
-                      Text(
-                        'LinkSpec',
-                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      
-                      // Tagline
-                      Text(
-                        'Professional Networking, Domain-Focused',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                        textAlign: TextAlign.center,
+                      // Logo + App Name
+                      const AWLogo(
+                        size: 88,
+                        showAppName: true,
+                        showTagline: true,
                       ),
                       const SizedBox(height: 48),
                       

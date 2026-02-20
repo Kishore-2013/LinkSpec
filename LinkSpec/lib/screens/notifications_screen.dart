@@ -114,7 +114,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'connection':
         message = 'connected with you';
         icon = Icons.person_add;
-        iconColor = Colors.green;
+        iconColor = Colors.blue[700];
         break;
       default:
         message = 'interacted with you';

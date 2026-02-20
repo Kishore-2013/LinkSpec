@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'share_post_dialog.dart';
 import 'comments_bottom_sheet.dart';
 import '../screens/member_profile_screen.dart';
+import '../screens/saved_items_screen.dart';
 
 /// Post Card Widget
 class PostCard extends StatefulWidget {
@@ -32,6 +33,7 @@ class _PostCardState extends State<PostCard> {
   bool _isLoadingCount = true;
   bool _isFollowing = false;
   bool _isFollowingLoading = false;
+  bool _isSaved = false;
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _PostCardState extends State<PostCard> {
     _likeCount = widget.post.likeCount;
     _commentCount = widget.post.commentCount;
     _isLoadingCount = false;
+    _isSaved = SavedPostsStore.isSaved(widget.post.id);
     _checkIfLiked();
     _checkFollowStatus();
   }
@@ -285,7 +288,7 @@ class _PostCardState extends State<PostCard> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green,
+        backgroundColor: Colors.blue[700],
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -479,6 +482,18 @@ class _PostCardState extends State<PostCard> {
                     'Send',
                     Colors.grey[600]!,
                     _sharePost,
+                  ),
+                  _buildActionBarItem(
+                    _isSaved ? Icons.bookmark : Icons.bookmark_border,
+                    'Save',
+                    _isSaved ? const Color(0xFF0A66C2) : Colors.grey[600]!,
+                    () {
+                      final nowSaved = SavedPostsStore.toggle(widget.post.id);
+                      setState(() => _isSaved = nowSaved);
+                      _showSuccessSnackBar(
+                        nowSaved ? 'Post saved to your items' : 'Post removed from saved items',
+                      );
+                    },
                   ),
                 ],
               ),

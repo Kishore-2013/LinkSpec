@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../widgets/aw_logo.dart';
 
 /// Domain Selection Screen
 /// This screen is shown to newly registered users to select their professional domain.
@@ -152,24 +153,13 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen> {
                   children: [
                     const SizedBox(height: 40),
                     
-                    // Logo or App Name
-                    const Icon(
-                      Icons.business_center,
+                    // Logo + App Name
+                    const AWLogo(
                       size: 80,
-                      color: Colors.blue,
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    Text(
-                      'Welcome to LinkSpec',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                      textAlign: TextAlign.center,
+                      showAppName: true,
+                      showTagline: false,
                     ),
                     const SizedBox(height: 8),
-                    
                     Text(
                       'Complete your profile to get started',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(

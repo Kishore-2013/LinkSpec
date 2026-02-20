@@ -84,7 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _isEditing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated!'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Profile updated!'), backgroundColor: Colors.blue[700]),
         );
       }
     } catch (e) {
@@ -108,7 +108,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _profile = _profile?.copyWith(avatarUrl: url));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Avatar updated!'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Avatar updated!'), backgroundColor: Colors.blue[700]),
         );
       }
     } catch (e) {
@@ -132,7 +132,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _coverUrl = url);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cover photo updated!'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Cover photo updated!'), backgroundColor: Colors.blue[700]),
         );
       }
     } catch (e) {
@@ -333,10 +333,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         backgroundColor: Colors.white.withOpacity(0.85),
                                         radius: 18,
                                         child: IconButton(
+                                          icon: const Icon(Icons.settings, size: 18, color: Colors.black87),
+                                          onPressed: () => Navigator.pushNamed(context, '/settings'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      CircleAvatar(
+                                        backgroundColor: Colors.white.withOpacity(0.85),
+                                        radius: 18,
+                                        child: IconButton(
                                           icon: Icon(
                                             _isEditing ? Icons.check : Icons.edit,
                                             size: 18,
-                                            color: _isEditing ? Colors.green : Colors.black87,
+                                            color: _isEditing ? Colors.blue[700] : Colors.black87,
                                           ),
                                           onPressed: _isEditing ? _updateProfile : () => setState(() => _isEditing = true),
                                         ),
