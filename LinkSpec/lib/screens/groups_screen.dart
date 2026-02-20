@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/group.dart';
+import 'group_detail_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({Key? key}) : super(key: key);
@@ -36,6 +37,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
     ),
   ];
 
+  final Set<String> _joinedGroups = {};
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,13 +65,44 @@ class _GroupsScreenState extends State<GroupsScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Create Group feature coming soon!')),
-          );
+          // Future: Open Create Group Bottom Sheet
+          _showCreateGroupSheet();
         },
         label: const Text('Create'),
         icon: const Icon(Icons.add),
         backgroundColor: Colors.blue,
+      ),
+    );
+  }
+
+  void _showCreateGroupSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 20, right: 20, top: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Create a Group', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            TextField(decoration: InputDecoration(labelText: 'Group Name', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+            const SizedBox(height: 16),
+            TextField(decoration: InputDecoration(labelText: 'Description', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), maxLines: 3),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group created successfully!')));
+              },
+              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+              child: const Text('Create Group'),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
@@ -106,7 +140,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Widget _buildDiscoverGroupsList() {
-    // Mocking some discovery groups
     final discoverGroups = [
       Group(
         id: '4',
@@ -138,6 +171,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Widget _buildGroupCard(Group group, {bool isDiscover = false}) {
+    final isJoined = _joinedGroups.contains(group.id);
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 0,
@@ -147,7 +182,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
       ),
       child: InkWell(
         onTap: () {
-          // Future: Navigate to group details
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => GroupDetailScreen(group: group)),
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Column(
@@ -209,21 +247,31 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 ],
               ),
             ),
-            if (isDiscover)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {},
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.blue),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    ),
-                    child: const Text('Join Group'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      if (isJoined) {
+                        _joinedGroups.remove(group.id);
+                      } else {
+                        _joinedGroups.add(group.id);
+                      }
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(isJoined ? 'Left ${group.name}' : 'Joined ${group.name}!'), duration: const Duration(seconds: 1)),
+                    );
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: isJoined ? Colors.grey : Colors.blue),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   ),
+                  child: Text(isJoined ? 'Leave Group' : 'Join Group', style: TextStyle(color: isJoined ? Colors.grey : Colors.blue)),
                 ),
               ),
+            ),
           ],
         ),
       ),

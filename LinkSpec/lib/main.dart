@@ -8,6 +8,9 @@ import 'screens/domain_selection_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/groups_screen.dart';
+import 'screens/events_screen.dart';
+import 'screens/group_detail_screen.dart';
+import 'screens/search_screen.dart';
 import 'providers/theme_provider.dart';
 
 void main() async {
@@ -154,6 +157,8 @@ class LinkSpecApp extends ConsumerWidget {
         '/home': (context) => const HomeScreen(),
         '/settings': (context) => const SettingsScreen(),
         '/groups': (context) => const GroupsScreen(),
+        '/events': (context) => const EventsScreen(),
+        '/search': (context) => const SearchScreen(),
       },
     );
   }

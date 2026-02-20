@@ -298,9 +298,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           child: TextField(
             readOnly: true,
-            onTap: () {
-              // Future: Open search screen
-            },
+            onTap: () => Navigator.pushNamed(context, '/search'),
             decoration: InputDecoration(
               hintText: 'Search',
               hintStyle: TextStyle(color: Colors.grey[500], fontSize: 15, fontWeight: FontWeight.w400),
@@ -671,7 +669,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   InkWell(
-                    onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Events feature coming soon!'))),
+                    onTap: () => Navigator.pushNamed(context, '/events'),
                     child: const Text('Events', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13)),
                   ),
                   IconButton(
@@ -766,7 +764,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              _buildRecommendationItem('ApplyWizz', 'Official • Talent Solutions', 'https://logo.clearbit.com/google.com'),
+              _buildRecommendationItem('ApplyWizz', 'Official • Talent Solutions', 'https://images.unsplash.com/photo-1549923746-c50264f39a18?q=80&w=2070&auto=format&fit=crop'),
               _buildRecommendationItem('Top Recruiter', 'Hiring for Tech Roles', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1974&auto=format&fit=crop'),
               _buildRecommendationItem('Industry Lead', 'Insights into AI & Dev', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1974&auto=format&fit=crop'),
               const SizedBox(height: 8),
@@ -861,7 +859,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildFooterLink(String text) {
-    return Text(text, style: TextStyle(fontSize: 12, color: Colors.grey[600]));
+    return InkWell(
+      onTap: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$text clicked'))),
+      child: Text(text, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+    );
   }
 
   Widget _buildEmptyState() {
