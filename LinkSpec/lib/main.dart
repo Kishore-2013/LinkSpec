@@ -7,6 +7,7 @@ import 'screens/login_screen.dart';
 import 'screens/domain_selection_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/groups_screen.dart';
 import 'providers/theme_provider.dart';
 
 void main() async {
@@ -152,6 +153,7 @@ class LinkSpecApp extends ConsumerWidget {
         '/domain-selection': (context) => const DomainSelectionScreen(),
         '/home': (context) => const HomeScreen(),
         '/settings': (context) => const SettingsScreen(),
+        '/groups': (context) => const GroupsScreen(),
       },
     );
   }

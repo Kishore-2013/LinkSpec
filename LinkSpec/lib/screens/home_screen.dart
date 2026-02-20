@@ -660,7 +660,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
               const SizedBox(height: 12),
               InkWell(
-                onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading Groups...'))),
+                onTap: () => Navigator.pushNamed(context, '/groups'),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 4),
                   child: Text('Groups', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13)),
@@ -671,7 +671,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   InkWell(
-                    onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading Events...'))),
+                    onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Events feature coming soon!'))),
                     child: const Text('Events', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13)),
                   ),
                   IconButton(
