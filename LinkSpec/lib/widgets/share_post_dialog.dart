@@ -67,7 +67,7 @@ class _SharePostDialogState extends State<SharePostDialog> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Post shared successfully via Chat!'),
             backgroundColor: Colors.blue[700],
           ),

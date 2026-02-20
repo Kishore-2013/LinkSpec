@@ -152,7 +152,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     children: [
                       Text('Salary Range', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
                       const SizedBox(height: 4),
-                      Text(widget.job.salary, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[700])),
+                      Text(widget.job.salary, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[700])),
                     ],
                   ),
                   Column(
@@ -273,7 +273,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle, color: Colors.blue[700], size: 60),
+            Icon(Icons.check_circle, color: Colors.blue[700], size: 60),
             const SizedBox(height: 16),
             Text('Your application for "${widget.job.title}" at ${widget.job.company} has been submitted successfully.'),
           ],

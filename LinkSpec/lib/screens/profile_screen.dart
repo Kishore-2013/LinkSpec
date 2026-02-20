@@ -84,7 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _isEditing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated!'), backgroundColor: Colors.blue[700]),
+          SnackBar(content: Text('Profile updated!'), backgroundColor: Colors.blue[700]),
         );
       }
     } catch (e) {
@@ -108,7 +108,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _profile = _profile?.copyWith(avatarUrl: url));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Avatar updated!'), backgroundColor: Colors.blue[700]),
+          SnackBar(content: Text('Avatar updated!'), backgroundColor: Colors.blue[700]),
         );
       }
     } catch (e) {
@@ -132,7 +132,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _coverUrl = url);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cover photo updated!'), backgroundColor: Colors.blue[700]),
+          SnackBar(content: Text('Cover photo updated!'), backgroundColor: Colors.blue[700]),
         );
       }
     } catch (e) {

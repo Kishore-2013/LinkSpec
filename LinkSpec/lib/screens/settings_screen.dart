@@ -559,13 +559,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           leading: const Icon(Icons.email, color: Colors.blue),
           title: const Text('Email verified'),
           subtitle: const Text('kishore@example.com'),
-          trailing: const Icon(Icons.check_circle, color: Colors.blue[700]),
+          trailing: Icon(Icons.check_circle, color: Colors.blue[700]),
         ),
         ListTile(
           leading: const Icon(Icons.phone, color: Colors.blue),
           title: const Text('Phone verified'),
           subtitle: const Text('+91 98765 43210'),
-          trailing: const Icon(Icons.check_circle, color: Colors.blue[700]),
+          trailing: Icon(Icons.check_circle, color: Colors.blue[700]),
         ),
         ListTile(
           leading: const Icon(Icons.business, color: Colors.blue),
@@ -584,7 +584,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ListTile(
           title: const Text('kishore@example.com'),
           subtitle: const Text('Primary email'),
-          trailing: const Icon(Icons.check_circle, color: Colors.blue[700]),
+          trailing: Icon(Icons.check_circle, color: Colors.blue[700]),
         ),
         const Divider(),
         ListTile(
@@ -602,7 +602,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ListTile(
           title: const Text('+91 98765 43210'),
           subtitle: const Text('Primary phone'),
-          trailing: const Icon(Icons.check_circle, color: Colors.blue[700]),
+          trailing: Icon(Icons.check_circle, color: Colors.blue[700]),
         ),
         const Divider(),
         ListTile(
