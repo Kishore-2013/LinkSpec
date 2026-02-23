@@ -299,9 +299,9 @@ class _PostCardState extends State<PostCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
       ),
       child: Padding(
         padding: const EdgeInsets.only(top: 12),
@@ -355,7 +355,7 @@ class _PostCardState extends State<PostCard> {
                             children: [
                               Text(
                                 widget.post.authorName ?? 'Unknown User',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF191919)),
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Theme.of(context).textTheme.bodyLarge?.color),
                               ),
                               const SizedBox(width: 4),
                               Text('• 1st', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
@@ -521,9 +521,9 @@ class _PostCardState extends State<PostCard> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(titleLine, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF191919), height: 1.3)),
+          Text(titleLine, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color, height: 1.3)),
           const SizedBox(height: 12),
-          Text(body, style: const TextStyle(fontSize: 14, color: Color(0xFF191919), height: 1.5, fontWeight: FontWeight.w400)),
+          Text(body, style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyLarge?.color, height: 1.5, fontWeight: FontWeight.w400)),
         ],
       );
     } else if (content.startsWith('EVENT_TITLE:')) {
@@ -546,9 +546,9 @@ class _PostCardState extends State<PostCard> {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.grey[50],
+          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[50],
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[200]!),
+          border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -561,7 +561,7 @@ class _PostCardState extends State<PostCard> {
               ],
             ),
             const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF191919))),
+            Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color)),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -580,7 +580,7 @@ class _PostCardState extends State<PostCard> {
             ),
             if (body.isNotEmpty) ...[
               const Divider(height: 24),
-              Text(body, style: const TextStyle(fontSize: 14, color: Color(0xFF191919), height: 1.4)),
+              Text(body, style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyLarge?.color, height: 1.4)),
             ],
           ],
         ),
@@ -589,7 +589,7 @@ class _PostCardState extends State<PostCard> {
 
     return Text(
       content,
-      style: const TextStyle(fontSize: 14, color: Color(0xFF191919), height: 1.4),
+      style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyLarge?.color, height: 1.4),
     );
   }
 

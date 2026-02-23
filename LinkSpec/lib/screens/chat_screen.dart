@@ -99,11 +99,11 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.onSecondary,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: IconThemeData(color: Theme.of(context).iconTheme.color),
         title: Row(
           children: [
             CircleAvatar(
@@ -118,7 +118,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   : null,
             ),
             const SizedBox(width: 10),
-            Text(widget.otherUser['full_name'], style: const TextStyle(color: Colors.black, fontSize: 18)),
+            Text(widget.otherUser['full_name'], style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color, fontSize: 18)),
           ],
         ),
       ),
@@ -170,7 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 10),
                               decoration: BoxDecoration(
-                                color: isMe ? Colors.blue : Colors.white,
+                                color: isMe ? Colors.blue : Theme.of(context).cardTheme.color,
                                 borderRadius: BorderRadius.only(
                                   topLeft: const Radius.circular(16),
                                   topRight: const Radius.circular(16),
@@ -192,7 +192,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               child: Text(
                                 msg['content'],
                                 style: TextStyle(
-                                  color: isMe ? Colors.white : Colors.black87,
+                                  color: isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
                                   fontSize: 15,
                                 ),
                               ),
@@ -213,7 +213,7 @@ class _ChatScreenState extends State<ChatScreen> {
           Container(
             padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardTheme.color,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.05),
@@ -234,7 +234,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         borderSide: BorderSide.none,
                       ),
                       filled: true,
-                      fillColor: Colors.grey.shade50,
+                      fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[50],
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 10,

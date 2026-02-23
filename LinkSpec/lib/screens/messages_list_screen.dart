@@ -36,12 +36,12 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.onSecondary,
         elevation: 0,
-        title: const Text('Messages', style: TextStyle(color: Colors.black)),
-        iconTheme: const IconThemeData(color: Colors.black),
+        title: Text('Messages', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
+        iconTheme: IconThemeData(color: Theme.of(context).iconTheme.color),
         actions: [
           IconButton(
             icon: const Icon(Icons.search, color: Colors.blue),
@@ -77,7 +77,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                     itemBuilder: (context, index) {
                       final user = _conversations[index];
                       return Card(
-                        color: Colors.white,
+                        color: Theme.of(context).cardTheme.color,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),

@@ -101,7 +101,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
         widget.userId == SupabaseService.getCurrentUserId();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: DefaultTabController(
         length: 2,
         child: NestedScrollView(
@@ -111,7 +111,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
               SliverAppBar(
                 expandedHeight: 200,
                 pinned: true,
-                backgroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.onSecondary,
                 elevation: 0,
                 leading: const BackButton(color: Colors.white),
                 flexibleSpace: FlexibleSpaceBar(
@@ -126,7 +126,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
               // ── White profile card ────────────────────────────────────
               SliverToBoxAdapter(
                 child: Container(
-                  color: Colors.white,
+                  color: Theme.of(context).cardTheme.color,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -157,9 +157,9 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
                                       Text(
                                         _profile!.bio ??
                                             _profile!.domainId,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 15,
-                                          color: Colors.black87,
+                                          color: Theme.of(context).textTheme.bodyMedium?.color,
                                         ),
                                       ),
                                       const SizedBox(height: 8),
@@ -241,7 +241,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                                color: Colors.white, width: 4),
+                                color: Theme.of(context).cardTheme.color ?? Colors.white, width: 4),
                           ),
                           child: CircleAvatar(
                             radius: 60,
@@ -427,7 +427,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
-      color: Colors.white,
+      color: Theme.of(context).cardTheme.color,
       child: tabBar,
     );
   }

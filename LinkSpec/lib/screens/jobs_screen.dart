@@ -131,9 +131,9 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.onSecondary,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: _isSearching
@@ -149,9 +149,9 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Job Opportunities',
-                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
+                    style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color, fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   if (_userDomain != null)
                     Text(
@@ -217,7 +217,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
   Widget _buildFilterBar() {
     return Container(
       height: 60,
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.onSecondary,
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
@@ -297,7 +297,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.blue[900]?.withOpacity(0.3) : Colors.blue[50],
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -383,9 +383,9 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[50],
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey[100]!),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

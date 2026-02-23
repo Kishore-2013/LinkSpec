@@ -9,26 +9,26 @@ class GroupDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(group.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+        title: Text(group.name, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).appBarTheme.foregroundColor)),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0.5,
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(),
+            _buildHeader(context),
             _buildAbout(context),
-            _buildMembersPreview(),
+            _buildMembersPreview(context),
           ],
         ),
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardTheme.color,
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
         ),
         child: ElevatedButton(
@@ -44,9 +44,9 @@ class GroupDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: Theme.of(context).cardTheme.color,
       child: Column(
         children: [
           if (group.coverUrl != null)
@@ -87,7 +87,7 @@ class GroupDetailScreen extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(20),
-      color: Colors.white,
+      color: Theme.of(context).cardTheme.color,
       width: double.infinity,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,7 +96,7 @@ class GroupDetailScreen extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             group.description,
-            style: const TextStyle(fontSize: 15, height: 1.6, color: Colors.black87),
+            style: TextStyle(fontSize: 15, height: 1.6, color: Theme.of(context).textTheme.bodyMedium?.color),
           ),
           const SizedBox(height: 16),
           Text(
@@ -108,11 +108,11 @@ class GroupDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMembersPreview() {
+  Widget _buildMembersPreview(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(20),
-      color: Colors.white,
+      color: Theme.of(context).cardTheme.color,
       width: double.infinity,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,8 +133,8 @@ class GroupDetailScreen extends StatelessWidget {
               itemBuilder: (context, index) => Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: CircleAvatar(
-                  backgroundColor: Colors.grey[200],
-                  child: const Icon(Icons.person, color: Colors.grey),
+                  backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200],
+                  child: Icon(Icons.person, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey),
                 ),
               ),
             ),

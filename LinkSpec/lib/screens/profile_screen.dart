@@ -257,7 +257,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: RefreshIndicator(
         onRefresh: _loadProfile,
         child: CustomScrollView(
@@ -315,7 +315,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   child: GestureDetector(
                                     onTap: () => Navigator.pop(context),
                                     child: CircleAvatar(
-                                      backgroundColor: Colors.white.withOpacity(0.85),
+                                      backgroundColor: Theme.of(context).cardTheme.color?.withOpacity(0.85),
                                       radius: 18,
                                       child: const Icon(Icons.arrow_back, size: 18, color: Colors.black87),
                                     ),
@@ -374,7 +374,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       // White info section — top padding leaves room for avatar
                       Container(
-                        color: Colors.white,
+                        color: Theme.of(context).cardTheme.color,
                         padding: const EdgeInsets.fromLTRB(20, 72, 20, 20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -440,7 +440,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Container(
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 4),
+                              border: Border.all(color: Theme.of(context).cardTheme.color ?? Colors.white, width: 4),
                             ),
                             child: CircleAvatar(
                               radius: 60,
@@ -598,7 +598,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),

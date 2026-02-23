@@ -71,12 +71,12 @@ class _NetworkScreenState extends State<NetworkScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.onSecondary,
         elevation: 0,
-        title: const Text('My Network', style: TextStyle(color: Colors.black)),
-        iconTheme: const IconThemeData(color: Colors.black),
+        title: Text('My Network', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
+        iconTheme: IconThemeData(color: Theme.of(context).iconTheme.color),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.blue),
@@ -109,7 +109,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
                         );
                       },
                       child: Card(
-                        color: Colors.white,
+                        color: Theme.of(context).cardTheme.color,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -148,8 +148,12 @@ class _NetworkScreenState extends State<NetworkScreen> {
                           trailing: ElevatedButton(
                             onPressed: () => _toggleFollow(targetId),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isFollowing ? Colors.grey[200] : Colors.blue,
-                              foregroundColor: isFollowing ? Colors.black87 : Colors.white,
+                              backgroundColor: isFollowing 
+                                  ? (Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200]) 
+                                  : Colors.blue,
+                              foregroundColor: isFollowing 
+                                  ? (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87) 
+                                  : Colors.white,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),

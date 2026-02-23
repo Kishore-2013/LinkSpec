@@ -65,16 +65,16 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.onSecondary,
         elevation: 0.5,
         surfaceTintColor: Colors.transparent,
-        leading: const BackButton(color: Colors.black87),
-        title: const Text(
+        leading: BackButton(color: Theme.of(context).iconTheme.color),
+        title: Text(
           'Saved items',
           style: TextStyle(
-            color: Colors.black87,
+            color: Theme.of(context).textTheme.titleLarge?.color,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -135,7 +135,7 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
       onTap: () => setState(() => _selectedSection = index),
       child: Container(
         decoration: BoxDecoration(
-          color: selected ? Colors.blue.withOpacity(0.08) : Colors.white,
+          color: selected ? Colors.blue.withOpacity(0.08) : Theme.of(context).cardTheme.color,
           borderRadius: index == 0
               ? const BorderRadius.only(
                   topLeft: Radius.circular(8),
@@ -145,7 +145,7 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
                   bottomLeft: Radius.circular(8),
                   bottomRight: Radius.circular(8),
                 ),
-          border: Border.all(color: Colors.grey.withOpacity(0.15)),
+          border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(

@@ -64,11 +64,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.onSecondary,
         elevation: 0,
-        title: const Text('Notifications', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: Text('Notifications', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color, fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.blue),
@@ -124,7 +124,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return Card(
       elevation: 0,
-      color: notif.isRead ? Colors.white.withOpacity(0.6) : Colors.white,
+      color: notif.isRead ? Theme.of(context).cardTheme.color?.withOpacity(0.6) : Theme.of(context).cardTheme.color,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: notif.isRead ? Colors.transparent : Colors.blue.withOpacity(0.1)),
@@ -147,7 +147,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               bottom: 0,
               child: Container(
                 padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                decoration: BoxDecoration(color: Theme.of(context).cardTheme.color, shape: BoxShape.circle),
                 child: Icon(icon, size: 14, color: iconColor),
               ),
             ),
@@ -155,7 +155,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ),
         title: RichText(
           text: TextSpan(
-            style: const TextStyle(color: Colors.black87, fontSize: 14),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14),
             children: [
               TextSpan(text: notif.actorName ?? 'Someone', style: const TextStyle(fontWeight: FontWeight.bold)),
               TextSpan(text: ' $message'),

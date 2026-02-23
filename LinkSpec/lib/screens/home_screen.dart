@@ -219,10 +219,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final bool isWideScreen = MediaQuery.of(context).size.width > 900;
     
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE), // LinkedIn Background Color
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       drawer: isWideScreen ? null : Drawer(
         width: MediaQuery.of(context).size.width * 0.8,
-        backgroundColor: const Color(0xFFF4F2EE),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         child: SafeArea(
           child: SingleChildScrollView(
             child: Column(
@@ -254,7 +254,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.onSecondary,
         elevation: 0.5,
         surfaceTintColor: Colors.transparent,
         leadingWidth: 64,
@@ -292,9 +292,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: Container(
           height: 38,
           decoration: BoxDecoration(
-            color: Colors.grey[100],
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey[300]!, width: 0.8),
+            border: Border.all(color: Theme.of(context).dividerColor, width: 0.8),
           ),
           child: TextField(
             readOnly: true,
@@ -310,7 +310,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.chat_bubble_rounded, color: Colors.black54, size: 22),
+            icon: Icon(Icons.chat_bubble_rounded, color: Theme.of(context).iconTheme.color?.withOpacity(0.7), size: 22),
             onPressed: () {
               Navigator.push(
                 context,
@@ -418,7 +418,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           });
         },
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
         items: [
@@ -460,9 +460,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
       ),
       child: Column(
         children: [
@@ -544,9 +544,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardTheme.color,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.withOpacity(0.2)),
+            border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
           ),
           child: Column(
             children: [
@@ -640,9 +640,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           padding: const EdgeInsets.all(12),
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardTheme.color,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.withOpacity(0.2)),
+            border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -749,9 +749,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardTheme.color,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.withOpacity(0.2)),
+            border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

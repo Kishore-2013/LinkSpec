@@ -42,13 +42,13 @@ class _GroupsScreenState extends State<GroupsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardTheme.color,
         elevation: 0,
-        title: const Text('Groups', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: Text('Groups', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color, fontWeight: FontWeight.bold)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -108,11 +108,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Widget _buildYourGroupsHeader() {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(16, 20, 16, 12),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
       child: Text(
         'Your Groups',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.titleLarge?.color),
       ),
     );
   }
@@ -130,11 +130,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Widget _buildDiscoverHeader() {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
       child: Text(
         'Discover Groups',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.titleLarge?.color),
       ),
     );
   }
@@ -237,7 +237,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                         const SizedBox(height: 8),
                         Text(
                           group.description,
-                          style: TextStyle(color: Colors.black87, fontSize: 14),
+                          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
