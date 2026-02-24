@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../models/user_profile.dart';
+import 'user_posts_insights_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -488,21 +489,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SliverToBoxAdapter(
               child: _buildSection(
                 title: 'Activity',
+                onHeaderTap: () {
+                  if (_profile != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => UserPostsInsightsScreen(userId: _profile!.id),
+                      ),
+                    );
+                  }
+                },
                 content: _userPosts.isEmpty
                     ? const Text('No recent activity', style: TextStyle(color: Colors.grey))
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: _userPosts.map((post) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(post['content'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14)),
-                              const SizedBox(height: 4),
-                              Text('Posted ${post['created_at'].toString().substring(0, 10)}', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                            ],
+                        children: [
+                          ..._userPosts.map((post) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(post['content'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14)),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Text('Posted ${post['created_at'].toString().substring(0, 10)}', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                                    const Spacer(),
+                                    Icon(Icons.bar_chart, size: 14, color: Colors.blue[300]),
+                                    const SizedBox(width: 4),
+                                    Text('${(post['views_count'] ?? 0)} impressions', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          )).toList(),
+                          const Divider(height: 24),
+                          Center(
+                            child: TextButton(
+                              onPressed: () {
+                                if (_profile != null) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => UserPostsInsightsScreen(userId: _profile!.id),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: const Text('Show all activity →', style: TextStyle(fontWeight: FontWeight.bold)),
+                            ),
                           ),
-                        )).toList(),
+                        ],
                       ),
               ),
             ),
@@ -593,7 +630,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSection({required String title, required Widget content, VoidCallback? onAdd}) {
+  Widget _buildSection({required String title, required Widget content, VoidCallback? onAdd, VoidCallback? onHeaderTap}) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -606,13 +643,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              if (onAdd != null)
-                IconButton(icon: const Icon(Icons.add, size: 20, color: Colors.blue), onPressed: onAdd, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-            ],
+          InkWell(
+            onTap: onHeaderTap,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                if (onAdd != null)
+                  IconButton(icon: const Icon(Icons.add, size: 20, color: Colors.blue), onPressed: onAdd, padding: EdgeInsets.zero, constraints: const BoxConstraints())
+                else if (onHeaderTap != null)
+                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           content,

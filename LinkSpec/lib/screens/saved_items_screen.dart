@@ -47,17 +47,27 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
   Future<void> _loadSavedPosts() async {
     setState(() => _isLoading = true);
     try {
-      // Load all domain posts, then filter to saved IDs
-      final data = await SupabaseService.getPosts(limit: 100, offset: 0);
+      final savedIds = SavedPostsStore.all.toList();
+      if (savedIds.isEmpty) {
+        setState(() {
+          _allPosts = [];
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Load ONLY the posts we've saved — much faster
+      final data = await SupabaseService.getPostsByIds(savedIds);
       final posts = data.map((d) => Post.fromJson(d)).toList();
+      
       if (mounted) {
         setState(() {
-          _allPosts =
-              posts.where((p) => SavedPostsStore.isSaved(p.id)).toList();
+          _allPosts = posts;
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      print('Error loading saved posts: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }

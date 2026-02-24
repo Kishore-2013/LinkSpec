@@ -14,6 +14,8 @@ class Post {
   final String? authorAvatar;
   final int likeCount;
   final int commentCount;
+  final bool isLiked;
+  final bool isFollowing;
 
   Post({
     required this.id,
@@ -27,6 +29,8 @@ class Post {
     this.authorAvatar,
     this.likeCount = 0,
     this.commentCount = 0,
+    this.isLiked = false,
+    this.isFollowing = false,
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
@@ -42,6 +46,8 @@ class Post {
       authorAvatar: json['author_avatar'] as String?,
       likeCount: (json['like_count'] as num?)?.toInt() ?? 0,
       commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
+      isLiked: json['is_liked'] as bool? ?? false,
+      isFollowing: json['is_following'] as bool? ?? false,
     );
   }
 

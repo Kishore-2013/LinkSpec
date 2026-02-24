@@ -5,8 +5,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Handles all database operations with domain-gated logic
 class SupabaseService {
   static final SupabaseClient _client = Supabase.instance.client;
+  
+  // Cache for current user data to avoid redundant network calls
+  static Map<String, dynamic>? _currentUserProfile;
+  static String? _myDomain;
 
   static String? getCurrentUserId() => _client.auth.currentUser?.id;
+
+  /// Clear the in-memory cache (called on logout)
+  static void clearCache() {
+    _currentUserProfile = null;
+    _myDomain = null;
+  }
 
   // ============================================================================
   // PROFILE OPERATIONS
@@ -44,6 +54,7 @@ class SupabaseService {
     List<Map<String, dynamic>>? education,
     List<Map<String, dynamic>>? projects,
     List<String>? skills,
+    String? industry,
   }) async {
     final userId = _client.auth.currentUser?.id;
     
@@ -59,12 +70,37 @@ class SupabaseService {
     if (education != null) updates['education'] = education;
     if (projects != null) updates['projects'] = projects;
     if (skills != null) updates['skills'] = skills;
+    if (industry != null) updates['industry'] = industry;
 
     if (updates.isNotEmpty) {
       await _client
           .from('profiles')
           .update(updates)
           .eq('id', userId);
+      
+      // Update local cache if avatar or fullName changed
+      if (_currentUserProfile != null) {
+        if (fullName != null) _currentUserProfile!['full_name'] = fullName;
+        if (avatarUrl != null) _currentUserProfile!['avatar_url'] = avatarUrl;
+        if (bio != null) _currentUserProfile!['bio'] = bio;
+      }
+    }
+  }
+
+  /// Switch the current user's domain
+  static Future<void> switchDomain(String newDomain) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    await _client
+        .from('profiles')
+        .update({'domain_id': newDomain})
+        .eq('id', userId);
+    
+    // Clear local cache to force refresh with new domain content
+    _myDomain = newDomain;
+    if (_currentUserProfile != null) {
+      _currentUserProfile!['domain_id'] = newDomain;
     }
   }
 
@@ -100,15 +136,22 @@ class SupabaseService {
     return url;
   }
 
-  /// Get current user's profile
-  static Future<Map<String, dynamic>?> getCurrentUserProfile() async {
+  /// Get current user's profile with in-memory caching
+  static Future<Map<String, dynamic>?> getCurrentUserProfile({bool forceRefresh = false}) async {
     final userId = _client.auth.currentUser?.id;
-    
-    if (userId == null) {
-      return null;
+    if (userId == null) return null;
+
+    // Return cached profile if available and not forcing refresh
+    if (_currentUserProfile != null && !forceRefresh) {
+      return _currentUserProfile;
     }
 
-    return await getUserProfile(userId);
+    final profile = await getUserProfile(userId);
+    if (profile != null) {
+      _currentUserProfile = profile;
+      _myDomain = profile['domain_id'] as String?;
+    }
+    return profile;
   }
 
   /// Get a specific user's profile by ID
@@ -132,35 +175,38 @@ class SupabaseService {
     return (response as List).length;
   }
 
-  /// Check if user has completed domain selection
-  static Future<bool> hasCompletedDomainSelection() async {
-    final profile = await getCurrentUserProfile();
-    return profile != null && profile['domain_id'] != null;
-  }
-
-  /// Get profiles in the same domain (for connections/search)
+  /// Get users in the same domain (optimized with cached domain and server-side filtering)
   static Future<List<Map<String, dynamic>>> getProfilesInSameDomain({
     int limit = 20,
     int offset = 0,
     String? searchQuery,
   }) async {
-    var response = await _client
+    if (_myDomain == null) {
+      await getCurrentUserProfile();
+    }
+    
+    if (_myDomain == null) return [];
+
+    var query = _client
         .from('profiles')
         .select()
+        .eq('domain_id', _myDomain!);
+        
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      query = query.ilike('full_name', '%$searchQuery%');
+    }
+
+    final response = await query
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
 
-    var profiles = List<Map<String, dynamic>>.from(response);
-    
-    // Filter by search query client-side if provided
-    if (searchQuery != null && searchQuery.isNotEmpty) {
-      profiles = profiles.where((profile) {
-        final fullName = (profile['full_name'] as String?)?.toLowerCase() ?? '';
-        return fullName.contains(searchQuery.toLowerCase());
-      }).toList();
-    }
+    return List<Map<String, dynamic>>.from(response);
+  }
 
-    return profiles;
+  /// Check if user has completed domain selection
+  static Future<bool> hasCompletedDomainSelection() async {
+    final profile = await getCurrentUserProfile();
+    return profile != null && profile['domain_id'] != null;
   }
 
   // ============================================================================
@@ -183,15 +229,30 @@ class SupabaseService {
   }
 
   /// Create a new post
-  /// Domain ID is automatically set by database trigger
+  /// [targetDomainId] — if provided, the post appears in THAT domain's feed
+  /// instead of the author's own domain (useful for cross-domain job posts, etc.).
   static Future<Map<String, dynamic>> createPost({
     required String content,
     String? imageUrl,
+    String? targetDomainId, // Optional: override target domain
   }) async {
     final userId = _client.auth.currentUser?.id;
     
     if (userId == null) {
       throw Exception('User not authenticated');
+    }
+
+    // If a specific target domain is requested, fetch it and override domain_id
+    String? domainId = targetDomainId;
+    if (domainId == null) {
+      // Fallback: use author's own domain (DB trigger will handle this but
+      // explicit is safer)
+      final profile = await _client
+          .from('profiles')
+          .select('domain_id')
+          .eq('id', userId)
+          .maybeSingle();
+      domainId = profile?['domain_id'];
     }
 
     final response = await _client
@@ -200,6 +261,7 @@ class SupabaseService {
           'author_id': userId,
           'content': content,
           'image_url': imageUrl,
+          if (domainId != null) 'domain_id': domainId,
         })
         .select()
         .single();
@@ -207,9 +269,93 @@ class SupabaseService {
     return response;
   }
 
-  /// Get posts in the same domain (feed)
-  /// RLS policies automatically filter by domain
+  /// Get posts in the current user's domain feed.
+  /// Only shows posts where domain_id matches the viewer's domain.
   static Future<List<Map<String, dynamic>>> getPosts({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    // Use cached domain if available, otherwise fetch it
+    if (_myDomain == null) {
+      await getCurrentUserProfile();
+    }
+
+    final myDomain = _myDomain;
+    if (myDomain == null) return []; // domain not set yet — show nothing
+
+    // Single chain: filter domain_id = myDomain OR author_id = userId
+    // This ensures users see posts in their domain AND their own posts (for editing/deleting)
+    final response = await _client
+        .from('posts')
+        .select('''
+          *,
+          profiles:author_id (
+            full_name,
+            avatar_url,
+            domain_id
+          ),
+          likes:likes(count),
+          comments:comments(count)
+        ''')
+        .or('domain_id.eq.$myDomain,author_id.eq.$userId')
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
+
+    // Flatten profile data and extract stats
+    final posts = List<Map<String, dynamic>>.from(response);
+    
+    // Batch fetch follow statuses for all authors in this batch to avoid 20 extra calls
+    final authorIds = posts.map((p) => p['author_id'] as String).toSet().toList();
+    final followingSet = await getFollowStatuses(authorIds);
+
+    // Batch fetch like statuses for all posts in this batch
+    final postIds = posts.map((p) => p['id'] as String).toList();
+    final likedSet = await getLikeStatuses(postIds);
+
+    return posts.map((post) {
+      final profile = post['profiles'];
+      final postId = post['id'] as String;
+      final authorId = post['author_id'] as String;
+
+      final likes = post['likes'] as List?;
+      final likeCount = likes != null && likes.isNotEmpty ? (likes[0]['count'] ?? 0) : 0;
+
+      final comments = post['comments'] as List?;
+      final commentCount = comments != null && comments.isNotEmpty ? (comments[0]['count'] ?? 0) : 0;
+
+      return {
+        ...post,
+        'author_name': profile?['full_name'],
+        'author_avatar': profile?['avatar_url'],
+        'author_domain': profile?['domain_id'],
+        'like_count': likeCount,
+        'comment_count': commentCount,
+        'is_liked': likedSet.contains(postId),
+        'is_following': followingSet.contains(authorId),
+      };
+    }).toList();
+  }
+
+  /// Batch check if current user liked posts
+  static Future<Set<String>> getLikeStatuses(List<String> postIds) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null || postIds.isEmpty) return {};
+
+    final response = await _client
+        .from('likes')
+        .select('post_id')
+        .eq('user_id', userId)
+        .inFilter('post_id', postIds);
+
+    return (response as List).map((row) => row['post_id'] as String).toSet();
+  }
+
+  /// Get posts by a specific user with full insights
+  static Future<List<Map<String, dynamic>>> getPostsByUser({
+    required String userId,
     int limit = 20,
     int offset = 0,
   }) async {
@@ -225,20 +371,29 @@ class SupabaseService {
           likes:likes(count),
           comments:comments(count)
         ''')
+        .eq('author_id', userId)
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
 
-    // Transform the response to flatten the profile data
     final posts = List<Map<String, dynamic>>.from(response);
+    
+    // Batch fetch follow/like statuses
+    final authorIds = posts.map((p) => p['author_id'] as String).toSet().toList();
+    final followingSet = await getFollowStatuses(authorIds);
+    final postIds = posts.map((p) => p['id'] as String).toList();
+    final likedSet = await getLikeStatuses(postIds);
+
     return posts.map((post) {
       final profile = post['profiles'];
-      
+      final postId = post['id'] as String;
+      final authorId = post['author_id'] as String;
+
       final likes = post['likes'] as List?;
       final likeCount = likes != null && likes.isNotEmpty ? (likes[0]['count'] ?? 0) : 0;
-      
+
       final comments = post['comments'] as List?;
       final commentCount = comments != null && comments.isNotEmpty ? (comments[0]['count'] ?? 0) : 0;
-      
+
       return {
         ...post,
         'author_name': profile?['full_name'],
@@ -246,43 +401,10 @@ class SupabaseService {
         'author_domain': profile?['domain_id'],
         'like_count': likeCount,
         'comment_count': commentCount,
-      };
-    }).toList();
-  }
-
-  /// Get posts by a specific user
-  static Future<List<Map<String, dynamic>>> getPostsByUser({
-    required String userId,
-    int limit = 20,
-    int offset = 0,
-  }) async {
-    final response = await _client
-        .from('posts')
-        .select('''
-          *,
-          profiles:author_id (
-            full_name,
-            avatar_url,
-            domain_id
-          ),
-          likes:likes(count)
-        ''')
-        .eq('author_id', userId)
-        .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
-
-    final posts = List<Map<String, dynamic>>.from(response);
-    return posts.map((post) {
-      final profile = post['profiles'];
-      final likes = post['likes'] as List?;
-      final count = likes != null && likes.isNotEmpty ? (likes[0]['count'] ?? 0) : 0;
-      
-      return {
-        ...post,
-        'author_name': profile?['full_name'],
-        'author_avatar': profile?['avatar_url'],
-        'author_domain': profile?['domain_id'],
-        'like_count': count,
+        'is_liked': likedSet.contains(postId),
+        'is_following': followingSet.contains(authorId),
+        'views_count': post['views_count'] ?? 0,
+        'shares_count': post['shares_count'] ?? 0,
       };
     }).toList();
   }
@@ -304,6 +426,89 @@ class SupabaseService {
         .from('posts')
         .delete()
         .eq('id', postId);
+  }
+
+  /// Get specific posts by their IDs (Optimized for Saved Items)
+  static Future<List<Map<String, dynamic>>> getPostsByIds(List<String> postIds) async {
+    if (postIds.isEmpty) return [];
+
+    final response = await _client
+        .from('posts')
+        .select('''
+          *,
+          profiles:author_id (
+            full_name,
+            avatar_url,
+            domain_id
+          ),
+          likes:likes(count),
+          comments:comments(count)
+        ''')
+        .inFilter('id', postIds);
+
+    final posts = List<Map<String, dynamic>>.from(response);
+    
+    // Batch fetch follow statuses
+    final authorIds = posts.map((p) => p['author_id'] as String).toSet().toList();
+    final followingSet = await getFollowStatuses(authorIds);
+
+    // Batch fetch like statuses
+    final likedSet = await getLikeStatuses(postIds);
+
+    return posts.map((post) {
+      final profile = post['profiles'];
+      final postId = post['id'] as String;
+      final authorId = post['author_id'] as String;
+
+      final likes = post['likes'] as List?;
+      final likeCount = likes != null && likes.isNotEmpty ? (likes[0]['count'] ?? 0) : 0;
+
+      final comments = post['comments'] as List?;
+      final commentCount = comments != null && comments.isNotEmpty ? (comments[0]['count'] ?? 0) : 0;
+
+      return {
+        ...post,
+        'author_name': profile?['full_name'],
+        'author_avatar': profile?['avatar_url'],
+        'author_domain': profile?['domain_id'],
+        'like_count': likeCount,
+        'comment_count': commentCount,
+        'is_liked': likedSet.contains(postId),
+        'is_following': followingSet.contains(authorId),
+      };
+    }).toList();
+  }
+
+  /// Increment post view count
+  static Future<void> incrementViewCount(String postId) async {
+    try {
+      await _client.rpc('increment_post_views', params: {'post_id': postId});
+    } catch (_) {
+      // Fallback if RPC not defined
+      try {
+        await _client.from('posts').update({
+          'views_count': (await _client.from('posts').select('views_count').eq('id', postId).single())['views_count'] + 1
+        }).eq('id', postId);
+      } catch (e) {
+        print('Error incrementing views: $e');
+      }
+    }
+  }
+
+  /// Increment post share count
+  static Future<void> incrementShareCount(String postId) async {
+    try {
+      await _client.rpc('increment_post_shares', params: {'post_id': postId});
+    } catch (_) {
+      // Fallback
+      try {
+        await _client.from('posts').update({
+          'shares_count': (await _client.from('posts').select('shares_count').eq('id', postId).single())['shares_count'] + 1
+        }).eq('id', postId);
+      } catch (e) {
+        print('Error incrementing shares: $e');
+      }
+    }
   }
 
   // ============================================================================
@@ -448,7 +653,7 @@ class SupabaseService {
   }
 
   // ============================================================================
-  // CONNECTION OPERATIONS
+  // FOLLOW OPERATIONS (one-way)
   // ============================================================================
 
   /// Follow a user
@@ -483,10 +688,7 @@ class SupabaseService {
   /// Check if current user is following another user
   static Future<bool> isFollowing(String followingId) async {
     final userId = _client.auth.currentUser?.id;
-    
-    if (userId == null) {
-      return false;
-    }
+    if (userId == null) return false;
 
     final response = await _client
         .from('connections')
@@ -496,6 +698,20 @@ class SupabaseService {
         .maybeSingle();
 
     return response != null;
+  }
+
+  /// Batch check follow status (Optimized)
+  static Future<Set<String>> getFollowStatuses(List<String> targetUserIds) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null || targetUserIds.isEmpty) return {};
+
+    final response = await _client
+        .from('connections')
+        .select('following_id')
+        .eq('follower_id', userId)
+        .inFilter('following_id', targetUserIds);
+
+    return (response as List).map((row) => row['following_id'] as String).toSet();
   }
 
   /// Get followers of a user
@@ -544,6 +760,149 @@ class SupabaseService {
       'followers': (followersData as List).length,
       'following': (followingData as List).length,
     };
+  }
+
+  // ============================================================================
+  // CONNECT OPERATIONS (mutual connection requests)
+  // ============================================================================
+
+  /// Send a connection request to another user
+  /// Status flow: pending → accepted
+  static Future<void> sendConnectRequest(String targetUserId) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    await _client.from('connection_requests').insert({
+      'sender_id': userId,
+      'receiver_id': targetUserId,
+      'status': 'pending',
+    });
+  }
+
+  /// Withdraw a pending connection request
+  static Future<void> withdrawConnectRequest(String targetUserId) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    await _client
+        .from('connection_requests')
+        .delete()
+        .eq('sender_id', userId)
+        .eq('receiver_id', targetUserId);
+  }
+
+  /// Accept a connection request from another user
+  static Future<void> acceptConnectRequest(String senderUserId) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    await _client
+        .from('connection_requests')
+        .update({'status': 'accepted'})
+        .eq('sender_id', senderUserId)
+        .eq('receiver_id', userId);
+  }
+
+  /// Disconnect (remove accepted connection)
+  static Future<void> removeConnection(String otherUserId) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    // Remove in both directions
+    await _client
+        .from('connection_requests')
+        .delete()
+        .or('and(sender_id.eq.$userId,receiver_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,receiver_id.eq.$userId)');
+  }
+
+  /// Get the connection request status between the current user and another user
+  /// Returns: 'none' | 'pending_sent' | 'pending_received' | 'connected'
+  static Future<String> getConnectionRequestStatus(String otherUserId) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 'none';
+
+    try {
+      // Check if we sent a request
+      final sent = await _client
+          .from('connection_requests')
+          .select('status')
+          .eq('sender_id', userId)
+          .eq('receiver_id', otherUserId)
+          .maybeSingle();
+
+      if (sent != null) {
+        return sent['status'] == 'accepted' ? 'connected' : 'pending_sent';
+      }
+
+      // Check if they sent us a request
+      final received = await _client
+          .from('connection_requests')
+          .select('status')
+          .eq('sender_id', otherUserId)
+          .eq('receiver_id', userId)
+          .maybeSingle();
+
+      if (received != null) {
+        return received['status'] == 'accepted' ? 'connected' : 'pending_received';
+      }
+    } catch (_) {
+      // Table might not exist yet — treat as none
+    }
+
+    return 'none';
+  }
+
+  /// Batch check connection statuses (Optimized)
+  /// Returns: Map<userId, status>
+  static Future<Map<String, String>> getConnectionStatuses(List<String> targetUserIds) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null || targetUserIds.isEmpty) return {};
+
+    try {
+      final List<dynamic> response = await _client
+          .from('connection_requests')
+          .select()
+          .or('sender_id.eq.$userId,receiver_id.eq.$userId');
+
+      final Map<String, String> statusMap = {};
+      for (var id in targetUserIds) statusMap[id] = 'none';
+
+      for (var req in response) {
+        final String senderId = req['sender_id'];
+        final String receiverId = req['receiver_id'];
+        final String status = req['status'];
+        final String otherId = senderId == userId ? receiverId : senderId;
+
+        if (!targetUserIds.contains(otherId)) continue;
+
+        if (status == 'accepted') {
+          statusMap[otherId] = 'connected';
+        } else if (senderId == userId) {
+          statusMap[otherId] = 'pending_sent';
+        } else {
+          statusMap[otherId] = 'pending_received';
+        }
+      }
+      return statusMap;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Get connection (mutual) count for a user
+  static Future<int> getConnectCount(String userId) async {
+    try {
+      final myId = _client.auth.currentUser?.id;
+      if (myId == null) return 0;
+      final data = await _client
+          .from('connection_requests')
+          .select('id')
+          .or('sender_id.eq.$userId,receiver_id.eq.$userId')
+          .eq('status', 'accepted');
+      return (data as List).length;
+    } catch (_) {
+      return 0;
+    }
   }
 
   // ============================================================================
@@ -604,12 +963,24 @@ class SupabaseService {
         .subscribe();
   }
 
-  /// Get jobs for the user's domain
+  /// Get jobs for the user's domain (Optimized)
   static Future<List<Map<String, dynamic>>> getJobs() async {
-    final response = await _client
-        .from('jobs')
-        .select('*, saved_jobs(id)')
-        .order('posted_at', ascending: false);
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    // Ensure domain is cached
+    if (_myDomain == null) {
+      await getCurrentUserProfile();
+    }
+
+    var query = _client.from('jobs').select('*, saved_jobs(id)');
+    
+    // Filter by domain if available
+    if (_myDomain != null) {
+      query = query.eq('domain_id', _myDomain!);
+    }
+    
+    final response = await query.order('posted_at', ascending: false);
     
     final data = List<Map<String, dynamic>>.from(response);
     return data.map((job) {
@@ -752,16 +1123,22 @@ class SupabaseService {
         .eq('id', notificationId);
   }
 
-  /// Get real-time notifications stream
+  /// Get real-time notifications stream.
+  /// WebSocket / Realtime errors (e.g. on Chrome) are swallowed so
+  /// the app does not crash — REST features continue to work normally.
   static Stream<List<Map<String, dynamic>>> getNotificationsStream() {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return const Stream.empty();
 
+    // Use a combined approach: Realtime for fast updates, but error handling for reliability
     return _client
         .from('notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', userId)
         .order('created_at', ascending: false)
+        .handleError((e) {
+          print('Suppressing non-fatal notification stream error: $e');
+        })
         .map((data) => List<Map<String, dynamic>>.from(data));
   }
 }

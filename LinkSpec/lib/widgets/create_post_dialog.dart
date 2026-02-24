@@ -13,11 +13,11 @@ class CreatePostDialog extends StatefulWidget {
   final PostType postType;
 
   const CreatePostDialog({
-    Key? key,
+    super.key,
     this.onPostCreated,
     this.isFullScreen = false,
     this.postType = PostType.general,
-  }) : super(key: key);
+  });
 
   @override
   State<CreatePostDialog> createState() => _CreatePostDialogState();
@@ -37,12 +37,27 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
   Uint8List? _imageBytes;
   final _picker = ImagePicker();
 
+  // Target domain: null = author's own domain, otherwise explicit domain
+  String? _targetDomain;
+  String? _myDomain; // loaded from profile
+
   @override
   void initState() {
     super.initState();
     if (widget.postType == PostType.event) {
       _dateController.text = "${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}";
       _timeController.text = "12:00 PM";
+    }
+    _loadMyDomain();
+  }
+
+  Future<void> _loadMyDomain() async {
+    final profile = await SupabaseService.getCurrentUserProfile();
+    if (mounted && profile != null) {
+      setState(() {
+        _myDomain = profile['domain_id'] as String?;
+        _targetDomain = _myDomain; // default: post to own domain
+      });
     }
   }
 
@@ -118,10 +133,11 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
         finalContent = "EVENT_TITLE: ${_titleController.text}\nVENUE: ${_venueController.text}\nDATE: ${_dateController.text}\nTIME: ${_timeController.text}\n\n$finalContent";
       }
 
-      // 2. Create post with image URL
+      // 2. Create post with image URL and target domain
       await SupabaseService.createPost(
         content: finalContent,
         imageUrl: imageUrl,
+        targetDomainId: _targetDomain,
       );
 
       if (mounted) {
@@ -166,6 +182,110 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
         backgroundColor: Colors.blue[700],
         behavior: SnackBarBehavior.floating,
       ),
+    );
+  }
+
+  Widget _buildDomainPicker() {
+    final domains = AppConstants.domains;
+    final domainColors = AppConstants.domainColors;
+    final domainIcons = AppConstants.domainIcons;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.public, size: 15, color: Colors.grey[600]),
+            const SizedBox(width: 6),
+            Text(
+              'Post audience domain',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: domains.map((domain) {
+            final isSelected = _targetDomain == domain;
+            final isMyDomain = domain == _myDomain;
+            final domainColor = domainColors[domain] ?? Colors.blue;
+            final icon = domainIcons[domain] ?? Icons.work;
+
+            // Green when own domain is selected, domain color for cross-domain
+            final selectedColor = (isSelected && isMyDomain)
+                ? const Color(0xFF2E7D32) // dark green
+                : domainColor;
+
+            return GestureDetector(
+              onTap: () => setState(() => _targetDomain = domain),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: isSelected ? selectedColor.withValues(alpha: 0.12) : Colors.transparent,
+                  border: Border.all(
+                    color: isSelected ? selectedColor : Colors.grey[350]!,
+                    width: isSelected ? 2.0 : 1.0,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 14, color: isSelected ? selectedColor : Colors.grey[500]),
+                    const SizedBox(width: 5),
+                    Text(
+                      domain,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected ? selectedColor : Colors.grey[600],
+                      ),
+                    ),
+                    if (isMyDomain) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: (isSelected ? const Color(0xFF2E7D32) : Colors.blue).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Mine',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: isSelected ? const Color(0xFF2E7D32) : Colors.blue[700],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+
+          }).toList(),
+        ),
+        if (_targetDomain != null && _targetDomain != _myDomain)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 13, color: Colors.orange[700]),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'This post will appear in the $_targetDomain feed, not your own domain.',
+                    style: TextStyle(fontSize: 11, color: Colors.orange[700], fontStyle: FontStyle.italic),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -327,6 +447,10 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                 },
               ),
               const SizedBox(height: 16),
+
+              // ── Target Domain Picker ────────────────────────────
+              _buildDomainPicker(),
+              const SizedBox(height: 12),
 
               // Image Preview
               if (_imageBytes != null) ...[

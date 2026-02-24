@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:ui';
 import '../services/supabase_service.dart';
 import '../models/post.dart';
 import '../models/user_profile.dart';
@@ -8,15 +9,17 @@ import '../widgets/post_card.dart';
 import '../widgets/create_post_dialog.dart';
 import 'messages_list_screen.dart';
 import 'network_screen.dart';
+import 'member_profile_screen.dart';
+import '../widgets/clay_container.dart';
 import 'profile_screen.dart';
 import 'notifications_screen.dart';
 import 'jobs_screen.dart';
 import 'post_create_screen.dart';
-import 'saved_items_screen.dart';
+import 'search_screen.dart';
 import '../widgets/aw_logo.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import 'dart:async';
 
-/// Home Screen with Feed and Messages
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
@@ -30,85 +33,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<Post> _posts = [];
   UserProfile? _currentUserProfile;
   bool _isLoading = true;
-  bool _isLoadingMore = false;
-  int _offset = 0;
-  final int _limit = 20;
-  StreamSubscription? _notifSubscription;
-  String? _lastNotifId;
-  bool _hasNewNotification = false;
-  final DateTime _startTime = DateTime.now();
-  final Set<int> _visitedTabs = {0};
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
     _loadPosts();
-    _scrollController.addListener(_onScroll);
-    _setupGlobalNotifications();
-  }
-
-  void _setupGlobalNotifications() {
-    _notifSubscription = SupabaseService.getNotificationsStream().listen((data) {
-      if (data.isNotEmpty) {
-        final newNotif = data.first;
-        final notifId = newNotif['id'];
-        // Parse as UTC explicitly for comparison
-        final createdAt = DateTime.parse(newNotif['created_at']).toUtc();
-        
-        // Show if new post-restart (with 5-second buffer for safety)
-        if (notifId != _lastNotifId && 
-            createdAt.isAfter(_startTime.toUtc().subtract(const Duration(seconds: 5))) && 
-            _currentIndex != 3) {
-          _lastNotifId = notifId;
-          _hasNewNotification = true;
-          _showNotificationToast(newNotif);
-        }
-      }
-    });
-  }
-
-  void _showNotificationToast(Map<String, dynamic> notif) {
-    String message = 'New interaction on your post!';
-    if (notif['type'] == 'like') message = 'Someone liked your post';
-    if (notif['type'] == 'comment') message = 'Someone commented on your post';
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.notifications_active, color: Colors.white, size: 20),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-            TextButton(
-              onPressed: () {
-                setState(() => _currentIndex = 3);
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              },
-              child: const Text('VIEW', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.blue,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    _notifSubscription?.cancel();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9) {
-      _loadMorePosts();
-    }
   }
 
   Future<void> _loadUserProfile() async {
@@ -125,60 +55,230 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _loadPosts() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+    if (!mounted) return;
+    setState(() => _isLoading = true);
     try {
-      final postsData = await SupabaseService.getPosts(limit: _limit, offset: 0);
+      final postsData = await SupabaseService.getPosts(limit: 20, offset: 0);
       if (mounted) {
         setState(() {
           _posts = postsData.map((data) => Post.fromJson(data)).toList();
-          _offset = _limit;
           _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        _showErrorSnackBar('Error loading posts: $e');
-      }
-    }
-  }
-
-  Future<void> _loadMorePosts() async {
-    if (_isLoadingMore) return;
-
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    try {
-      final postsData = await SupabaseService.getPosts(limit: _limit, offset: _offset);
-      if (mounted && postsData.isNotEmpty) {
-        setState(() {
-          _posts.addAll(postsData.map((data) => Post.fromJson(data)));
-          _offset += _limit;
-        });
-      }
-    } catch (e) {
-      print('Error loading more posts: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingMore = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _refreshPosts() async {
-    setState(() {
-      _offset = 0;
-    });
     await _loadPosts();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFD9E9FF),
+              Color(0xFFB4DAFF),
+              Color(0xFFD9E9FF),
+            ],
+          ),
+        ),
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left Sidebar (Desktop/Wide)
+                      if (MediaQuery.of(context).size.width > 900)
+                        SizedBox(
+                          width: 320,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(24, 8, 8, 100),
+                            child: _buildLeftSideBar(),
+                          ),
+                        ),
+                      
+                      // Main Content
+                      Expanded(
+                        child: IndexedStack(
+                          index: _currentIndex,
+                          children: [
+                            _buildHomeFeed(),
+                            const SearchScreen(),
+                            const NetworkScreen(),
+                            const MessagesListScreen(),
+                            const NotificationsScreen(),
+                            const ProfileScreen(),
+                          ],
+                        ),
+                      ),
+                      
+                      // Right Sidebar (Desktop/Wide)
+                      if (MediaQuery.of(context).size.width > 1200)
+                        SizedBox(
+                          width: 340,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(8, 8, 24, 100),
+                            child: _buildRightSideBar(),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            
+            // Floating Bottom Nav Pill
+            Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: Center(child: _buildBottomNavPill()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          children: [
+            const AWLogo(size: 36),
+            const SizedBox(width: 12),
+            const Text(
+              'LinkSpec',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF003366),
+                letterSpacing: -0.5,
+              ),
+            ),
+            const Spacer(),
+            // Domain Pill
+            GestureDetector(
+              onTap: () => setState(() => _currentIndex = 1),
+              child: ClayContainer(
+                borderRadius: 20,
+                depth: 6,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      _currentUserProfile?.domainId ?? 'Medical',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.search, size: 20, color: Colors.blue),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // User Icon Button
+            _buildRoundIcon(Icons.notifications_none, onTap: () => setState(() => _currentIndex = 4)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoundIcon(IconData icon, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClayContainer(
+        borderRadius: 100,
+        depth: 6,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          child: Icon(icon, color: Colors.blue[800]),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeFeed() {
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              _buildStartPostBox(),
+              const SizedBox(height: 24),
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator())
+              else if (_posts.isEmpty)
+                const Center(child: Text('No posts yet.'))
+              else
+                ..._posts.map((post) => Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: PostCard(post: post),
+                )).toList(),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStartPostBox() {
+    return ClayContainer(
+      borderRadius: 40,
+      depth: 10,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.white,
+                backgroundImage: _currentUserProfile?.avatarUrl != null ? NetworkImage(_currentUserProfile!.avatarUrl!) : null,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _showCreatePostDialog(),
+                  child: ClayContainer(
+                    borderRadius: 30,
+                    depth: -6, // Inset feel
+                    emboss: true,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Text('Start a post', style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildPostTypeBtn(Icons.image, 'Media', Colors.blue),
+              _buildPostTypeBtn(Icons.calendar_month, 'Event', Colors.orange),
+              _buildPostTypeBtn(Icons.article, 'Write article', Colors.orange[800]!),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   void _showCreatePostDialog({PostType postType = PostType.general}) {
@@ -186,352 +286,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       builder: (context) => CreatePostDialog(
         postType: postType,
-        onPostCreated: () {
-          _refreshPosts();
-        },
+        onPostCreated: _refreshPosts,
       ),
     );
   }
 
-  Future<void> _handleSignOut() async {
-    try {
-      await Supabase.instance.client.auth.signOut();
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/login');
-      }
-    } catch (e) {
-      _showErrorSnackBar('Error signing out: $e');
-    }
-  }
-
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isWideScreen = MediaQuery.of(context).size.width > 900;
-    
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      drawer: isWideScreen ? null : Drawer(
-        width: MediaQuery.of(context).size.width * 0.8,
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                _buildLeftSideBar(),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: ListTile(
-                    leading: const Icon(Icons.settings_outlined),
-                    title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)),
-                    onTap: () {
-                      Navigator.pop(context); // Close drawer
-                      Navigator.pushNamed(context, '/settings');
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: ListTile(
-                    leading: const Icon(Icons.logout, color: Colors.red),
-                    title: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                    onTap: _handleSignOut,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        elevation: 0.5,
-        surfaceTintColor: Colors.transparent,
-        leadingWidth: 64,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 14.0, top: 10.0, bottom: 10.0),
-          child: Builder(
-            builder: (context) => GestureDetector(
-              onTap: () {
-                if (isWideScreen) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                  );
-                } else {
-                  Scaffold.of(context).openDrawer();
-                }
-              },
-              child: CircleAvatar(
-                radius: 18,
-                backgroundColor: Colors.grey[200],
-                backgroundImage: _currentUserProfile?.avatarUrl != null && _currentUserProfile!.avatarUrl!.isNotEmpty
-                    ? NetworkImage(_currentUserProfile!.avatarUrl!)
-                    : null,
-                child: _currentUserProfile?.avatarUrl == null || _currentUserProfile!.avatarUrl!.isEmpty
-                    ? Text(
-                        _currentUserProfile?.fullName.isNotEmpty == true ? _currentUserProfile!.fullName[0].toUpperCase() : 'U',
-                        style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 16),
-                      )
-                    : null,
-              ),
-            ),
-          ),
-        ),
-        titleSpacing: 0,
-        title: Container(
-          height: 38,
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Theme.of(context).dividerColor, width: 0.8),
-          ),
-          child: TextField(
-            readOnly: true,
-            onTap: () => Navigator.pushNamed(context, '/search'),
-            decoration: InputDecoration(
-              hintText: 'Search',
-              hintStyle: TextStyle(color: Colors.grey[500], fontSize: 15, fontWeight: FontWeight.w400),
-              prefixIcon: Icon(Icons.search, color: Colors.grey[600], size: 20),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 9),
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.chat_bubble_rounded, color: Theme.of(context).iconTheme.color?.withOpacity(0.7), size: 22),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MessagesListScreen()),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 1128), // LinkedIn's standard container width
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. LEFT SIDEBAR (Hide on mobile)
-              if (isWideScreen)
-                Expanded(
-                  flex: 3,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 16, left: 16),
-                    child: _buildLeftSideBar(),
-                  ),
-                ),
-
-              // 2. MAIN FEED
-              Expanded(
-                flex: 7,
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: [
-                    // Home Feed Tab
-                    _isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : RefreshIndicator(
-                            onRefresh: _refreshPosts,
-                            child: CustomScrollView(
-                              controller: _scrollController,
-                              slivers: [
-                                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                                // Start a Post Box
-                                SliverToBoxAdapter(child: _buildStartPostBox()),
-                                const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                                
-                                _posts.isEmpty
-                                    ? SliverFillRemaining(child: _buildEmptyState())
-                                    : SliverPadding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                                        sliver: SliverList(
-                                          delegate: SliverChildBuilderDelegate(
-                                            (context, index) {
-                                              if (index == _posts.length) {
-                                                return const Center(
-                                                  child: Padding(
-                                                    padding: EdgeInsets.all(16.0),
-                                                    child: CircularProgressIndicator(),
-                                                  ),
-                                                );
-                                              }
-                                              return PostCard(
-                                                post: _posts[index],
-                                                onPostDeleted: _refreshPosts,
-                                              );
-                                            },
-                                            childCount: _posts.length + (_isLoadingMore ? 1 : 0),
-                                          ),
-                                        ),
-                                      ),
-                              ],
-                            ),
-                          ),
-                    // 2. Network Tab
-                    _visitedTabs.contains(1) ? const NetworkScreen() : const SizedBox.shrink(),
-                    // 3. Post Tab
-                    _visitedTabs.contains(2) ? PostCreateScreen(onPostCreated: _refreshPosts) : const SizedBox.shrink(),
-                    // 4. Notifications Tab
-                    _visitedTabs.contains(3) ? const NotificationsScreen() : const SizedBox.shrink(),
-                    // 5. Jobs Tab
-                    _visitedTabs.contains(4) ? const JobsScreen() : const SizedBox.shrink(),
-                  ],
-                ),
-              ),
-
-              // 3. RIGHT SIDEBAR (Hide on mobile)
-              if (isWideScreen)
-                Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 16, right: 16, left: 16),
-                    child: _buildRightSideBar(),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-            _visitedTabs.add(index);
-            if (index == 3) _hasNewNotification = false;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people_outline),
-            activeIcon: Icon(Icons.people),
-            label: 'Network',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            activeIcon: Icon(Icons.add_circle),
-            label: 'Post',
-          ),
-          BottomNavigationBarItem(
-            icon: Badge(
-              isLabelVisible: _hasNewNotification,
-              child: const Icon(Icons.notifications_none),
-            ),
-            activeIcon: const Icon(Icons.notifications),
-            label: 'Notifications',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.work_outline),
-            activeIcon: Icon(Icons.work),
-            label: 'Jobs',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStartPostBox() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                  );
-                },
-                child: CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Colors.grey[200],
-                  backgroundImage: _currentUserProfile?.avatarUrl != null && _currentUserProfile!.avatarUrl!.isNotEmpty
-                      ? NetworkImage(_currentUserProfile!.avatarUrl!)
-                      : null,
-                  child: _currentUserProfile?.avatarUrl == null
-                      ? const Icon(Icons.person, color: Colors.blue)
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: GestureDetector(
-                  onTap: _showCreatePostDialog,
-                  child: Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[400]!),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Start a post',
-                      style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildPostActionButton(Icons.image, 'Media', Colors.blue, type: PostType.general),
-              _buildPostActionButton(Icons.calendar_month, 'Event', Colors.orange, type: PostType.event),
-              _buildPostActionButton(Icons.article, 'Write article', Colors.orange[800]!, type: PostType.article),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPostActionButton(IconData icon, String label, Color color, {PostType type = PostType.general}) {
+  Widget _buildPostTypeBtn(IconData icon, String label, Color color) {
     return InkWell(
-      onTap: () => _showCreatePostDialog(postType: type),
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      onTap: () => _showCreatePostDialog(),
+      child: ClayContainer(
+        borderRadius: 15,
+        depth: 4,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
             Icon(icon, color: color, size: 20),
             const SizedBox(width: 8),
-            Text(label, style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold, fontSize: 14)),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           ],
         ),
       ),
@@ -539,368 +310,245 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildLeftSideBar() {
-    if (_currentUserProfile == null) return const SizedBox.shrink();
     return Column(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardTheme.color,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
-          ),
-          child: Column(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                  );
-                },
-                child: Column(
-                  children: [
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Column(
-                          children: [
-                            Container(
-                              height: 54,
-                              decoration: BoxDecoration(
-                                color: Colors.blue[100],
-                                borderRadius: const BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
-                                image: const DecorationImage(
-                                  image: NetworkImage('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=2070&auto=format&fit=crop'),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 38),
-                          ],
-                        ),
-                        Positioned(
-                          top: 24,
-                          child: CircleAvatar(
-                            radius: 36,
-                            backgroundColor: Colors.white,
-                            child: CircleAvatar(
-                              radius: 34,
-                              backgroundColor: Colors.grey[200],
-                              backgroundImage: _currentUserProfile?.avatarUrl != null
-                                  ? NetworkImage(_currentUserProfile!.avatarUrl!)
-                                  : null,
-                            ),
-                          ),
-                        ),
-                      ],
+        // Profile Card
+        GestureDetector(
+          onTap: () => setState(() => _currentIndex = 5),
+          child: ClayContainer(
+            borderRadius: 30,
+            depth: 8,
+            child: Column(
+              children: [
+                Container(
+                  height: 80,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFFFB4DA), Color(0xFFB4DAFF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Column(
-                        children: [
-                          Text(
-                            _currentUserProfile!.fullName,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _currentUserProfile!.bio ?? "Add a bio to your profile",
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const Divider(height: 24),
-                        ],
+                  ),
+                ),
+                Transform.translate(
+                  offset: const Offset(0, -40),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 45,
+                        backgroundColor: Colors.white,
+                        child: CircleAvatar(
+                          radius: 42,
+                          backgroundImage: _currentUserProfile?.avatarUrl != null ? NetworkImage(_currentUserProfile!.avatarUrl!) : null,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              // Profile viewers/impressions removed as requested
-              const Divider(height: 1),
-              _buildSidebarItem(Icons.bookmark, 'Saved items', onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SavedItemsScreen(),
+                      const SizedBox(height: 12),
+                      Text(_currentUserProfile?.fullName ?? 'Kishore Chinthala', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                      Text('@${_currentUserProfile?.fullName.replaceAll(' ', '').toLowerCase() ?? 'kishorewrites'}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    ],
                   ),
-                );
-              }),
-              const Divider(height: 1),
-              _buildSidebarItem(Icons.settings_outlined, 'Settings', onTap: () {
-                Navigator.pushNamed(context, '/settings');
-              }),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardTheme.color,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Recent', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              if (_posts.isEmpty) ...[
-                _buildRecentItem('${_currentUserProfile?.domainId.toUpperCase() ?? 'Domain'} Experts'),
-                _buildRecentItem('Hiring Trends 2026'),
-              ] else ...[
-                _buildRecentItem('# ${_currentUserProfile?.domainId ?? 'Professional'}'),
-                ..._posts.take(2).map((p) => _buildRecentItem(p.content.split('\n').first, isPost: true)),
+                ),
               ],
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: () => Navigator.pushNamed(context, '/groups'),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4),
-                  child: Text('Groups', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  InkWell(
-                    onTap: () => Navigator.pushNamed(context, '/events'),
-                    child: const Text('Events', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13)),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 16, color: Colors.grey),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _showCreatePostDialog(postType: PostType.event),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
+        const SizedBox(height: 20),
+        // Menu Groups
+        _buildSidebarGroup([
+          _buildSidebarItem(Icons.bookmark, 'Saved items'),
+          _buildSidebarItem(Icons.settings, 'Settings'),
+        ]),
+        const SizedBox(height: 12),
+        _buildSidebarGroup([
+          _buildSidebarItem(Icons.trending_up, 'Recent', showPlus: true),
+          _buildSidebarItem(Icons.tag, '# Medical'),
+          _buildSidebarItem(Icons.play_circle_outline, '# We\'re Hiring in IT!'),
+          _buildSidebarItem(Icons.add, 'Groups', isAction: true),
+        ]),
+        const SizedBox(height: 12),
+        _buildSidebarGroup([
+          _buildSidebarItem(Icons.explore, 'Medical', showArrow: true),
+          _buildSidebarItem(Icons.chat_bubble_outline, '# We\'re Hiring in IT!'),
+          _buildSidebarItem(Icons.add, 'Events', isAction: true),
+        ]),
       ],
     );
   }
 
-  Widget _buildSidebarStat(String label, String value) {
+  Widget _buildSidebarGroup(List<Widget> items) {
+    return ClayContainer(
+      borderRadius: 25,
+      depth: 6,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(children: items),
+    );
+  }
+
+  Widget _buildSidebarItem(IconData icon, String label, {bool showPlus = false, bool isAction = false, bool showArrow = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.bold)),
-          Text(value, style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold)),
+          Icon(icon, size: 20, color: isAction ? Colors.blue : Colors.blue[300]),
+          const SizedBox(width: 16),
+          Expanded(child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isAction ? Colors.blue : Colors.grey[800], fontSize: 14))),
+          if (showPlus) const Icon(Icons.add, size: 16, color: Colors.grey),
+          if (showArrow) const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSidebarItem(IconData icon, String label, {VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: Colors.grey[600]),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentItem(String text, {bool isPost = false}) {
-    return InkWell(
-      onTap: () {
-        if (isPost) {
-          _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Icon(isPost ? Icons.article_outlined : Icons.groups_outlined, size: 16, color: Colors.grey[600]),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                text, 
-                style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold, fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
   Widget _buildRightSideBar() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardTheme.color,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
-          ),
+        ClayContainer(
+          borderRadius: 30,
+          depth: 8,
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Add to your feed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                  const Text('Medical', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                  Row(children: [const Icon(Icons.menu, size: 20), const SizedBox(width: 8), const Icon(Icons.edit_note, size: 20)]),
                 ],
               ),
-              const SizedBox(height: 16),
-              _buildRecommendationItem('ApplyWizz', 'Official • Talent Solutions', 'https://images.unsplash.com/photo-1549923746-c50264f39a18?q=80&w=2070&auto=format&fit=crop'),
-              _buildRecommendationItem('Top Recruiter', 'Hiring for Tech Roles', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1974&auto=format&fit=crop'),
-              _buildRecommendationItem('Industry Lead', 'Insights into AI & Dev', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1974&auto=format&fit=crop'),
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    _currentIndex = 1; // Switch to Network tab
-                    _visitedTabs.add(1);
-                  });
-                },
-                child: const Row(
-                  children: [
-                    Text('View all recommendations', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 14)),
-                    Icon(Icons.arrow_forward, size: 14, color: Colors.grey),
-                  ],
-                ),
+              const SizedBox(height: 20),
+              const Text('Trending tags', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildTag('#PreventiveCare'),
+                  _buildTag('#DigitalHealth'),
+                  _buildTag('#PatientAwareness'),
+                ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 4,
-            alignment: WrapAlignment.center,
+        const SizedBox(height: 20),
+        // Suggested Discussions
+        ClayContainer(
+          borderRadius: 30,
+          depth: 8,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFooterLink('About'),
-              _buildFooterLink('Accessibility'),
-              _buildFooterLink('Help Center'),
-              _buildFooterLink('Privacy & Terms'),
-              _buildFooterLink('Ad Choices'),
-              _buildFooterLink('Advertising'),
-              _buildFooterLink('Business Services'),
-              _buildFooterLink('Get the LinkedIn app'),
-              _buildFooterLink('More'),
+              const Text('Suggested Discussions', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+              const SizedBox(height: 16),
+              _buildDiscussionItem('The future of digital health in 2024', '150 comments'),
+              const SizedBox(height: 12),
+              _buildDiscussionItem('Healthy lifestyle tips for IT professionals', '36 comments'),
             ],
           ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const AWLogo(size: 18),
-            const SizedBox(width: 6),
-            Text('LinkSpec Corporation © 2026', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
-          ],
         ),
       ],
     );
   }
 
-  Widget _buildRecommendationItem(String name, String bio, String img) {
+  Widget _buildTag(String label) {
+    return ClayContainer(
+      borderRadius: 15,
+      depth: 4,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+    );
+  }
+
+  Widget _buildDiscussionItem(String title, String stats) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundImage: NetworkImage(img),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(bio, style: TextStyle(color: Colors.grey[600], fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Following $name')),
-                    );
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Follow'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.grey[700],
-                    side: BorderSide(color: Colors.grey[700]!),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: ClayContainer(
+        borderRadius: 20,
+        depth: -4, // Inset
+        emboss: true,
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.chat_bubble_outline, size: 12, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(stats, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+                    ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+            const Icon(Icons.favorite_border, size: 18, color: Colors.blue),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildFooterLink(String text) {
-    return InkWell(
-      onTap: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$text clicked'))),
-      child: Text(text, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+  Widget _buildBottomNavPill() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: Colors.white.withOpacity(0.5)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(100),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: ClayContainer(
+            borderRadius: 100,
+            depth: 10,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildNavIcon(Icons.home, 0),
+                _buildNavIcon(Icons.search, 1),
+                _buildNavIcon(Icons.groups_outlined, 2),
+                _buildNavIcon(Icons.mail_outline, 3, badge: 2),
+                _buildNavIcon(Icons.notifications_none, 4, badge: 1),
+                _buildNavIcon(Icons.person_pin, 5),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.article_outlined,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No posts yet',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Be the first to share something!',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[500],
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _showCreatePostDialog,
-            icon: const Icon(Icons.add),
-            label: const Text('Create Post'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-          ),
-        ],
+  Widget _buildNavIcon(IconData icon, int index, {int badge = 0}) {
+    final bool isSelected = _currentIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _currentIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(icon, color: isSelected ? Colors.blue[900] : Colors.blue[400], size: 26),
+            if (badge > 0)
+              Positioned(
+                right: -4,
+                top: -4,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                  child: Text(badge.toString(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -37,7 +37,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    setState(() => _isLoading = true);
+    // Only show full-screen loader if we have no data yet
+    if (_notifications.isEmpty) setState(() => _isLoading = true);
+    
     try {
       final data = await SupabaseService.getNotifications();
       if (mounted) {

@@ -25,6 +25,9 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
   List<Post> _userPosts = [];
   bool _isFollowing = false;
   bool _isFollowLoading = false;
+  // 'none' | 'pending_sent' | 'pending_received' | 'connected'
+  String _connectStatus = 'none';
+  bool _isConnectLoading = false;
 
   @override
   void initState() {
@@ -48,6 +51,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
             await SupabaseService.getPostsByUser(userId: widget.userId);
         _userPosts = postsData.map((d) => Post.fromJson(d)).toList();
         _isFollowing = await SupabaseService.isFollowing(widget.userId);
+        _connectStatus = await SupabaseService.getConnectionRequestStatus(widget.userId);
       }
     } catch (e) {
       print('Error loading member profile: $e');
@@ -74,6 +78,33 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
       );
     } finally {
       if (mounted) setState(() => _isFollowLoading = false);
+    }
+  }
+
+  Future<void> _handleConnect() async {
+    setState(() => _isConnectLoading = true);
+    try {
+      if (_connectStatus == 'none') {
+        await SupabaseService.sendConnectRequest(widget.userId);
+        setState(() => _connectStatus = 'pending_sent');
+      } else if (_connectStatus == 'pending_sent') {
+        await SupabaseService.withdrawConnectRequest(widget.userId);
+        setState(() => _connectStatus = 'none');
+      } else if (_connectStatus == 'pending_received') {
+        await SupabaseService.acceptConnectRequest(widget.userId);
+        setState(() => _connectStatus = 'connected');
+      } else if (_connectStatus == 'connected') {
+        await SupabaseService.removeConnection(widget.userId);
+        setState(() => _connectStatus = 'none');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isConnectLoading = false);
     }
   }
 
@@ -196,38 +227,16 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
 
                             const SizedBox(height: 16),
 
-                            // Connect / Following button
+                            // Action buttons row
                             if (!isOwnProfile)
-                              ElevatedButton.icon(
-                                onPressed: _isFollowLoading
-                                    ? null
-                                    : _toggleFollow,
-                                icon: Icon(
-                                  _isFollowing
-                                      ? Icons.check
-                                      : Icons.person_add_outlined,
-                                  size: 18,
-                                ),
-                                label: Text(
-                                  _isFollowing ? 'Following' : 'Connect',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _isFollowing
-                                      ? Colors.white
-                                      : Colors.blue,
-                                  foregroundColor: _isFollowing
-                                      ? Colors.blue
-                                      : Colors.white,
-                                  side: const BorderSide(color: Colors.blue),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(24)),
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 20, vertical: 10),
-                                ),
+                              Row(
+                                children: [
+                                  // ── Connect button ────────────────────────
+                                  _buildConnectButton(),
+                                  const SizedBox(width: 10),
+                                  // ── Follow button ─────────────────────────
+                                  _buildFollowButton(),
+                                ],
                               ),
                           ],
                         ),
@@ -321,6 +330,80 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
           ),
         ),
       ],
+    );
+  }
+
+  /// Connect button with four states:
+  /// none → "Connect" (blue filled)
+  /// pending_sent → "Pending" (grey outlined, tap to withdraw)
+  /// pending_received → "Accept" (green filled)
+  /// connected → "Connected ✓" (outlined blue)
+  Widget _buildConnectButton() {
+    final label = switch (_connectStatus) {
+      'pending_sent' => 'Pending',
+      'pending_received' => 'Accept',
+      'connected' => 'Connected',
+      _ => 'Connect',
+    };
+    final icon = switch (_connectStatus) {
+      'pending_sent' => Icons.hourglass_top_rounded,
+      'pending_received' => Icons.check_circle_outline,
+      'connected' => Icons.people_alt_rounded,
+      _ => Icons.person_add_outlined,
+    };
+    final bool isFilled = _connectStatus == 'none' || _connectStatus == 'pending_received';
+    final Color bgColor = _connectStatus == 'pending_received'
+        ? Colors.green
+        : _connectStatus == 'none'
+            ? Colors.blue
+            : Colors.transparent;
+    final Color fgColor = isFilled ? Colors.white : Colors.blue;
+
+    if (_isConnectLoading) {
+      return SizedBox(
+        width: 100,
+        height: 36,
+        child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue))),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: _handleConnect,
+      icon: Icon(icon, size: 16),
+      label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: bgColor,
+        foregroundColor: fgColor,
+        side: BorderSide(color: _connectStatus == 'pending_sent' ? Colors.grey : Colors.blue, width: 1.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      ),
+    );
+  }
+
+  /// Follow button: one-way follow toggle
+  Widget _buildFollowButton() {
+    if (_isFollowLoading) {
+      return SizedBox(
+        width: 90,
+        height: 36,
+        child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue))),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: _toggleFollow,
+      icon: Icon(_isFollowing ? Icons.notifications_active_outlined : Icons.add, size: 16),
+      label: Text(_isFollowing ? 'Following' : 'Follow', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: _isFollowing ? Colors.blue.withOpacity(0.08) : Colors.transparent,
+        foregroundColor: Colors.blue,
+        side: const BorderSide(color: Colors.blue, width: 1.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      ),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/theme_provider.dart';
+import '../services/supabase_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -18,15 +19,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     {'title': 'Notifications', 'icon': Icons.notifications_none},
   ];
 
-  // State for toggles
   bool _darkMode = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Initialize local state from provider
-    _darkMode = ref.read(themeProvider);
-  }
   bool _autoplay = true;
   bool _soundEffects = true;
   bool _twoFactor = false;
@@ -43,6 +36,70 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _notifHiring = true;
   bool _notifConnecting = true;
   bool _notifNetwork = true;
+  
+  // Profile controllers
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _headlineController = TextEditingController();
+  final _industryController = TextEditingController();
+  bool _isSavingProfile = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize local state from provider
+    _darkMode = ref.read(themeProvider);
+    _loadInitialProfileData();
+  }
+
+  Future<void> _loadInitialProfileData() async {
+    try {
+      final profile = await SupabaseService.getCurrentUserProfile();
+      if (profile != null) {
+        final fullName = profile['full_name'] as String? ?? '';
+        final names = fullName.split(' ');
+        _firstNameController.text = names.isNotEmpty ? names[0] : '';
+        _lastNameController.text = names.length > 1 ? names.sublist(1).join(' ') : '';
+        _headlineController.text = profile['bio'] as String? ?? '';
+        _industryController.text = profile['industry'] as String? ?? 'Technology';
+      }
+    } catch (e) {
+      print('Error loading profile: $e');
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    setState(() => _isSavingProfile = true);
+    try {
+      final fullName = '${_firstNameController.text} ${_lastNameController.text}'.trim();
+      await SupabaseService.updateProfile(
+        fullName: fullName,
+        bio: _headlineController.text,
+        industry: _industryController.text,
+      );
+      
+      // Update industry as well (need to check if updateProfile supports it or if we need a custom call)
+      // For now, focusing on the fields supported by updateProfile
+      
+      if (mounted) {
+        _showFeedback('Profile updated successfully');
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) _showFeedback('Error updating profile: $e');
+    } finally {
+      if (mounted) setState(() => _isSavingProfile = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _headlineController.dispose();
+    _industryController.dispose();
+    super.dispose();
+  }
 
   void _showFeedback(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -329,34 +386,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          _buildTextField('First Name', 'Kishore'),
+          _buildTextField('First Name', _firstNameController),
           const SizedBox(height: 16),
-          _buildTextField('Last Name', 'Kumar'),
+          _buildTextField('Last Name', _lastNameController),
           const SizedBox(height: 16),
-          _buildTextField('Headline', 'Software Engineer at ApplyWizz'),
+          _buildTextField('Headline', _headlineController),
           const SizedBox(height: 16),
-          _buildTextField('Industry', 'Technology'),
+          _buildTextField('Industry', _industryController),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: _isSavingProfile ? null : _saveProfile,
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 50),
               backgroundColor: Colors.blue[700],
             ),
-            child: const Text('Save Changes'),
+            child: _isSavingProfile 
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text('Save Changes'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTextField(String label, String initialValue) {
+  Widget _buildTextField(String label, dynamic controllerOrValue) {
     return TextField(
+      controller: controllerOrValue is TextEditingController 
+          ? controllerOrValue 
+          : TextEditingController(text: controllerOrValue.toString()),
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
-      controller: TextEditingController(text: initialValue),
     );
   }
 

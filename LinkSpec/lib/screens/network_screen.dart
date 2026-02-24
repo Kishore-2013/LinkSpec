@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 import 'member_profile_screen.dart';
+import '../widgets/clay_container.dart';
 
 class NetworkScreen extends StatefulWidget {
   const NetworkScreen({Key? key}) : super(key: key);
@@ -12,6 +13,7 @@ class NetworkScreen extends StatefulWidget {
 class _NetworkScreenState extends State<NetworkScreen> {
   List<Map<String, dynamic>> _profiles = [];
   Set<String> _followingIds = {};
+  Map<String, String> _connectStatuses = {}; // userId -> 'none'|'pending_sent'|'pending_received'|'connected'
   bool _isLoading = true;
 
   @override
@@ -26,23 +28,31 @@ class _NetworkScreenState extends State<NetworkScreen> {
       // 1. Get other profiles in the same domain
       final profiles = await SupabaseService.getProfilesInSameDomain(limit: 50);
       
-      // 2. Identify who we are already following
-      final myProfile = await SupabaseService.getCurrentUserProfile();
-      final myId = myProfile?['id'];
+      final myId = SupabaseService.getCurrentUserId();
       
-      // Filter out self
+      // Filter out self and collect other IDs
       final others = profiles.where((p) => p['id'] != myId).toList();
+      final otherIds = others.map((p) => p['id'] as String).toList();
 
-      // 3. Check follow status for each (could be optimized, but ok for now)
-      final followingSet = <String>{};
-      for (var p in others) {
-        final isFollowing = await SupabaseService.isFollowing(p['id']);
-        if (isFollowing) followingSet.add(p['id']);
+      if (otherIds.isEmpty) {
+        setState(() {
+          _profiles = [];
+          _isLoading = false;
+        });
+        return;
       }
+
+      // 2. Batch check follow statuses and connection statuses
+      // We do these in parallel for speed
+      final results = await Future.wait([
+        SupabaseService.getFollowStatuses(otherIds),
+        SupabaseService.getConnectionStatuses(otherIds),
+      ]);
 
       setState(() {
         _profiles = others;
-        _followingIds = followingSet;
+        _followingIds = results[0] as Set<String>;
+        _connectStatuses = results[1] as Map<String, String>;
       });
     } catch (e) {
       print('Error loading network: $e');
@@ -65,6 +75,31 @@ class _NetworkScreenState extends State<NetworkScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Action failed: $e'), backgroundColor: Colors.red),
       );
+    }
+  }
+
+  Future<void> _handleConnect(String targetUserId) async {
+    final status = _connectStatuses[targetUserId] ?? 'none';
+    try {
+      if (status == 'none') {
+        await SupabaseService.sendConnectRequest(targetUserId);
+        setState(() => _connectStatuses[targetUserId] = 'pending_sent');
+      } else if (status == 'pending_sent') {
+        await SupabaseService.withdrawConnectRequest(targetUserId);
+        setState(() => _connectStatuses[targetUserId] = 'none');
+      } else if (status == 'pending_received') {
+        await SupabaseService.acceptConnectRequest(targetUserId);
+        setState(() => _connectStatuses[targetUserId] = 'connected');
+      } else if (status == 'connected') {
+        await SupabaseService.removeConnection(targetUserId);
+        setState(() => _connectStatuses[targetUserId] = 'none');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action failed: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -98,6 +133,21 @@ class _NetworkScreenState extends State<NetworkScreen> {
                     final profile = _profiles[index];
                     final targetId = profile['id'];
                     final isFollowing = _followingIds.contains(targetId);
+                    final connectStatus = _connectStatuses[targetId] ?? 'none';
+
+                    // Determine Connect button appearance
+                    final connectLabel = switch (connectStatus) {
+                      'pending_sent' => 'Pending',
+                      'pending_received' => 'Accept',
+                      'connected' => 'Connected',
+                      _ => 'Connect',
+                    };
+                    final connectIcon = switch (connectStatus) {
+                      'pending_sent' => Icons.hourglass_top_rounded,
+                      'pending_received' => Icons.check_circle_outline,
+                      'connected' => Icons.people_alt_rounded,
+                      _ => Icons.person_add_outlined,
+                    };
 
                     return GestureDetector(
                       onTap: () {
@@ -108,57 +158,108 @@ class _NetworkScreenState extends State<NetworkScreen> {
                           ),
                         );
                       },
-                      child: Card(
-                        color: Theme.of(context).cardTheme.color,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: Colors.grey.withOpacity(0.1)),
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          leading: CircleAvatar(
-                            radius: 25,
-                            backgroundColor: Colors.blue[50],
-                            backgroundImage: profile['avatar_url'] != null
-                                ? NetworkImage(profile['avatar_url'])
-                                : null,
-                            child: profile['avatar_url'] == null
-                                ? Text(profile['full_name'][0].toUpperCase(), style: const TextStyle(color: Colors.blue))
-                                : null,
-                          ),
-                          title: Text(
-                            profile['full_name'],
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Column(
+                      child: ClayContainer(
+                        color: Theme.of(context).cardTheme.color ?? const Color(0xFFB4DAFF),
+                        borderRadius: 50,
+                        depth: 10,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(profile['domain_id'].toString().toUpperCase(),
-                                  style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold)),
-                              if (profile['bio'] != null)
-                                Text(
-                                  profile['bio'],
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                ),
+                              // Avatar + Name row
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: Colors.blue[50],
+                                    backgroundImage: profile['avatar_url'] != null
+                                        ? NetworkImage(profile['avatar_url'])
+                                        : null,
+                                    child: profile['avatar_url'] == null
+                                        ? Text(profile['full_name'][0].toUpperCase(), style: const TextStyle(color: Colors.blue))
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          profile['full_name'],
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                        ),
+                                        Text(
+                                          profile['domain_id'].toString().toUpperCase(),
+                                          style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold),
+                                        ),
+                                        if (profile['bio'] != null)
+                                          Text(
+                                            profile['bio'],
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              // Action buttons row
+                              Row(
+                                children: [
+                                  // Connect button
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _handleConnect(targetId),
+                                      icon: Icon(connectIcon, size: 15),
+                                      label: Text(connectLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: connectStatus == 'none'
+                                            ? Colors.blue
+                                            : connectStatus == 'pending_received'
+                                                ? Colors.green
+                                                : Colors.transparent,
+                                        foregroundColor: (connectStatus == 'none' || connectStatus == 'pending_received')
+                                            ? Colors.white
+                                            : Colors.blue,
+                                        side: BorderSide(
+                                          color: connectStatus == 'pending_sent'
+                                              ? Colors.grey
+                                              : connectStatus == 'pending_received'
+                                                  ? Colors.green
+                                                  : Colors.blue,
+                                          width: 1.5,
+                                        ),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(vertical: 6),
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Follow button
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _toggleFollow(targetId),
+                                      icon: Icon(isFollowing ? Icons.notifications_active_outlined : Icons.add, size: 15),
+                                      label: Text(isFollowing ? 'Following' : 'Follow', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: isFollowing ? Colors.blue.withOpacity(0.08) : Colors.transparent,
+                                        foregroundColor: Colors.blue,
+                                        side: const BorderSide(color: Colors.blue, width: 1.5),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(vertical: 6),
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ],
-                          ),
-                          trailing: ElevatedButton(
-                            onPressed: () => _toggleFollow(targetId),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isFollowing 
-                                  ? (Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200]) 
-                                  : Colors.blue,
-                              foregroundColor: isFollowing 
-                                  ? (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87) 
-                                  : Colors.white,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            ),
-                            child: Text(isFollowing ? 'Following' : 'Connect'),
                           ),
                         ),
                       ),
