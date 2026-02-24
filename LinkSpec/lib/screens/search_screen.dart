@@ -17,7 +17,7 @@ class _SearchScreenState extends State<SearchScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         titleSpacing: 0,
-        backgroundColor: Theme.of(context).colorScheme.onSecondary,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0.5,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),

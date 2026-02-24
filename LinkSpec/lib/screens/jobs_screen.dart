@@ -133,7 +133,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.onSecondary,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: _isSearching

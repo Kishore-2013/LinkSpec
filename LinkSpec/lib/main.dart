@@ -51,6 +51,7 @@ class LinkSpecApp extends ConsumerWidget {
           background: const Color(0xFFF4F2EE),
           onSurface: Colors.black,
           primaryContainer: Colors.blue[100],
+          onSecondary: Colors.white,
         ),
         appBarTheme: const AppBarTheme(
           centerTitle: false,
@@ -106,6 +107,7 @@ class LinkSpecApp extends ConsumerWidget {
           background: const Color(0xFF1D2226),
           onSurface: Colors.white,
           primaryContainer: Colors.blue[900],
+          onSecondary: const Color(0xFF1D2226),
         ),
         appBarTheme: const AppBarTheme(
           centerTitle: false,

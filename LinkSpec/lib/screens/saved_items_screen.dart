@@ -67,7 +67,7 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.onSecondary,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0.5,
         surfaceTintColor: Colors.transparent,
         leading: BackButton(color: Theme.of(context).iconTheme.color),

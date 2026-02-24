@@ -254,7 +254,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.onSecondary,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0.5,
         surfaceTintColor: Colors.transparent,
         leadingWidth: 64,
