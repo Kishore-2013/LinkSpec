@@ -265,9 +265,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       // Right Sidebar (Desktop/Wide)
                       if (MediaQuery.of(context).size.width > 1200)
                         SizedBox(
-                          width: 340,
+                          width: 400,
                           child: SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(8, 8, 24, 100),
+                            padding: const EdgeInsets.fromLTRB(24, 12, 24, 100),
                             child: _buildRightSideBar(),
                           ),
                         ),
@@ -369,7 +369,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   try {
                     await SupabaseService.markAllNotificationsAsRead();
                     debugPrint('Successfully marked notifications as read');
-                    // Force refresh badge counts immediately to ensure the '0' is reflected
                     await _loadBadgeCounts();
                   } catch (e) {
                     debugPrint('Failed to mark notifications as read: $e');
@@ -387,6 +386,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
               ],
             ),
+            const SizedBox(width: 8),
+            // Logout Button
+            _buildRoundIcon(Icons.logout_rounded, onTap: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  backgroundColor: const Color(0xFFE8F4FF),
+                  title: const Text(
+                    'Log out?',
+                    style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF003366)),
+                  ),
+                  content: const Text(
+                    'Are you sure you want to log out of LinkSpec?',
+                    style: TextStyle(color: Color(0xFF4A6FA5)),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Cancel', style: TextStyle(color: Color(0xFF4A6FA5), fontWeight: FontWeight.w600)),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1565C0),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Log out', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true && mounted) {
+                try {
+                  await Supabase.instance.client.auth.signOut();
+                  if (mounted) {
+                    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                  }
+                } catch (e) {
+                  debugPrint('Logout error: $e');
+                }
+              }
+            }),
 
           ],
         ),
@@ -757,52 +800,99 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildRightSideBar() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ClayContainer(
-          borderRadius: 30,
-          depth: 8,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Medical', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                  Row(children: [const Icon(Icons.menu, size: 20), const SizedBox(width: 8), const Icon(Icons.edit_note, size: 20)]),
-                ],
+        Container(
+          margin: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE3F2FF),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFABC8E8).withOpacity(0.7),
+                offset: const Offset(6, 6),
+                blurRadius: 16,
+                spreadRadius: 1,
               ),
-              const SizedBox(height: 20),
-              const Text('Trending tags', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildTag('#PreventiveCare'),
-                  _buildTag('#DigitalHealth'),
-                  _buildTag('#PatientAwareness'),
-                ],
+              const BoxShadow(
+                color: Colors.white,
+                offset: Offset(-6, -6),
+                blurRadius: 16,
+                spreadRadius: 1,
               ),
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _selectedDomain,
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1A2740)),
+                    ),
+                    Row(children: [
+                      Icon(Icons.menu, size: 20, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Icon(Icons.edit_note, size: 20, color: Colors.blue[700]),
+                    ]),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Text('Trending tags', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1A2740))),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildTag('#PreventiveCare'),
+                    _buildTag('#DigitalHealth'),
+                    _buildTag('#PatientAwareness'),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 20),
         // Suggested Discussions
-        ClayContainer(
-          borderRadius: 30,
-          depth: 8,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Suggested Discussions', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-              const SizedBox(height: 16),
-              _buildDiscussionItem('The future of digital health in 2024', '150 comments'),
-              const SizedBox(height: 12),
-              _buildDiscussionItem('Healthy lifestyle tips for IT professionals', '36 comments'),
+        Container(
+          margin: const EdgeInsets.fromLTRB(8, 0, 4, 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE3F2FF),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFABC8E8).withOpacity(0.7),
+                offset: const Offset(6, 6),
+                blurRadius: 16,
+                spreadRadius: 1,
+              ),
+              const BoxShadow(
+                color: Colors.white,
+                offset: Offset(-6, -6),
+                blurRadius: 16,
+                spreadRadius: 1,
+              ),
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Suggested Discussions', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1A2740))),
+                const SizedBox(height: 16),
+                _buildDiscussionItem('The future of digital health in 2024', '150 comments'),
+                const SizedBox(height: 12),
+                _buildDiscussionItem('Healthy lifestyle tips for IT professionals', '36 comments'),
+              ],
+            ),
           ),
         ),
       ],
@@ -819,32 +909,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildDiscussionItem(String title, String stats) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: ClayContainer(
-        borderRadius: 20,
-        depth: -4, // Inset
-        emboss: true,
-        padding: const EdgeInsets.all(16),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 0, 4, 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE3F2FF),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFABC8E8).withOpacity(0.7),
+            offset: const Offset(5, 5),
+            blurRadius: 12,
+            spreadRadius: 1,
+          ),
+          const BoxShadow(
+            color: Colors.white,
+            offset: Offset(-5, -5),
+            blurRadius: 12,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 4),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF1A2740),
+                    ),
+                    softWrap: true,
+                  ),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.chat_bubble_outline, size: 12, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text(stats, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+                      const Icon(Icons.chat_bubble_outline, size: 13, color: Colors.grey),
+                      const SizedBox(width: 5),
+                      Text(stats, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                     ],
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.favorite_border, size: 18, color: Colors.blue),
+            const SizedBox(width: 8),
+            const Icon(Icons.favorite_border, size: 20, color: Colors.blue),
           ],
         ),
       ),

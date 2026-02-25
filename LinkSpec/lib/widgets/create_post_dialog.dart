@@ -40,6 +40,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
   // Target domain: null = author's own domain, otherwise explicit domain
   String? _targetDomain;
   String? _myDomain; // loaded from profile
+  String? _domainError; // inline error shown inside the dialog
 
   @override
   void initState() {
@@ -106,9 +107,10 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     }
 
     if (_targetDomain == null) {
-      _showErrorSnackBar('Please select a domain/audience for your post');
+      setState(() => _domainError = 'Please select a domain/audience for your post');
       return;
     }
+    setState(() => _domainError = null);
 
     setState(() {
       _isLoading = true;
@@ -225,7 +227,10 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                 : domainColor;
 
             return GestureDetector(
-              onTap: () => setState(() => _targetDomain = domain),
+              onTap: () => setState(() {
+                _targetDomain = domain;
+                _domainError = null; // clear error when user picks a domain
+              }),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -510,8 +515,32 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
-              const SizedBox(height: 24),
-              
+              const SizedBox(height: 12),
+
+              // Inline domain error banner
+              if (_domainError != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    border: Border.all(color: Colors.red.shade300),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, size: 16, color: Colors.red.shade700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _domainError!,
+                          style: TextStyle(color: Colors.red.shade700, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // Submit Button
               ElevatedButton(
                 onPressed: _isLoading ? null : _createPost,

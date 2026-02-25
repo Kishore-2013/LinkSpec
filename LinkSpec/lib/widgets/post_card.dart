@@ -124,7 +124,7 @@ class _PostCardState extends State<PostCard> {
                         ],
                       ),
                       Text(
-                        'about ${timeago.format(widget.post.createdAt)} ago',
+                        timeago.format(widget.post.createdAt),
                         style: TextStyle(
                           color: Colors.grey[500],
                           fontSize: 13,
