@@ -30,6 +30,7 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     _fetchMessages();
     _setupSubscription();
+    SupabaseService.markMessagesAsRead(widget.otherUser['id']);
   }
 
   @override
@@ -45,7 +46,10 @@ class _ChatScreenState extends State<ChatScreen> {
       onNewMessage: (msg) {
         if ((msg['sender_id'] == widget.otherUser['id'] && msg['receiver_id'] == _myId) ||
             (msg['sender_id'] == _myId && msg['receiver_id'] == widget.otherUser['id'])) {
-          _fetchMessages(); // Refresh for now, or just add the message if data is complete
+          _fetchMessages();
+          if (msg['sender_id'] == widget.otherUser['id']) {
+            SupabaseService.markMessagesAsRead(widget.otherUser['id']);
+          }
         }
       },
     );
@@ -101,7 +105,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.onSecondary,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: Theme.of(context).iconTheme.color),
         title: Row(
@@ -151,7 +155,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
+                                    color: const Color(0xFF1A2740).withOpacity(0.05),
                                     blurRadius: 10,
                                   ),
                                 ],
@@ -180,7 +184,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 boxShadow: [
                                   if (!isMe)
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.03),
+                                      color: const Color(0xFF1A2740).withOpacity(0.03),
                                       blurRadius: 5,
                                       offset: const Offset(0, 2),
                                     ),
@@ -216,7 +220,7 @@ class _ChatScreenState extends State<ChatScreen> {
               color: Theme.of(context).cardTheme.color,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                   color: const Color(0xFF1A2740).withOpacity(0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),

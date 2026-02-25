@@ -29,7 +29,7 @@ class GroupDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Theme.of(context).cardTheme.color,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: const Color(0xFF1A2740).withOpacity(0.05), blurRadius: 10)],
         ),
         child: ElevatedButton(
           onPressed: () {

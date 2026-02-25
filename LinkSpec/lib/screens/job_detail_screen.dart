@@ -75,8 +75,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-        title: Text(widget.job.company, style: const TextStyle(color: Colors.black)),
+        iconTheme: const IconThemeData(color: Color(0xFF1A2740)),
+        title: Text(widget.job.company, style: const TextStyle(color: Color(0xFF1A2740))),
         actions: [
           IconButton(
             icon: Icon(
@@ -206,7 +206,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5)),
+            BoxShadow(color: const Color(0xFF1A2740).withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5)),
           ],
         ),
         child: Row(

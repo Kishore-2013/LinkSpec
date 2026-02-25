@@ -12,6 +12,8 @@ class AppConstants {
     'IT/Software',
     'Civil Engineering',
     'Law',
+    'Business',
+    'Global',
   ];
   
   // Domain Icons
@@ -20,6 +22,8 @@ class AppConstants {
     'IT/Software': Icons.computer,
     'Civil Engineering': Icons.engineering,
     'Law': Icons.gavel,
+    'Business': Icons.business_center,
+    'Global': Icons.public_rounded,
   };
   
   // Domain Colors
@@ -28,6 +32,8 @@ class AppConstants {
     'IT/Software': Color(0xFF1E88E5),
     'Civil Engineering': Color(0xFFFB8C00),
     'Law': Color(0xFF8E24AA),
+    'Business': Color(0xFF00897B),
+    'Global': Color(0xFF00BFA5), // Teal for global
   };
   
   // Validation

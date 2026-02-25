@@ -10,6 +10,7 @@ class ClayContainer extends StatelessWidget {
   final double? width;
   final double? height;
   final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
 
   const ClayContainer({
     Key? key,
@@ -22,6 +23,7 @@ class ClayContainer extends StatelessWidget {
     this.width,
     this.height,
     this.padding,
+    this.margin,
   }) : super(key: key);
 
   @override
@@ -42,6 +44,7 @@ class ClayContainer extends StatelessWidget {
       width: width,
       height: height,
       padding: padding,
+      margin: margin,
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(borderRadius),

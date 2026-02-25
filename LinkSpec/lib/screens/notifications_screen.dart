@@ -5,7 +5,9 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'dart:async';
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({Key? key}) : super(key: key);
+  final VoidCallback? onBack;
+  final VoidCallback? onRefreshBadges;
+  const NotificationsScreen({Key? key, this.onBack, this.onRefreshBadges}) : super(key: key);
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -37,6 +39,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadNotifications() async {
+    // Immediate action: mark all as read so the badge disappears instantly
+    try {
+      debugPrint('UI: NotificationsScreen calling markAllNotificationsAsRead');
+      await SupabaseService.markAllNotificationsAsRead();
+      // Small delay to allow DB sync before parent re-fetches count
+      await Future.delayed(const Duration(milliseconds: 300));
+      widget.onRefreshBadges?.call();
+    } catch (e) {
+      debugPrint('UI: markAllNotificationsAsRead failed: $e');
+    }
+
     // Only show full-screen loader if we have no data yet
     if (_notifications.isEmpty) setState(() => _isLoading = true);
     
@@ -45,6 +58,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (mounted) {
         setState(() {
           _notifications = data.map((n) => AppNotification.fromJson(n)).toList();
+          // Update local state so matches DB (all read)
+          _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
           _isLoading = false;
         });
       }
@@ -54,12 +69,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  Future<void> _markAsRead(String id) async {
+  Future<void> _markAsRead(AppNotification notif) async {
+    if (notif.isRead) return;
     try {
-      await SupabaseService.markNotificationAsRead(id);
+      debugPrint('UI: Marking single notification ${notif.id} as read');
+      await SupabaseService.markNotificationAsRead(notif.id);
       _loadNotifications();
     } catch (e) {
-      print('Error marking as read: $e');
+      debugPrint('Error marking as read: $e');
+    }
+  }
+
+  Future<void> _deleteNotification(String id) async {
+    try {
+      debugPrint('UI: Requesting deletion of notification $id');
+      await SupabaseService.deleteNotification(id);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Notification deleted'), duration: Duration(seconds: 2)),
+        );
+      }
+      
+      await _loadNotifications(); // Refresh list to remove it from UI
+    } catch (e) {
+      debugPrint('Error deleting notification: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -68,10 +107,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.onSecondary,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Notifications', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color, fontWeight: FontWeight.bold)),
+        // Custom back: switches tab instead of popping the home route
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+          onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
+        ),
+        title: const Text('Notifications'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.done_all_rounded, color: Colors.blue, size: 22),
+            onPressed: () async {
+              await SupabaseService.markAllNotificationsAsRead();
+              _loadNotifications();
+            },
+            tooltip: 'Mark all as read',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.blue),
             onPressed: _loadNotifications,
@@ -132,7 +184,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         side: BorderSide(color: notif.isRead ? Colors.transparent : Colors.blue.withOpacity(0.1)),
       ),
       child: ListTile(
-        onTap: () => _markAsRead(notif.id),
+        onTap: () => _markAsRead(notif),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Stack(
           children: [
@@ -168,9 +220,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           timeago.format(notif.createdAt),
           style: TextStyle(color: Colors.grey[500], fontSize: 12),
         ),
-        trailing: !notif.isRead
-            ? Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle))
-            : null,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!notif.isRead)
+              Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle)),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(Icons.delete_outline_rounded, size: 20, color: Colors.grey[500]),
+              onPressed: () => _deleteNotification(notif.id),
+              tooltip: 'Delete notification',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -183,7 +245,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Icon(Icons.notifications_none_outlined, size: 80, color: Colors.blue[100]),
           const SizedBox(height: 16),
           const Text('No notifications yet',
-              style: TextStyle(color: Colors.black54, fontSize: 18, fontWeight: FontWeight.bold)),
+              style: TextStyle(color: Color(0xFF1A2740), fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           const Text('We\'ll notify you when someone interacts with your posts', style: TextStyle(color: Colors.grey)),
         ],

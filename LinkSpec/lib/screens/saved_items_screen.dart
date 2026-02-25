@@ -22,11 +22,14 @@ class SavedPostsStore {
   }
 
   static Set<String> get all => Set.unmodifiable(_savedIds);
+
+  static void clear() => _savedIds.clear();
 }
 
 /// Saved Items Screen — LinkedIn-style saved posts view.
 class SavedItemsScreen extends StatefulWidget {
-  const SavedItemsScreen({Key? key}) : super(key: key);
+  final VoidCallback? onBack;
+  const SavedItemsScreen({Key? key, this.onBack}) : super(key: key);
 
   @override
   State<SavedItemsScreen> createState() => _SavedItemsScreenState();
@@ -74,21 +77,38 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = MediaQuery.of(context).size.width <= 700;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        backgroundColor: Colors.transparent,
         elevation: 0.5,
         surfaceTintColor: Colors.transparent,
-        leading: BackButton(color: Theme.of(context).iconTheme.color),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+          onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
+        ),
         title: Text(
           'Saved items',
           style: TextStyle(
             color: Theme.of(context).textTheme.titleLarge?.color,
             fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontSize: isMobile ? 16 : 18,
           ),
         ),
+        actions: isMobile
+            ? [
+                PopupMenuButton<int>(
+                  icon: const Icon(Icons.filter_list, color: Colors.blue),
+                  onSelected: (val) => setState(() => _selectedSection = val),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 0, child: Text("My items")),
+                    const PopupMenuItem(value: 1, child: Text("Job tracker")),
+                  ],
+                ),
+              ]
+            : null,
       ),
       body: Center(
         child: Container(
@@ -96,33 +116,34 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Left nav panel ──────────────────────────
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: SizedBox(
-                  width: 200,
-                  child: Column(
-                    children: [
-                      _buildNavTile(
-                        icon: Icons.bookmark,
-                        label: 'My items',
-                        index: 0,
-                      ),
-                      const Divider(height: 1),
-                      _buildNavTile(
-                        icon: Icons.work_outline,
-                        label: 'Job tracker',
-                        index: 1,
-                      ),
-                    ],
+              // ── Left nav panel (Desktop only) ──────────────────────────
+              if (!isMobile)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: 200,
+                    child: Column(
+                      children: [
+                        _buildNavTile(
+                          icon: Icons.bookmark,
+                          label: 'My items',
+                          index: 0,
+                        ),
+                        const Divider(height: 1),
+                        _buildNavTile(
+                          icon: Icons.work_outline,
+                          label: 'Job tracker',
+                          index: 1,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
               // ── Main content ─────────────────────────────
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(0, 16, 16, 16),
+                  padding: EdgeInsets.fromLTRB(isMobile ? 8 : 0, 16, isMobile ? 8 : 16, 16),
                   child: _selectedSection == 0
                       ? _buildMyItems()
                       : _buildJobTracker(),
@@ -171,7 +192,7 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
-                color: selected ? Colors.blue : Colors.black87,
+                color: selected ? Colors.blue : const Color(0xFF1A2740),
               ),
             ),
           ],

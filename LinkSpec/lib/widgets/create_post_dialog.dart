@@ -56,7 +56,8 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     if (mounted && profile != null) {
       setState(() {
         _myDomain = profile['domain_id'] as String?;
-        _targetDomain = _myDomain; // default: post to own domain
+        // No longer pre-selecting _targetDomain = _myDomain
+        // This forces the user to choose intentionally.
       });
     }
   }
@@ -101,6 +102,11 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
 
   Future<void> _createPost() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_targetDomain == null) {
+      _showErrorSnackBar('Please select a domain/audience for your post');
       return;
     }
 
@@ -472,8 +478,8 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                         onTap: _removeImage,
                         child: Container(
                           padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.black54,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A2740).withOpacity(0.6),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -551,7 +557,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: const Color(0xFF1A2740).withOpacity(0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),

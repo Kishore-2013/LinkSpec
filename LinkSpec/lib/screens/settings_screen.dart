@@ -4,7 +4,8 @@ import '../providers/theme_provider.dart';
 import '../services/supabase_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+  final VoidCallback? onBack;
+  const SettingsScreen({Key? key, this.onBack}) : super(key: key);
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -135,13 +136,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).cardColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        title: Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.titleLarge?.color, fontSize: 18)),
+        title: const Text('Settings'),
         leading: isWideScreen ? null : IconButton(
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+          onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
         ),
       ),
       body: isWideScreen ? _buildWideLayout() : _buildMobileLayout(),
@@ -207,7 +208,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                   appBar: AppBar(
                     title: Text(cat['title'], style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
-                    backgroundColor: Theme.of(context).cardColor,
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    surfaceTintColor: Colors.transparent,
                   ),
                   body: SingleChildScrollView(child: _buildCategoryContent()),
                 ),

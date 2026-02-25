@@ -4,9 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../models/user_profile.dart';
 import 'user_posts_insights_screen.dart';
+import '../widgets/post_card.dart' show ViewTracker;
+import 'saved_items_screen.dart' show SavedPostsStore;
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  final VoidCallback? onBack;
+  const ProfileScreen({Key? key, this.onBack}) : super(key: key);
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -41,33 +44,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
     try {
-      final profileData = await SupabaseService.getCurrentUserProfile();
-      if (profileData != null) {
-        final profile = UserProfile.fromJson(profileData);
-        final counts = await SupabaseService.getConnectionCounts(profile.id);
-        final posts = await SupabaseService.getPostsByUser(userId: profile.id, limit: 3);
+      final profileData = await SupabaseService.getCurrentUserProfile(forceRefresh: true);
+      if (profileData == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      final profile = UserProfile.fromJson(profileData);
+
+      // Run secondary calls in parallel; don't let them block profile display
+      final results = await Future.wait([
+        SupabaseService.getConnectionCounts(profile.id).catchError((_) => {'followers': 0, 'following': 0}),
+        SupabaseService.getPostsByUser(userId: profile.id, limit: 3).catchError((_) => <Map<String, dynamic>>[]),
+      ]);
+
+      final counts = results[0] as Map<String, int>;
+      final posts  = results[1] as List<Map<String, dynamic>>;
+
+      if (mounted) {
         setState(() {
-          _profile = profile;
-          _bioController.text = profile.bio ?? '';
+          _profile         = profile;
+          _bioController.text  = profile.bio ?? '';
           _nameController.text = profile.fullName;
-          _followersCount = counts['followers'] ?? 0;
-          _followingCount = counts['following'] ?? 0;
-          _userPosts = posts;
-          _coverUrl = profileData['cover_url'];
+          _followersCount  = counts['followers'] ?? 0;
+          _followingCount  = counts['following'] ?? 0;
+          _userPosts       = posts;
+          _coverUrl        = profileData['cover_url'];
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
-      }
+      debugPrint('ProfileScreen: error loading profile: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
 
   Future<void> _updateProfile() async {
     if (_profile == null) return;
@@ -288,7 +301,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                               if (_isUploadingCover)
                                 Container(
-                                  color: Colors.black45,
+                                    color: Colors.grey[600]!.withOpacity(0.5),
                                   child: const Center(child: CircularProgressIndicator(color: Colors.white)),
                                 )
                               else
@@ -297,7 +310,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   right: 12,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                                    decoration: BoxDecoration(color: const Color(0xFF1A2740).withOpacity(0.6), borderRadius: BorderRadius.circular(20)),
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -314,11 +327,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 left: 12,
                                 child: SafeArea(
                                   child: GestureDetector(
-                                    onTap: () => Navigator.pop(context),
+                                    onTap: widget.onBack ?? () => Navigator.of(context).maybePop(),
                                     child: CircleAvatar(
                                       backgroundColor: Theme.of(context).cardTheme.color?.withOpacity(0.85),
                                       radius: 18,
-                                      child: const Icon(Icons.arrow_back, size: 18, color: Colors.black87),
+                                      child: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Color(0xFF1A2740)),
                                     ),
                                   ),
                                 ),
@@ -334,7 +347,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         backgroundColor: Colors.white.withOpacity(0.85),
                                         radius: 18,
                                         child: IconButton(
-                                          icon: const Icon(Icons.settings, size: 18, color: Colors.black87),
+                                          icon: const Icon(Icons.settings, size: 18, color: Color(0xFF1A2740)),
                                           onPressed: () => Navigator.pushNamed(context, '/settings'),
                                         ),
                                       ),
@@ -346,7 +359,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           icon: Icon(
                                             _isEditing ? Icons.check : Icons.edit,
                                             size: 18,
-                                            color: _isEditing ? Colors.blue[700] : Colors.black87,
+                                            color: _isEditing ? Colors.blue[700] : const Color(0xFF1A2740),
                                           ),
                                           onPressed: _isEditing ? _updateProfile : () => setState(() => _isEditing = true),
                                         ),
@@ -358,6 +371,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         child: IconButton(
                                           icon: const Icon(Icons.logout, size: 18, color: Colors.redAccent),
                                           onPressed: () async {
+                                            // Clear session-scoped in-memory stores before logging out
+                                            ViewTracker.clear();
+                                            SavedPostsStore.clear();
                                             await Supabase.instance.client.auth.signOut();
                                             if (mounted) {
                                               Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
@@ -416,7 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               )
                             else if (_profile?.bio != null && _profile!.bio!.isNotEmpty)
-                              Text(_profile!.bio!, style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87)),
+                               Text(_profile!.bio!, style: const TextStyle(fontSize: 15, height: 1.5, color: Color(0xFF1A2740))),
                             if (_isEditing) ...[
                               const SizedBox(height: 12),
                               TextButton(
@@ -460,7 +476,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           if (_isUploadingAvatar)
                             Positioned.fill(
                               child: Container(
-                                decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.black45),
+                                 decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey[600]!.withOpacity(0.5)),
                                 child: const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
                               ),
                             ),
@@ -637,7 +653,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+         boxShadow: [BoxShadow(color: const Color(0xFF1A2740).withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(

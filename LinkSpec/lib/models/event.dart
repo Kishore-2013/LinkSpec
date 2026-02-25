@@ -19,4 +19,17 @@ class AppEvent {
     required this.attendeeCount,
     required this.domainId,
   });
+
+  factory AppEvent.fromJson(Map<String, dynamic> json) {
+    return AppEvent(
+      id: json['id'],
+      title: json['title'],
+      description: json['description'] ?? '',
+      date: DateTime.parse(json['date']),
+      location: json['location'],
+      imageUrl: json['image_url'],
+      attendeeCount: json['attendee_count']?.toString() ?? '0',
+      domainId: json['domain_id'] ?? '',
+    );
+  }
 }

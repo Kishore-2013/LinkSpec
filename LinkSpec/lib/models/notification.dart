@@ -37,4 +37,28 @@ class AppNotification {
       actorAvatar: json['actor_avatar'],
     );
   }
+
+  AppNotification copyWith({
+    String? id,
+    String? userId,
+    String? actorId,
+    String? type,
+    String? postId,
+    bool? isRead,
+    DateTime? createdAt,
+    String? actorName,
+    String? actorAvatar,
+  }) {
+    return AppNotification(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      actorId: actorId ?? this.actorId,
+      type: type ?? this.type,
+      postId: postId ?? this.postId,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt ?? this.createdAt,
+      actorName: actorName ?? this.actorName,
+      actorAvatar: actorAvatar ?? this.actorAvatar,
+    );
+  }
 }

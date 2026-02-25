@@ -3,7 +3,9 @@ import '../services/supabase_service.dart';
 import 'chat_screen.dart';
 
 class MessagesListScreen extends StatefulWidget {
-  const MessagesListScreen({Key? key}) : super(key: key);
+  final VoidCallback? onBack;
+  final VoidCallback? onSearch;
+  const MessagesListScreen({Key? key, this.onBack, this.onSearch}) : super(key: key);
 
   @override
   State<MessagesListScreen> createState() => _MessagesListScreenState();
@@ -38,16 +40,17 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.onSecondary,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Messages', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
-        iconTheme: IconThemeData(color: Theme.of(context).iconTheme.color),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+          onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
+        ),
+        title: const Text('Messages'),
         actions: [
           IconButton(
             icon: const Icon(Icons.search, color: Colors.blue),
-            onPressed: () {
-              // TODO: Search for new people to message within domain
-            },
+            onPressed: widget.onSearch,
           ),
         ],
       ),
@@ -63,7 +66,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                         Icon(Icons.message_outlined, size: 64, color: Colors.blue[100]),
                         const SizedBox(height: 16),
                         const Text('No messages yet',
-                            style: TextStyle(color: Colors.black54, fontSize: 18, fontWeight: FontWeight.bold)),
+                            style: TextStyle(color: const Color(0xFF1A2740), fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         const Text('Shared posts with colleagues will appear here',
                             style: TextStyle(color: Colors.grey)),

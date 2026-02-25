@@ -1,6 +1,8 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+// Diagnostic: Force filesystem update. Corrected unread counts.
 /// Supabase Service for LinkSpec
 /// Handles all database operations with domain-gated logic
 class SupabaseService {
@@ -209,6 +211,59 @@ class SupabaseService {
     return profile != null && profile['domain_id'] != null;
   }
 
+  /// Global search for posts across all domains
+  static Future<List<Map<String, dynamic>>> searchPosts(String query) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    final response = await _client
+        .from('posts')
+        .select('''
+          *,
+          profiles:author_id (
+            full_name,
+            avatar_url,
+            domain_id
+          ),
+          likes:likes(count),
+          comments:comments(count)
+        ''')
+        .ilike('content', '%$query%')
+        .order('created_at', ascending: false)
+        .limit(20);
+
+    final posts = List<Map<String, dynamic>>.from(response);
+    
+    // Process results similarly to getPosts to include counts and basic author info
+    return posts.map((post) {
+      final profile = post['profiles'];
+      final likes = post['likes'] as List?;
+      final likeCount = likes != null && likes.isNotEmpty ? (likes[0]['count'] ?? 0) : 0;
+      final comments = post['comments'] as List?;
+      final commentCount = comments != null && comments.isNotEmpty ? (comments[0]['count'] ?? 0) : 0;
+
+      return {
+        ...post,
+        'author_name': profile?['full_name'],
+        'author_avatar': profile?['avatar_url'],
+        'author_domain': profile?['domain_id'],
+        'like_count': likeCount,
+        'comment_count': commentCount,
+      };
+    }).toList();
+  }
+
+  /// Global search for people across all domains
+  static Future<List<Map<String, dynamic>>> searchProfiles(String query) async {
+    final response = await _client
+        .from('profiles')
+        .select()
+        .or('full_name.ilike.%$query%,bio.ilike.%$query%')
+        .limit(20);
+
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   // ============================================================================
   // POST OPERATIONS
   // ============================================================================
@@ -242,11 +297,9 @@ class SupabaseService {
       throw Exception('User not authenticated');
     }
 
-    // If a specific target domain is requested, fetch it and override domain_id
+    // Use target domain if provided, otherwise default to user's domain
     String? domainId = targetDomainId;
     if (domainId == null) {
-      // Fallback: use author's own domain (DB trigger will handle this but
-      // explicit is safer)
       final profile = await _client
           .from('profiles')
           .select('domain_id')
@@ -270,25 +323,35 @@ class SupabaseService {
   }
 
   /// Get posts in the current user's domain feed.
-  /// Only shows posts where domain_id matches the viewer's domain.
+  /// [domain] — if provided, filters STRICTLY by that domain_id only (no author fallback).
+  /// When null, shows posts in the user's cached domain OR the user's own posts.
   static Future<List<Map<String, dynamic>>> getPosts({
     int limit = 20,
     int offset = 0,
+    String? domain, // explicit domain override for domain-switch filtering
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return [];
 
-    // Use cached domain if available, otherwise fetch it
-    if (_myDomain == null) {
-      await getCurrentUserProfile();
+    // Resolve which domain to filter by
+    String? filterDomain = domain;
+    if (filterDomain == null) {
+      // Use cached domain if available, otherwise fetch profile
+      if (_myDomain == null) {
+        await getCurrentUserProfile();
+      }
+      filterDomain = _myDomain;
+    } else {
+      // Keep cache in sync
+      _myDomain = filterDomain;
     }
 
-    final myDomain = _myDomain;
-    if (myDomain == null) return []; // domain not set yet — show nothing
+    if (filterDomain == null) return []; // no domain set yet
 
-    // Single chain: filter domain_id = myDomain OR author_id = userId
-    // This ensures users see posts in their domain AND their own posts (for editing/deleting)
-    final response = await _client
+    // STRICT domain filter when a domain is explicitly requested:
+    // show ALL posts in that domain regardless of authorship.
+    // Default feed: also show the user's own posts (author fallback).
+    final query = _client
         .from('posts')
         .select('''
           *,
@@ -299,15 +362,22 @@ class SupabaseService {
           ),
           likes:likes(count),
           comments:comments(count)
-        ''')
-        .or('domain_id.eq.$myDomain,author_id.eq.$userId')
+        ''');
+
+    final filteredQuery = domain != null
+        // Strict: only posts whose domain_id exactly matches the selected domain
+        ? query.eq('domain_id', filterDomain)
+        // Default: domain posts OR the user's own posts
+        : query.or('domain_id.eq.$filterDomain,author_id.eq.$userId');
+
+    final response = await filteredQuery
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
 
     // Flatten profile data and extract stats
     final posts = List<Map<String, dynamic>>.from(response);
     
-    // Batch fetch follow statuses for all authors in this batch to avoid 20 extra calls
+    // Batch fetch follow statuses for all authors in this batch
     final authorIds = posts.map((p) => p['author_id'] as String).toSet().toList();
     final followingSet = await getFollowStatuses(authorIds);
 
@@ -600,6 +670,37 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
+  /// Get count of unread messages for current user
+  static Future<int> getUnreadMessageCount() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 0;
+    try {
+      final response = await _client
+          .from('messages')
+          .select('id')
+          .eq('receiver_id', userId)
+          .eq('is_read', false);
+      return (response as List).length;
+    } catch (_) {
+      // Fallback: if is_read column doesn't exist, return 0
+      return 0;
+    }
+  }
+
+  /// Mark all messages from a specific user as read
+  static Future<void> markMessagesAsRead(String otherUserId) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      await _client
+          .from('messages')
+          .update({'is_read': true})
+          .eq('receiver_id', userId)
+          .eq('sender_id', otherUserId)
+          .eq('is_read', false);
+    } catch (_) {}
+  }
+
   /// Get list of unique users the current user has chatted with
   static Future<List<Map<String, dynamic>>> getConversations() async {
     final myId = _client.auth.currentUser?.id;
@@ -611,8 +712,8 @@ class SupabaseService {
         .select('''
           sender_id,
           receiver_id,
-          sender:sender_id (id, full_name, avatar_url, domain_id),
-          receiver:receiver_id (id, full_name, avatar_url, domain_id)
+          sender:profiles!sender_id (id, full_name, avatar_url, domain_id),
+          receiver:profiles!receiver_id (id, full_name, avatar_url, domain_id)
         ''')
         .or('sender_id.eq.$myId,receiver_id.eq.$myId')
         .order('created_at', ascending: false);
@@ -992,6 +1093,46 @@ class SupabaseService {
     }).toList();
   }
 
+  /// Get groups for the user's domain
+  static Future<List<Map<String, dynamic>>> getGroups() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    if (_myDomain == null) {
+      await getCurrentUserProfile();
+    }
+
+    final query = _client.from('groups').select();
+    
+    if (_myDomain != null) {
+      return List<Map<String, dynamic>>.from(
+        await query.eq('domain_id', _myDomain!).order('created_at', ascending: false)
+      );
+    }
+    
+    return List<Map<String, dynamic>>.from(await query.order('created_at', ascending: false));
+  }
+
+  /// Get events for the user's domain
+  static Future<List<Map<String, dynamic>>> getEvents() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    if (_myDomain == null) {
+      await getCurrentUserProfile();
+    }
+
+    final query = _client.from('events').select();
+    
+    if (_myDomain != null) {
+      return List<Map<String, dynamic>>.from(
+        await query.eq('domain_id', _myDomain!).order('date', ascending: true)
+      );
+    }
+    
+    return List<Map<String, dynamic>>.from(await query.order('date', ascending: true));
+  }
+
   /// Check if a job is saved by the current user
   static Future<bool> isJobSaved(String jobId) async {
     final userId = _client.auth.currentUser?.id;
@@ -1033,10 +1174,11 @@ class SupabaseService {
   // COMMENT OPERATIONS
   // ============================================================================
 
-  /// Create a new comment
+  /// Create a new comment (supports replies via parentId)
   static Future<void> createComment({
     required String postId,
     required String content,
+    String? parentId,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
@@ -1045,11 +1187,14 @@ class SupabaseService {
       'post_id': postId,
       'author_id': userId,
       'content': content,
+      'parent_id': parentId,
     });
   }
 
-  /// Get comments for a specific post
+  /// Get comments for a specific post (including like info)
   static Future<List<Map<String, dynamic>>> getComments(String postId) async {
+    final userId = _client.auth.currentUser?.id;
+    
     final response = await _client
         .from('comments')
         .select('''
@@ -1057,7 +1202,8 @@ class SupabaseService {
           profiles:author_id (
             full_name,
             avatar_url
-          )
+          ),
+          likes:comment_likes(user_id)
         ''')
         .eq('post_id', postId)
         .order('created_at', ascending: true);
@@ -1065,12 +1211,52 @@ class SupabaseService {
     final comments = List<Map<String, dynamic>>.from(response);
     return comments.map((comment) {
       final profile = comment['profiles'];
+      final likes = comment['likes'] as List? ?? [];
+      
       return {
         ...comment,
         'author_name': profile?['full_name'],
         'author_avatar': profile?['avatar_url'],
+        'like_count': likes.length,
+        'is_liked': userId != null && likes.any((l) => l['user_id'] == userId),
       };
     }).toList();
+  }
+
+  /// Toggle like on a comment
+  static Future<bool> toggleCommentLike(String commentId) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return false;
+
+    try {
+      // Check if already liked
+      final existing = await _client
+          .from('comment_likes')
+          .select()
+          .eq('comment_id', commentId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (existing != null) {
+        // Unlike
+        await _client
+            .from('comment_likes')
+            .delete()
+            .eq('comment_id', commentId)
+            .eq('user_id', userId);
+        return false; // Now unliked
+      } else {
+        // Like
+        await _client.from('comment_likes').insert({
+          'comment_id': commentId,
+          'user_id': userId,
+        });
+        return true; // Now liked
+      }
+    } catch (e) {
+      debugPrint('Error toggling comment like: $e');
+      return false;
+    }
   }
 
   /// Get comment count for a post
@@ -1081,6 +1267,33 @@ class SupabaseService {
         .eq('post_id', postId);
     
     return (response as List).length;
+  }
+
+  /// Get count of unread notifications for current user
+  static Future<int> getUnreadNotificationCount() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      debugPrint('SERVICE: No user session for count.');
+      return 0;
+    }
+    
+    try {
+      final response = await _client
+          .from('notifications')
+          .select()
+          .eq('user_id', userId)
+          .neq('is_read', true);
+      
+      final data = response as List;
+      debugPrint('DEBUG: getUnreadNotificationCount - Auth ID: $userId | Found: ${data.length}');
+      if (data.isNotEmpty) {
+        debugPrint('DEBUG: First unread ID: ${data[0]['id']} | User ID in DB: ${data[0]['user_id']}');
+      }
+      return data.length;
+    } catch (e) {
+      debugPrint('Error getting notification count: $e');
+      return 0;
+    }
   }
 
   // ============================================================================
@@ -1096,7 +1309,7 @@ class SupabaseService {
         .from('notifications')
         .select('''
           *,
-          actor:actor_id (
+          actor:profiles!actor_id (
             full_name,
             avatar_url
           )
@@ -1121,6 +1334,67 @@ class SupabaseService {
         .from('notifications')
         .update({'is_read': true})
         .eq('id', notificationId);
+  }
+
+  /// Mark all notifications for the current user as read
+  static Future<void> markAllNotificationsAsRead() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      debugPrint('ERROR: markAllNotificationsAsRead - No user logged in');
+      return;
+    }
+    
+    try {
+      // 1. Get IDs of all unread notifications first
+      final unreadResponse = await _client
+          .from('notifications')
+          .select('id')
+          .eq('user_id', userId)
+          .neq('is_read', true);
+      
+      final unreadList = unreadResponse as List;
+      if (unreadList.isEmpty) {
+        debugPrint('SERVICE: No unread notifications found to clear.');
+        return;
+      }
+      
+      final ids = unreadList.map((n) => n['id'] as String).toList();
+      debugPrint('SERVICE: Attempting to clear IDs: $ids');
+
+      // 2. Update them specifically by ID (sometimes more reliable with RLS)
+      await _client
+          .from('notifications')
+          .update({'is_read': true})
+          .filter('id', 'in', ids);
+          
+      debugPrint('DATABASE: Successfully sent update for notifications read status.');
+    } catch (e) {
+      debugPrint('CRITICAL ERROR in markAllNotificationsAsRead: $e');
+    }
+  }
+
+  /// Delete a specific notification (Nuclear option for stuck badges)
+  static Future<void> deleteNotification(String id) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
+    
+    try {
+      final response = await _client
+          .from('notifications')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', userId)
+          .select();
+          
+      if (response.isEmpty) {
+        debugPrint('WARNING: No notification was deleted. Check IDs or RLS policies.');
+      } else {
+        debugPrint('DATABASE: Successfully deleted notification $id');
+      }
+    } catch (e) {
+      debugPrint('ERROR deleting notification: $e');
+      rethrow; // So UI can catch it
+    }
   }
 
   /// Get real-time notifications stream.

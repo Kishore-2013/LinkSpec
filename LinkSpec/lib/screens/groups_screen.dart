@@ -1,69 +1,72 @@
 import 'package:flutter/material.dart';
 import '../models/group.dart';
+import '../services/supabase_service.dart';
 import 'group_detail_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
-  const GroupsScreen({Key? key}) : super(key: key);
+  final VoidCallback? onBack;
+  const GroupsScreen({Key? key, this.onBack}) : super(key: key);
 
   @override
   State<GroupsScreen> createState() => _GroupsScreenState();
 }
 
 class _GroupsScreenState extends State<GroupsScreen> {
-  final List<Group> _groups = [
-    Group(
-      id: '1',
-      name: 'Medical Professionals Network',
-      description: 'A group for doctors, nurses, and medical students to share insights.',
-      memberCount: '1.2k',
-      domainId: 'Medical',
-      coverUrl: 'https://images.unsplash.com/photo-1576091160550-217359f4810a?q=80&w=2070&auto=format&fit=crop',
-    ),
-    Group(
-      id: '2',
-      name: 'Digital Health Innovation',
-      description: 'Exploring the intersection of technology and healthcare.',
-      memberCount: '850',
-      domainId: 'Medical',
-      coverUrl: 'https://images.unsplash.com/photo-1504868584819-f8e905263543?q=80&w=2076&auto=format&fit=crop',
-    ),
-    Group(
-      id: '3',
-      name: 'Future Surgeons',
-      description: 'Connecting aspiring surgeons and sharing educational resources.',
-      memberCount: '3.4k',
-      domainId: 'Medical',
-      coverUrl: 'https://images.unsplash.com/photo-1551076805-e1869033e561?q=80&w=1932&auto=format&fit=crop',
-    ),
-  ];
+  List<Group> _groups = [];
+  bool _isLoading = true;
 
   final Set<String> _joinedGroups = {};
 
   @override
+  void initState() {
+    super.initState();
+    _loadGroups();
+  }
+
+  Future<void> _loadGroups() async {
+    try {
+      final data = await SupabaseService.getGroups();
+      if (mounted) {
+        setState(() {
+          _groups = data.map((d) => Group.fromJson(d)).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading groups: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).cardTheme.color,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Groups', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color, fontWeight: FontWeight.bold)),
+        title: const Text('Groups'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+          onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildYourGroupsHeader(),
-            _buildGroupsList(),
-            _buildDiscoverHeader(),
-            _buildDiscoverGroupsList(),
-          ],
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadGroups,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildYourGroupsHeader(),
+                    _buildGroupsList(),
+                    _buildDiscoverHeader(),
+                    _buildDiscoverGroupsList(),
+                  ],
+                ),
+              ),
+            ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'groupsFAB',
         onPressed: () {
           // Future: Open Create Group Bottom Sheet
           _showCreateGroupSheet();

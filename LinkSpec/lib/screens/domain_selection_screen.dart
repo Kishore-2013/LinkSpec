@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/aw_logo.dart';
+import '../widgets/clay_container.dart';
 
-/// Domain Selection Screen
-/// This screen is shown to newly registered users to select their professional domain.
-/// Users MUST select a domain before accessing the main app.
+/// Domain Selection Screen — Claymorphism design.
+/// Receives optional route argument `{'fullName': String}` from the sign-up flow
+/// to pre-populate the Full Name field so users don't have to type it twice.
 class DomainSelectionScreen extends StatefulWidget {
   const DomainSelectionScreen({Key? key}) : super(key: key);
 
@@ -12,242 +13,237 @@ class DomainSelectionScreen extends StatefulWidget {
   State<DomainSelectionScreen> createState() => _DomainSelectionScreenState();
 }
 
-class _DomainSelectionScreenState extends State<DomainSelectionScreen> {
+class _DomainSelectionScreenState extends State<DomainSelectionScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _bioController = TextEditingController();
-  
+
   String? _selectedDomain;
   bool _isLoading = false;
 
-  // Available domains - matches database CHECK constraint
-  final List<String> _domains = [
-    'Medical',
-    'IT/Software',
-    'Civil Engineering',
-    'Law',
+  late final AnimationController _fadeCtrl;
+  late final Animation<double> _fadeAnim;
+
+  // Domains matching the DB CHECK constraint
+  final List<Map<String, dynamic>> _domains = [
+    {'id': 'Medical',          'icon': Icons.local_hospital,  'color': const Color(0xFFE53935)},
+    {'id': 'IT/Software',      'icon': Icons.computer,        'color': const Color(0xFF1565C0)},
+    {'id': 'Civil Engineering','icon': Icons.engineering,     'color': const Color(0xFFE65100)},
+    {'id': 'Law',              'icon': Icons.gavel,           'color': const Color(0xFF6A1B9A)},
+    {'id': 'Business',         'icon': Icons.business_center, 'color': const Color(0xFF00897B)},
+    {'id': 'Global',           'icon': Icons.public_rounded,  'color': const Color(0xFF00BFA5)},
   ];
 
-  // Domain icons for visual appeal
-  final Map<String, IconData> _domainIcons = {
-    'Medical': Icons.local_hospital,
-    'IT/Software': Icons.computer,
-    'Civil Engineering': Icons.engineering,
-    'Law': Icons.gavel,
-  };
+  @override
+  void initState() {
+    super.initState();
+    _fadeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600))
+      ..forward();
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
+  }
 
-  // Domain colors for visual distinction
-  final Map<String, Color> _domainColors = {
-    'Medical': Colors.red,
-    'IT/Software': Colors.blue,
-    'Civil Engineering': Colors.orange,
-    'Law': Colors.purple,
-  };
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Pre-fill name from sign-up arguments (only on first call)
+    if (_fullNameController.text.isEmpty) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args['fullName'] != null) {
+        _fullNameController.text = args['fullName'] as String;
+      }
+    }
+  }
 
   @override
   void dispose() {
     _fullNameController.dispose();
     _bioController.dispose();
+    _fadeCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _saveDomainSelection() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
+    if (!_formKey.currentState!.validate()) return;
     if (_selectedDomain == null) {
-      _showErrorSnackBar('Please select a domain');
+      _showSnack('Please select your professional domain');
       return;
     }
-
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // Check both currentUser and currentSession
-      final user = Supabase.instance.client.auth.currentUser;
-      final session = Supabase.instance.client.auth.currentSession;
-      
-      print('DEBUG: User: ${user?.id}');
-      print('DEBUG: Session: ${session?.user.id}');
-      
-      final userId = user?.id ?? session?.user.id;
-      
-      if (userId == null) {
-        // Try to refresh the session
+      // Ensure session is valid
+      var user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
         await Supabase.instance.client.auth.refreshSession();
-        final refreshedUser = Supabase.instance.client.auth.currentUser;
-        
-        if (refreshedUser == null) {
-          throw Exception('User not authenticated. Please sign in again.');
-        }
+        user = Supabase.instance.client.auth.currentUser;
       }
+      if (user == null) throw Exception('Not authenticated. Please sign in again.');
 
-      final finalUserId = Supabase.instance.client.auth.currentUser!.id;
-
-      // Save profile with domain selection
-      await Supabase.instance.client.from('profiles').insert({
-        'id': finalUserId,
+      await Supabase.instance.client.from('profiles').upsert({
+        'id': user.id,
         'full_name': _fullNameController.text.trim(),
         'domain_id': _selectedDomain,
-        'bio': _bioController.text.trim().isEmpty 
-            ? null 
-            : _bioController.text.trim(),
+        'bio': _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
       });
 
       if (!mounted) return;
-
-      // Navigate to home screen
       Navigator.of(context).pushReplacementNamed('/home');
-      
     } on PostgrestException catch (e) {
-      print('DEBUG: PostgrestException: ${e.message}');
-      _showErrorSnackBar('Database error: ${e.message}');
+      _showSnack('Database error: ${e.message}');
     } on AuthException catch (e) {
-      print('DEBUG: AuthException: ${e.message}');
-      _showErrorSnackBar('Authentication error: ${e.message}');
+      _showSnack('Auth error: ${e.message}');
     } catch (e) {
-      print('DEBUG: General error: $e');
-      _showErrorSnackBar('An error occurred: $e');
+      _showSnack('Error: $e');
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  void _showSnack(String msg, {bool isError = true}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
+      backgroundColor: isError ? Colors.red[700] : Colors.blue[700],
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Card(
-            color: Colors.white,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-              side: BorderSide(color: Colors.grey.withOpacity(0.1)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 40),
-                    
-                    // Logo + App Name
-                    const AWLogo(
-                      size: 80,
-                      showAppName: true,
-                      showTagline: false,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Complete your profile to get started',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 40),
-                    
-                    // Full Name Field
-                    TextFormField(
-                      controller: _fullNameController,
-                      decoration: InputDecoration(
-                        labelText: 'Full Name',
-                        hintText: 'Enter your full name',
-                        prefixIcon: const Icon(Icons.person),
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter your full name';
-                        }
-                        if (value.trim().length < 2) {
-                          return 'Name must be at least 2 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // Domain Selection
-                    Text(
-                      'Select Your Professional Domain',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    Text(
-                      'You can only connect with professionals in your domain',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Domain Cards
-                    ...(_domains.map((domain) => _buildDomainCard(domain))),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Bio Field (Optional)
-                    TextFormField(
-                      controller: _bioController,
-                      decoration: InputDecoration(
-                        labelText: 'Bio (Optional)',
-                        hintText: 'Tell us about yourself',
-                        prefixIcon: const Icon(Icons.edit_note),
-                      ),
-                      maxLines: 3,
-                      maxLength: 200,
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Submit Button
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _saveDomainSelection,
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Text(
-                              'Continue to LinkSpec',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFD9E9FF), Color(0xFFB4DAFF), Color(0xFFD9E9FF)],
+          ),
+        ),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnim,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: ClayContainer(
+                    borderRadius: 40,
+                    depth: 14,
+                    padding: const EdgeInsets.fromLTRB(32, 40, 32, 32),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // ── Logo ────────────────────────────────────────
+                          const AWLogo(size: 72, showAppName: true, showTagline: false),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Complete your profile to get started',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Color(0xFF5B7EA6), fontSize: 14, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 36),
+
+                          // ── Full Name ───────────────────────────────────
+                          _sectionLabel('Your Name'),
+                          const SizedBox(height: 10),
+                          _buildClayField(
+                            controller: _fullNameController,
+                            label: 'Full Name',
+                            icon: Icons.person_outline,
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'Please enter your full name';
+                              if (v.trim().length < 2) return 'Name must be at least 2 characters';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 28),
+
+                          // ── Domain Selection ────────────────────────────
+                          _sectionLabel('Select Your Domain'),
+                          const SizedBox(height: 4),
+                          Text(
+                            'You\'ll connect with professionals in your selected field',
+                            style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                          ),
+                          const SizedBox(height: 14),
+
+                          ...(_domains.map((d) => _buildDomainTile(d))),
+                          const SizedBox(height: 24),
+
+                          // ── Bio (Optional) ──────────────────────────────
+                          _sectionLabel('Bio  (optional)'),
+                          const SizedBox(height: 10),
+                          ClayContainer(
+                            borderRadius: 20,
+                            depth: -6,
+                            emboss: true,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: TextFormField(
+                              controller: _bioController,
+                              maxLines: 3,
+                              maxLength: 200,
+                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                hintText: 'Tell the community about yourself...',
+                                hintStyle: TextStyle(color: Colors.grey[400]),
+                                prefixIcon: Icon(Icons.edit_note, color: Colors.blue[400], size: 20),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
                               ),
                             ),
+                          ),
+                          const SizedBox(height: 28),
+
+                          // ── Continue Button ─────────────────────────────
+                          GestureDetector(
+                            onTap: _isLoading ? null : _saveDomainSelection,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1565C0),
+                                borderRadius: BorderRadius.circular(30),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF1565C0).withOpacity(0.35),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Continue to LinkSpec  →',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.4,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -257,63 +253,136 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen> {
     );
   }
 
-  Widget _buildDomainCard(String domain) {
-    final isSelected = _selectedDomain == domain;
-    final color = _domainColors[domain] ?? Colors.grey;
-    final icon = _domainIcons[domain] ?? Icons.work;
+  Widget _sectionLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w800,
+        color: Color(0xFF003366),
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+
+  Widget _buildDomainTile(Map<String, dynamic> d) {
+    final id = d['id'] as String;
+    final icon = d['icon'] as IconData;
+    final color = d['color'] as Color;
+    final isSelected = _selectedDomain == id;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _selectedDomain = domain;
-          });
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedDomain = id),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.1) : Colors.grey[50],
+            color: isSelected ? color.withOpacity(0.12) : Colors.white.withOpacity(0.55),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isSelected ? color : Colors.grey[300]!,
+              color: isSelected ? color : Colors.blue.withOpacity(0.15),
               width: isSelected ? 2 : 1,
             ),
-            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected
+                ? [BoxShadow(color: color.withOpacity(0.18), blurRadius: 12, offset: const Offset(0, 4))]
+                : [BoxShadow(color: const Color(0xFF1A2740).withOpacity(0.04), blurRadius: 6)],
           ),
           child: Row(
             children: [
+              // Icon pill
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  color: color.withOpacity(isSelected ? 0.18 : 0.1),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 28,
-                ),
+                child: Icon(icon, color: color, size: 24),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Text(
-                  domain,
+                  id,
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? color : Colors.black87,
+                    fontSize: 15,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    color: isSelected ? color : const Color(0xFF1A2740),
                   ),
                 ),
               ),
-              if (isSelected)
-                Icon(
-                  Icons.check_circle,
-                  color: color,
-                  size: 28,
-                ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: isSelected
+                    ? Icon(Icons.check_circle_rounded, color: color, size: 24, key: const ValueKey('checked'))
+                    : Icon(Icons.radio_button_unchecked, color: Colors.grey[300], size: 24, key: const ValueKey('unchecked')),
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClayField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required String? Function(String?) validator,
+    TextInputType? keyboardType,
+    TextInputAction? textInputAction,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.72),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blueGrey.withOpacity(0.14),
+            blurRadius: 8,
+            offset: const Offset(3, 3),
+          ),
+          BoxShadow(
+            color: Colors.white.withOpacity(0.9),
+            blurRadius: 8,
+            offset: const Offset(-3, -3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        textCapitalization: textCapitalization,
+        validator: validator,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 15,
+          color: Color(0xFF1A2740),
+        ),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
+          labelText: label,
+          labelStyle: TextStyle(
+            color: Colors.blue[400],
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+          errorStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            height: 1.6,
+          ),
+          prefixIcon: Icon(icon, color: Colors.blue[400], size: 20),
+          contentPadding: const EdgeInsets.symmetric(vertical: 18),
+          isDense: false,
         ),
       ),
     );

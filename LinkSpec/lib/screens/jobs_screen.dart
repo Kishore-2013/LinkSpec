@@ -208,7 +208,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
   Widget _buildFilterBar() {
     return Container(
       height: 60,
-      color: Theme.of(context).colorScheme.onSecondary,
+      color: Colors.transparent,
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,

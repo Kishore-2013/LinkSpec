@@ -1,61 +1,68 @@
 import 'package:flutter/material.dart';
 import '../models/event.dart';
+import '../services/supabase_service.dart';
 import 'package:intl/intl.dart';
 
 class EventsScreen extends StatefulWidget {
-  const EventsScreen({Key? key}) : super(key: key);
+  final VoidCallback? onBack;
+  const EventsScreen({Key? key, this.onBack}) : super(key: key);
 
   @override
   State<EventsScreen> createState() => _EventsScreenState();
 }
 
 class _EventsScreenState extends State<EventsScreen> {
-  final List<AppEvent> _events = [
-    AppEvent(
-      id: '1',
-      title: 'Global Healthcare Summit 2026',
-      description: 'The largest gathering of medical professionals to discuss the future of healthcare.',
-      date: DateTime(2026, 5, 15, 9, 0),
-      location: 'Virtual - Zoom',
-      attendeeCount: '15k',
-      domainId: 'Medical',
-      imageUrl: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?q=80&w=2012&auto=format&fit=crop',
-    ),
-    AppEvent(
-      id: '2',
-      title: 'Nursing Innovation Workshop',
-      description: 'A hands-on workshop focused on new technologies in patient care.',
-      date: DateTime(2026, 6, 10, 14, 30),
-      location: 'New Delhi, India',
-      attendeeCount: '250',
-      domainId: 'Medical',
-      imageUrl: 'https://images.unsplash.com/photo-1540575861501-7c00117fbefc?q=80&w=2070&auto=format&fit=crop',
-    ),
-  ];
+  List<AppEvent> _events = [];
+  bool _isLoading = true;
 
   @override
+  void initState() {
+    super.initState();
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    try {
+      final data = await SupabaseService.getEvents();
+      if (mounted) {
+        setState(() {
+          _events = data.map((d) => AppEvent.fromJson(d)).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading events: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).cardTheme.color,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Events', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color, fontWeight: FontWeight.bold)),
+        title: const Text('Events'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+          onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            _buildEventsList(),
-          ],
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadEvents,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(),
+                    _buildEventsList(),
+                  ],
+                ),
+              ),
+            ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'eventsFAB',
         onPressed: () {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Create Event feature coming soon!')),

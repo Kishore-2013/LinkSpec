@@ -6,6 +6,7 @@ class Group {
   final String? coverUrl;
   final String memberCount;
   final String domainId;
+  final DateTime? createdAt;
 
   Group({
     required this.id,
@@ -14,6 +15,7 @@ class Group {
     this.coverUrl,
     required this.memberCount,
     required this.domainId,
+    this.createdAt,
   });
 
   factory Group.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,7 @@ class Group {
       coverUrl: json['cover_url'],
       memberCount: json['member_count']?.toString() ?? '0',
       domainId: json['domain_id'] ?? '',
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
     );
   }
 }

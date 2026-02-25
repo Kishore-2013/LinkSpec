@@ -10,6 +10,7 @@ import 'screens/settings_screen.dart';
 import 'screens/groups_screen.dart';
 import 'screens/events_screen.dart';
 import 'screens/search_screen.dart';
+import 'screens/saved_items_screen.dart';
 import 'providers/theme_provider.dart';
 
 void main() async {
@@ -34,22 +35,54 @@ class LinkSpecApp extends ConsumerWidget {
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'Roboto', // Modern, clean font
+        fontFamily: 'Roboto', 
         scaffoldBackgroundColor: const Color(0xFFC0DFFF),
         colorScheme: ColorScheme.light(
           primary: const Color(0xFF0066CC),
+          onPrimary: Colors.white,
           secondary: Colors.blueAccent,
+          onSecondary: Colors.white,
           surface: const Color(0xFFE3F2FF),
-          background: const Color(0xFFC0DFFF),
           onSurface: const Color(0xFF003366),
+          background: const Color(0xFFC0DFFF),
+          onBackground: const Color(0xFF1A2740),
         ),
         appBarTheme: const AppBarTheme(
           elevation: 0,
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
+          iconTheme: IconThemeData(color: Color(0xFF0066CC)),
+          titleTextStyle: TextStyle(color: Color(0xFF1A2740), fontSize: 20, fontWeight: FontWeight.bold),
         ),
         cardTheme: CardTheme(
           color: const Color(0xFFE3F2FF),
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+        ),
+      ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'Roboto',
+        scaffoldBackgroundColor: const Color(0xFF1A2740),
+        colorScheme: ColorScheme.dark(
+          primary: const Color(0xFF0066CC),
+          onPrimary: Colors.white,
+          secondary: Colors.blueAccent,
+          onSecondary: Colors.white,
+          surface: const Color(0xFF25334D),
+          onSurface: const Color(0xFFE3F2FF),
+          background: const Color(0xFF1A2740),
+          onBackground: Colors.white,
+        ),
+        appBarTheme: const AppBarTheme(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          iconTheme: IconThemeData(color: Colors.blueAccent),
+          titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        cardTheme: CardTheme(
+          color: const Color(0xFF25334D),
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
         ),
@@ -63,6 +96,7 @@ class LinkSpecApp extends ConsumerWidget {
         '/groups': (context) => const GroupsScreen(),
         '/events': (context) => const EventsScreen(),
         '/search': (context) => const SearchScreen(),
+        '/saved-items': (context) => const SavedItemsScreen(),
       },
     );
   }

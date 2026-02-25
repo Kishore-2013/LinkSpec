@@ -60,7 +60,7 @@ class AWLogo extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: const Color(0xFF1D2226),
+        color: const Color(0xFF003366),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(

@@ -142,7 +142,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
               SliverAppBar(
                 expandedHeight: 200,
                 pinned: true,
-                backgroundColor: Theme.of(context).colorScheme.onSecondary,
+                backgroundColor: Colors.transparent,
                 elevation: 0,
                 leading: const BackButton(color: Colors.white),
                 flexibleSpace: FlexibleSpaceBar(
@@ -324,7 +324,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen>
             style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
-                color: Colors.black87),
+                color: const Color(0xFF1A2740)),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),

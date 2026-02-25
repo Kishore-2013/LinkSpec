@@ -4,7 +4,9 @@ import 'member_profile_screen.dart';
 import '../widgets/clay_container.dart';
 
 class NetworkScreen extends StatefulWidget {
-  const NetworkScreen({Key? key}) : super(key: key);
+  final VoidCallback? onBack;
+  final VoidCallback? onSearch;
+  const NetworkScreen({Key? key, this.onBack, this.onSearch}) : super(key: key);
 
   @override
   State<NetworkScreen> createState() => _NetworkScreenState();
@@ -108,11 +110,18 @@ class _NetworkScreenState extends State<NetworkScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.onSecondary,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('My Network', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
-        iconTheme: IconThemeData(color: Theme.of(context).iconTheme.color),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+          onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
+        ),
+        title: const Text('My Network'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.blue),
+            onPressed: widget.onSearch,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.blue),
             onPressed: _loadNetwork,
