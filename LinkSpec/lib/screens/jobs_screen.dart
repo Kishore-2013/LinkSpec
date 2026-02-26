@@ -183,11 +183,10 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
                                 child: Padding(
                                   padding: const EdgeInsets.only(bottom: 12),
                                   child: ClayContainer(
-                                    color: Theme.of(context).cardTheme.color ?? const Color(0xFFB4DAFF),
-                                    borderRadius: 40,
-                                    depth: 10,
+                                    borderRadius: 14,
+                                    depth: 5,
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                                       child: _buildJobCard(job),
                                     ),
                                   ),

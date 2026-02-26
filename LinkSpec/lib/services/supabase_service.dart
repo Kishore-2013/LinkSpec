@@ -14,6 +14,18 @@ class SupabaseService {
 
   static String? getCurrentUserId() => _client.auth.currentUser?.id;
 
+  /// Send a password reset email
+  static Future<void> sendPasswordResetEmail(String email) async {
+    // Simplify redirectTo to the root origin on Web. 
+    // The SplashScreen master-interceptor will catch the code and move the user to Reset.
+    final String? redirectTo = kIsWeb ? Uri.base.origin : null;
+        
+    await _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: redirectTo,
+    );
+  }
+
   /// Clear the in-memory cache (called on logout)
   static void clearCache() {
     _currentUserProfile = null;
@@ -322,89 +334,60 @@ class SupabaseService {
     return response;
   }
 
-  /// Get posts in the current user's domain feed.
-  /// [domain] — if provided, filters STRICTLY by that domain_id only (no author fallback).
-  /// When null, shows posts in the user's cached domain OR the user's own posts.
+  /// Get posts sorted by like count (most liked first).
+  /// Falls back to creation date as a tie-breaker.
+  /// Uses the [get_posts_by_domain_sorted] Postgres RPC so sorting
+  /// happens entirely in the database — PostgREST cannot sort by aggregate counts directly.
   static Future<List<Map<String, dynamic>>> getPosts({
     int limit = 20,
     int offset = 0,
-    String? domain, // explicit domain override for domain-switch filtering
+    String? domain,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return [];
 
-    // Resolve which domain to filter by
+    // Resolve domain
     String? filterDomain = domain;
     if (filterDomain == null) {
-      // Use cached domain if available, otherwise fetch profile
-      if (_myDomain == null) {
-        await getCurrentUserProfile();
-      }
+      if (_myDomain == null) await getCurrentUserProfile();
       filterDomain = _myDomain;
     } else {
-      // Keep cache in sync
       _myDomain = filterDomain;
     }
 
-    if (filterDomain == null) return []; // no domain set yet
+    if (filterDomain == null) return [];
 
-    // STRICT domain filter when a domain is explicitly requested:
-    // show ALL posts in that domain regardless of authorship.
-    // Default feed: also show the user's own posts (author fallback).
-    final query = _client
-        .from('posts')
-        .select('''
-          *,
-          profiles:author_id (
-            full_name,
-            avatar_url,
-            domain_id
-          ),
-          likes:likes(count),
-          comments:comments(count)
-        ''');
+    // Call the RPC — sorted by like_count DESC, then created_at DESC
+    final response = await _client.rpc(
+      'get_posts_by_domain_sorted',
+      params: {
+        'p_domain': filterDomain,
+        'p_limit': limit,
+        'p_offset': offset,
+      },
+    );
 
-    final filteredQuery = domain != null
-        // Strict: only posts whose domain_id exactly matches the selected domain
-        ? query.eq('domain_id', filterDomain)
-        // Default: domain posts OR the user's own posts
-        : query.or('domain_id.eq.$filterDomain,author_id.eq.$userId');
+    final posts = List<Map<String, dynamic>>.from(response as List);
 
-    final response = await filteredQuery
-        .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
+    if (posts.isEmpty) return [];
 
-    // Flatten profile data and extract stats
-    final posts = List<Map<String, dynamic>>.from(response);
-    
-    // Batch fetch follow statuses for all authors in this batch
+    // Batch-fetch isFollowing / isLiked for the current user
     final authorIds = posts.map((p) => p['author_id'] as String).toSet().toList();
     final followingSet = await getFollowStatuses(authorIds);
 
-    // Batch fetch like statuses for all posts in this batch
     final postIds = posts.map((p) => p['id'] as String).toList();
     final likedSet = await getLikeStatuses(postIds);
 
     return posts.map((post) {
-      final profile = post['profiles'];
-      final postId = post['id'] as String;
+      final postId   = post['id']        as String;
       final authorId = post['author_id'] as String;
-
-      final likes = post['likes'] as List?;
-      final likeCount = likes != null && likes.isNotEmpty ? (likes[0]['count'] ?? 0) : 0;
-
-      final comments = post['comments'] as List?;
-      final commentCount = comments != null && comments.isNotEmpty ? (comments[0]['count'] ?? 0) : 0;
-
       return {
         ...post,
-        'author_name': profile?['full_name'],
-        'author_avatar': profile?['avatar_url'],
-        'author_domain': profile?['domain_id'],
-        'like_count': likeCount,
-        'comment_count': commentCount,
-        'is_liked': likedSet.contains(postId),
-        'is_following': followingSet.contains(authorId),
+        // RPC already returns flat author_name / author_avatar / author_domain
+        'like_count':    (post['like_count']    as num?)?.toInt() ?? 0,
+        'comment_count': (post['comment_count'] as num?)?.toInt() ?? 0,
+        'is_liked':      likedSet.contains(postId),
+        'is_following':  followingSet.contains(authorId),
       };
     }).toList();
   }

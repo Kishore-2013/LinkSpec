@@ -36,7 +36,7 @@ class AWLogo extends StatelessWidget {
           'LinkSpec',
           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF0A66C2),
+                color: const Color(0xFF1C1C1E),
                 letterSpacing: 1.2,
               ),
         ),

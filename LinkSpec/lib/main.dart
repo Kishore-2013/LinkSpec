@@ -11,6 +11,7 @@ import 'screens/groups_screen.dart';
 import 'screens/events_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/saved_items_screen.dart';
+import 'screens/reset_password_screen.dart';
 import 'providers/theme_provider.dart';
 
 void main() async {
@@ -35,57 +36,62 @@ class LinkSpecApp extends ConsumerWidget {
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'Roboto', 
-        scaffoldBackgroundColor: const Color(0xFFC0DFFF),
+        fontFamily: 'Roboto',
+        scaffoldBackgroundColor: const Color(0xFFF5F5F7),
         colorScheme: ColorScheme.light(
           primary: const Color(0xFF0066CC),
           onPrimary: Colors.white,
-          secondary: Colors.blueAccent,
+          secondary: const Color(0xFF0066CC),
           onSecondary: Colors.white,
-          surface: const Color(0xFFE3F2FF),
-          onSurface: const Color(0xFF003366),
-          background: const Color(0xFFC0DFFF),
-          onBackground: const Color(0xFF1A2740),
+          surface: Colors.white,
+          onSurface: const Color(0xFF1C1C1E),
+          background: const Color(0xFFF5F5F7),
+          onBackground: const Color(0xFF1C1C1E),
         ),
         appBarTheme: const AppBarTheme(
           elevation: 0,
-          backgroundColor: Colors.transparent,
+          backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
-          iconTheme: IconThemeData(color: Color(0xFF0066CC)),
-          titleTextStyle: TextStyle(color: Color(0xFF1A2740), fontSize: 20, fontWeight: FontWeight.bold),
+          shadowColor: Color(0x0F000000),
+          iconTheme: IconThemeData(color: Color(0xFF1C1C1E)),
+          titleTextStyle: TextStyle(color: Color(0xFF1C1C1E), fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3),
         ),
         cardTheme: CardTheme(
-          color: const Color(0xFFE3F2FF),
+          color: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shadowColor: Colors.transparent,
         ),
+        dividerTheme: const DividerThemeData(color: Color(0xFFE5E5EA), thickness: 0.5),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Roboto',
-        scaffoldBackgroundColor: const Color(0xFF1A2740),
+        scaffoldBackgroundColor: const Color(0xFF000000),
         colorScheme: ColorScheme.dark(
-          primary: const Color(0xFF0066CC),
+          primary: const Color(0xFF0A84FF),
           onPrimary: Colors.white,
-          secondary: Colors.blueAccent,
+          secondary: const Color(0xFF0A84FF),
           onSecondary: Colors.white,
-          surface: const Color(0xFF25334D),
-          onSurface: const Color(0xFFE3F2FF),
-          background: const Color(0xFF1A2740),
+          surface: const Color(0xFF1C1C1E),
+          onSurface: Colors.white,
+          background: const Color(0xFF000000),
           onBackground: Colors.white,
         ),
         appBarTheme: const AppBarTheme(
           elevation: 0,
-          backgroundColor: Colors.transparent,
+          backgroundColor: Color(0xFF1C1C1E),
           surfaceTintColor: Colors.transparent,
-          iconTheme: IconThemeData(color: Colors.blueAccent),
-          titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          iconTheme: IconThemeData(color: Colors.white),
+          titleTextStyle: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3),
         ),
         cardTheme: CardTheme(
-          color: const Color(0xFF25334D),
+          color: const Color(0xFF1C1C1E),
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shadowColor: Colors.transparent,
         ),
+        dividerTheme: const DividerThemeData(color: Color(0xFF38383A), thickness: 0.5),
       ),
       home: const SplashScreen(),
       routes: {
@@ -97,6 +103,7 @@ class LinkSpecApp extends ConsumerWidget {
         '/events': (context) => const EventsScreen(),
         '/search': (context) => const SearchScreen(),
         '/saved-items': (context) => const SavedItemsScreen(),
+        '/reset-password': (context) => const ResetPasswordScreen(),
       },
     );
   }

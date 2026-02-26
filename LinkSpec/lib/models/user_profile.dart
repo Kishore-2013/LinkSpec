@@ -4,6 +4,7 @@ class UserProfile {
   final String domainId;
   final String? bio;
   final String? avatarUrl;
+  final String? coverUrl;
   final List<Map<String, dynamic>> experience;
   final List<Map<String, dynamic>> education;
   final List<Map<String, dynamic>> projects;
@@ -18,6 +19,7 @@ class UserProfile {
     required this.domainId,
     this.bio,
     this.avatarUrl,
+    this.coverUrl,
     this.experience = const [],
     this.education = const [],
     this.projects = const [],
@@ -34,6 +36,7 @@ class UserProfile {
       domainId: json['domain_id'] as String,
       bio: json['bio'] as String?,
       avatarUrl: json['avatar_url'] as String?,
+      coverUrl: json['cover_url'] as String?,
       experience: List<Map<String, dynamic>>.from(json['experience'] ?? []),
       education: List<Map<String, dynamic>>.from(json['education'] ?? []),
       projects: List<Map<String, dynamic>>.from(json['projects'] ?? []),
@@ -51,6 +54,7 @@ class UserProfile {
       'domain_id': domainId,
       'bio': bio,
       'avatar_url': avatarUrl,
+      'cover_url': coverUrl,
       'experience': experience,
       'education': education,
       'projects': projects,
@@ -67,6 +71,7 @@ class UserProfile {
     String? domainId,
     String? bio,
     String? avatarUrl,
+    String? coverUrl,
     List<Map<String, dynamic>>? experience,
     List<Map<String, dynamic>>? education,
     List<Map<String, dynamic>>? projects,
@@ -81,6 +86,7 @@ class UserProfile {
       domainId: domainId ?? this.domainId,
       bio: bio ?? this.bio,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      coverUrl: coverUrl ?? this.coverUrl,
       experience: experience ?? this.experience,
       education: education ?? this.education,
       projects: projects ?? this.projects,

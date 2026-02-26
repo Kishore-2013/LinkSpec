@@ -74,9 +74,9 @@ class _PostCardState extends State<PostCard> {
   @override
   Widget build(BuildContext context) {
     return ClayContainer(
-      borderRadius: 40,
-      depth: 10,
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+      borderRadius: 14,
+      depth: 3,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -140,19 +140,17 @@ class _PostCardState extends State<PostCard> {
                   onTap: () => setState(() => _isFollowing = !_isFollowing),
                   child: Container(
                     padding: EdgeInsets.symmetric(
-                      horizontal: MediaQuery.of(context).size.width < 400 ? 8 : 14,
-                      vertical: 7,
+                      horizontal: MediaQuery.of(context).size.width < 400 ? 8 : 12,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
                       color: _isFollowing
-                          ? const Color(0xFFDEEAFF)
-                          : const Color(0xFFF0F4FF),
+                          ? const Color(0xFF0066CC).withOpacity(0.08)
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: _isFollowing
-                            ? const Color(0xFF1565C0)
-                            : const Color(0xFFBFD0EE),
-                        width: 1.2,
+                        color: const Color(0xFF0066CC),
+                        width: 1,
                       ),
                     ),
                     child: Row(
@@ -161,14 +159,14 @@ class _PostCardState extends State<PostCard> {
                         Icon(
                           _isFollowing ? Icons.check : Icons.add,
                           size: 14,
-                          color: const Color(0xFF1565C0),
+                          color: const Color(0xFF0066CC),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           _isFollowing ? 'Following' : 'Connect',
                           style: const TextStyle(
-                            color: Color(0xFF1565C0),
-                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0066CC),
+                            fontWeight: FontWeight.w600,
                             fontSize: 12,
                           ),
                         ),
@@ -184,11 +182,8 @@ class _PostCardState extends State<PostCard> {
           _buildPostContent(widget.post.content),
           const SizedBox(height: 20),
           // Divider
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
-            child: Divider(height: 1, thickness: 1, color: Color(0xFFDDE8F5)),
-          ),
-          const SizedBox(height: 10),
+          Divider(height: 1, thickness: 0.5, color: Colors.grey[200]),
+          const SizedBox(height: 8),
           // Actions: Like, Comment, Share, Save
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -197,6 +192,7 @@ class _PostCardState extends State<PostCard> {
               children: [
                 _buildActionBtn(
                   icon: _isLiked ? Icons.thumb_up_alt : Icons.thumb_up_alt_outlined,
+                  emoji: _isLiked ? '👍' : '🤍',
                   label: 'Like',
                   count: _likeCount,
                   active: _isLiked,
@@ -204,17 +200,20 @@ class _PostCardState extends State<PostCard> {
                 ),
                 _buildActionBtn(
                   icon: Icons.mode_comment_outlined,
+                  emoji: '💬',
                   label: 'Comment',
                   count: _commentCount,
                   onTap: _handleComment,
                 ),
                 _buildActionBtn(
                   icon: Icons.share_outlined,
+                  emoji: '🔗',
                   label: 'Share',
                   onTap: _handleShare,
                 ),
                 _buildActionBtn(
                   icon: _isSaved ? Icons.bookmark : Icons.bookmark_border_outlined,
+                  emoji: _isSaved ? '🔖' : '📌',
                   label: _isSaved ? 'Saved' : 'Save',
                   active: _isSaved,
                   onTap: _handleSave,
@@ -356,39 +355,49 @@ class _PostCardState extends State<PostCard> {
 
   Widget _buildActionBtn({
     required IconData icon,
+    required String emoji,
     required String label,
     int count = 0,
     bool active = false,
     VoidCallback? onTap,
   }) {
-    final color = active ? const Color(0xFF1565C0) : const Color(0xFF4A6FA5);
-    final bgColor = active ? const Color(0xFFDEEAFF) : const Color(0xFFF0F4FF);
+    final color = active ? const Color(0xFF0066CC) : const Color(0xFF65676B);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 480;
 
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: active ? const Color(0xFF1565C0) : const Color(0xFFBFD0EE),
-            width: 1.2,
-          ),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 8 : 10,
+          vertical: 8,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 5),
-            Text(
-              count > 0 ? '$label  $count' : label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w700,
-                fontSize: 12.5,
+            Icon(icon, size: isMobile ? 18 : 20, color: color),
+            if (!isMobile) ...[
+              const SizedBox(width: 5),
+              Text(
+                count > 0 ? '$label  $count' : label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                ),
               ),
-            ),
+            ] else if (count > 0) ...[
+              const SizedBox(width: 3),
+              Text(
+                '$count',
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ],
         ),
       ),

@@ -79,18 +79,17 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
           onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
         ),
         title: ClayContainer(
-          borderRadius: 30,
-          depth: -5,
+          borderRadius: 12,
           emboss: true,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
           margin: const EdgeInsets.only(right: 16, top: 4, bottom: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: TextField(
             controller: _searchController,
             autofocus: true,
             decoration: const InputDecoration(
               hintText: 'Search posts or people...',
               border: InputBorder.none,
-              hintStyle: TextStyle(fontSize: 14),
+              hintStyle: TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
             ),
             onSubmitted: _performSearch,
           ),
@@ -171,9 +170,19 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
                     context, 
                     MaterialPageRoute(builder: (_) => MemberProfileScreen(userId: person['id']))
                   ),
-                  child: ClayContainer(
-                    borderRadius: 20,
-                    depth: 5,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE8EAED), width: 0.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 6,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
                     padding: const EdgeInsets.all(12),
                     child: Row(
                       children: [

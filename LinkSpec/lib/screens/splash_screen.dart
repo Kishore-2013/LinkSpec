@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 import '../widgets/aw_logo.dart';
 
 /// Splash Screen - Determines initial route based on auth state
@@ -13,6 +14,8 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
+  StreamSubscription<AuthState>? _authSub;
+  bool _hasRedirected = false;
 
   @override
   void initState() {
@@ -28,19 +31,36 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     );
     
     _controller.forward();
+
+    // INTERCEPT: If the URL indicates a recovery attempt, jump to reset page immediately 
+    // and stop the normal login redirect.
+    final uri = Uri.base;
+    final isRecovery = uri.queryParameters.containsKey('code') || 
+                       uri.fragment.contains('code=') ||
+                       uri.fragment.contains('type=recovery');
+
+    if (isRecovery) {
+      _hasRedirected = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushReplacementNamed('/reset-password');
+      });
+      return;
+    }
+
     _redirect();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _authSub?.cancel();
     super.dispose();
   }
 
   Future<void> _redirect() async {
     await Future.delayed(const Duration(seconds: 2));
 
-    if (!mounted) return;
+    if (!mounted || _hasRedirected) return;
 
     final session = Supabase.instance.client.auth.currentSession;
 

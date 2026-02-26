@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../config/app_l10n.dart';
 import '../providers/theme_provider.dart';
 import '../services/supabase_service.dart';
 
@@ -12,20 +13,19 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  String _selectedCategory = 'Account preferences';
+  String _selectedCategory = 'account_prefs';
   final List<Map<String, dynamic>> _categories = [
-    {'title': 'Account preferences', 'icon': Icons.person_outlined},
-    {'title': 'Sign in & security', 'icon': Icons.lock_outlined},
-    {'title': 'Visibility', 'icon': Icons.visibility_outlined},
-    {'title': 'Notifications', 'icon': Icons.notifications_none},
+    {'key': 'account_prefs', 'icon': Icons.person_outlined},
+    {'key': 'sign_security', 'icon': Icons.lock_outlined},
+    {'key': 'visibility',    'icon': Icons.visibility_outlined},
+    {'key': 'notifications', 'icon': Icons.notifications_none},
   ];
 
   bool _darkMode = false;
-  bool _autoplay = true;
-  bool _soundEffects = true;
   bool _twoFactor = false;
-  String _language = 'English';
   String _profileVisibility = 'All members';
+  bool _syncContacts = false;
+  bool _personalizedAds = true;
 
   // Visibility & Activity toggles
   bool _activeStatus = true;
@@ -48,10 +48,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize local state from provider
     _darkMode = ref.read(themeProvider);
     _loadInitialProfileData();
   }
+
+  /// Shorthand translator using the currently selected language.
+  String _t(String key) => AppL10n.t(key, ref.watch(languageProvider));
 
   Future<void> _loadInitialProfileData() async {
     try {
@@ -65,7 +67,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _industryController.text = profile['industry'] as String? ?? 'Technology';
       }
     } catch (e) {
-      print('Error loading profile: $e');
+      debugPrint('Error loading profile: $e');
     }
   }
 
@@ -78,9 +80,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         bio: _headlineController.text,
         industry: _industryController.text,
       );
-      
-      // Update industry as well (need to check if updateProfile supports it or if we need a custom call)
-      // For now, focusing on the fields supported by updateProfile
       
       if (mounted) {
         _showFeedback('Profile updated successfully');
@@ -177,7 +176,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_selectedCategory, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.titleLarge?.color)),
+                    Text(_t(_selectedCategory), style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.titleLarge?.color)),
                     const SizedBox(height: 16),
                     _buildCategoryContent(),
                   ],
@@ -193,13 +192,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _buildMobileLayout() {
     return ListView(
       children: _categories.map((cat) {
+        final key = cat['key'] as String;
         return ListTile(
           leading: Icon(cat['icon']),
-          title: Text(cat['title']),
+          title: Text(_t(key)),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
             setState(() {
-              _selectedCategory = cat['title'];
+              _selectedCategory = key;
             });
             Navigator.push(
               context,
@@ -207,7 +207,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 builder: (context) => Scaffold(
                   backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                   appBar: AppBar(
-                    title: Text(cat['title'], style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
+                    title: Text(_t(key), style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color)),
                     backgroundColor: Colors.transparent,
                     elevation: 0,
                     surfaceTintColor: Colors.transparent,
@@ -223,9 +223,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _buildCategoryTile(Map<String, dynamic> category) {
-    final bool isSelected = _selectedCategory == category['title'];
+    final key = category['key'] as String;
+    final bool isSelected = _selectedCategory == key;
     return InkWell(
-      onTap: () => setState(() => _selectedCategory = category['title']),
+      onTap: () => setState(() => _selectedCategory = key),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
@@ -242,7 +243,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Icon(category['icon'], color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).hintColor),
             const SizedBox(width: 12),
             Text(
-              category['title'],
+              _t(key),
               style: TextStyle(
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).hintColor,
@@ -256,13 +257,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildCategoryContent() {
     switch (_selectedCategory) {
-      case 'Account preferences':
+      case 'account_prefs':
         return _buildAccountPreferences();
-      case 'Sign in & security':
+      case 'sign_security':
         return _buildSignInSecurity();
-      case 'Visibility':
+      case 'visibility':
         return _buildVisibility();
-      case 'Notifications':
+      case 'notifications':
         return _buildNotifications();
       default:
         return const SizedBox.shrink();
@@ -323,14 +324,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _buildAccountPreferences() {
     return Column(
       children: [
-        _buildSection('Profile information', [
-          _buildSettingTile('Name, location, and industry', onTap: () => _navigateToDetail('Name, location, and industry', _buildProfileEditForm())),
+        _buildSection(_t('profile_info'), [
+          _buildSettingTile(_t('full_name'), onTap: () => _navigateToDetail(_t('full_name'), _buildProfileEditForm())),
           _buildSettingTile('Personal demographic information', onTap: () => _navigateToDetail('Demographics', _buildDemographicsForm())),
           _buildSettingTile('Verifications', onTap: () => _navigateToDetail('Verifications', _buildVerificationsList())),
         ]),
-        _buildSection('Display', [
+        _buildSection(_t('display'), [
           _buildSettingTile(
-            'Dark mode',
+            _t('dark_mode'),
             trailingWidget: Switch(
               value: ref.watch(themeProvider),
               onChanged: (val) {
@@ -341,26 +342,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ]),
-        _buildSection('General preferences', [
-          _buildSettingTile('Language', trailing: _language, onTap: () => _showLanguagePicker()),
-          _buildSettingTile('Content language', trailing: 'English', onTap: () => _showLanguagePicker()),
+        _buildSection(_t('gen_prefs'), [
           _buildSettingTile(
-            'Autoplay videos',
+            'Sync contacts',
             trailingWidget: Switch(
-              value: _autoplay,
-              onChanged: (val) => setState(() => _autoplay = val),
+              value: _syncContacts,
+              onChanged: (val) => setState(() => _syncContacts = val),
               activeColor: Colors.blue[700],
             ),
           ),
           _buildSettingTile(
-            'Sound effects',
+            'Personalized ads',
             trailingWidget: Switch(
-              value: _soundEffects,
-              onChanged: (val) => setState(() => _soundEffects = val),
+              value: _personalizedAds,
+              onChanged: (val) => setState(() => _personalizedAds = val),
               activeColor: Colors.blue[700],
             ),
           ),
-          _buildSettingTile('Showing profile photos', trailing: _profileVisibility, onTap: () => _showVisibilityPicker()),
+          _buildSettingTile(_t('profile_photo'), trailing: _t(_profileVisibility == 'All members' ? 'all_members' : _profileVisibility == 'My network' ? 'my_network' : 'only_me'), onTap: () => _showVisibilityPicker()),
         ]),
         const SizedBox(height: 20),
         Padding(
@@ -375,7 +374,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               ),
-              child: const Text('Sign out', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(_t('sign_out'), style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ),
@@ -421,30 +420,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
-    );
-  }
-
-  void _showLanguagePicker() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: ['English', 'Spanish', 'French', 'German', 'Hindi'].map((lang) {
-              return ListTile(
-                title: Text(lang),
-                onTap: () {
-                  setState(() => _language = lang);
-                  Navigator.pop(context);
-                },
-                trailing: _language == lang ? Icon(Icons.check, color: Colors.blue[700]) : null,
-              );
-            }).toList(),
-          ),
-        );
-      },
     );
   }
 
@@ -752,4 +727,3 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 }
-

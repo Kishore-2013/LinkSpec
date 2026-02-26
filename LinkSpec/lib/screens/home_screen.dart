@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:ui';
 import '../services/supabase_service.dart';
 import '../models/post.dart';
 import '../models/user_profile.dart';
@@ -24,6 +23,7 @@ import 'settings_screen.dart';
 import 'groups_screen.dart';
 import 'events_screen.dart';
 import '../widgets/aw_logo.dart';
+import '../widgets/skeleton_loader.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'dart:async';
 
@@ -38,9 +38,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _scrollController = ScrollController();
+  // ── Pagination ─────────────────────────────────────────────────────────────
+  static const int _pageSize = 10;   // posts shown per page
+  int _currentPage = 0;              // current page index (0-based)
+  bool _hasNextPage = false;         // true when there might be more posts
+  // Only _pageSize posts are kept at a time (no accumulation)
   List<Post> _posts = [];
   UserProfile? _currentUserProfile;
   bool _isLoading = true;
+  bool _isLoadingMore = false;       // true while fetching next/prev page
 
   // Sidebar groups — loaded dynamically
   List<Group> _sidebarGroups = [];
@@ -130,26 +136,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Future<void> _loadPosts({String? domain}) async {
+  /// Loads posts for [page] (0-based). Keeps only [_pageSize] in memory.
+  Future<void> _loadPosts({String? domain, int page = 0}) async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = page == 0;
+      _isLoadingMore = page != 0;
+    });
     try {
-      // Use the passed domain or fall back to what's currently selected in the UI
       final targetDomain = domain ?? _selectedDomain;
+      // Fetch one extra post so we know whether a next page exists
       final postsData = await SupabaseService.getPosts(
-        limit: 20,
-        offset: 0,
+        limit: _pageSize + 1,
+        offset: page * _pageSize,
         domain: targetDomain,
       );
       if (mounted) {
+        final hasMore = postsData.length > _pageSize;
+        final pagePosts = hasMore ? postsData.take(_pageSize).toList() : postsData;
         setState(() {
-          _posts = postsData.map((data) => Post.fromJson(data)).toList();
+          _currentPage = page;
+          _hasNextPage = hasMore;
+          // Replace the cache — only current page lives in memory
+          _posts = pagePosts.map((data) => Post.fromJson(data)).toList();
           _isLoading = false;
+          _isLoadingMore = false;
         });
       }
     } catch (e) {
       debugPrint('Error loading posts: $e');
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isLoadingMore = false;
+        });
+      }
+    }
+  }
+
+  /// Go to the next page of posts.
+  Future<void> _loadNextPage() async {
+    await _loadPosts(page: _currentPage + 1);
+    // Scroll back to top of feed
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  /// Go to the previous page of posts.
+  Future<void> _loadPrevPage() async {
+    if (_currentPage == 0) return;
+    await _loadPosts(page: _currentPage - 1);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -167,7 +214,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _refreshPosts() async {
-    await _loadPosts();
+    // Always refresh from page 0
+    await _loadPosts(page: 0);
     await _loadGroups();
   }
 
@@ -177,9 +225,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
+      backgroundColor: const Color(0xFFF5F5F7),
       drawer: isMobile
           ? Drawer(
-              backgroundColor: const Color(0xFFD9E9FF),
+              backgroundColor: Colors.white,
               child: SafeArea(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -188,113 +237,132 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             )
           : null,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFD9E9FF),
-              Color(0xFFB4DAFF),
-              Color(0xFFD9E9FF),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              _buildHeader(isMobile),
+              Expanded(
+                child: !isMobile 
+                  ? Transform(
+                      transform: Matrix4.identity()
+                        ..setEntry(3, 2, 0.0005) // subtle perspective
+                        ..rotateY(-0.06) // tilt right
+                        ..rotateX(0.04), // tilt up
+                      alignment: Alignment.center,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Left Sidebar (Desktop/Wide)
+                          if (MediaQuery.of(context).size.width > 900)
+                            SizedBox(
+                              width: 300,
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.fromLTRB(16, 12, 8, 100),
+                                child: _buildLeftSideBar(),
+                              ),
+                            ),
+                          // Main Content
+                          Expanded(
+                            child: IndexedStack(
+                              index: _currentIndex,
+                              children: [
+                                _buildHomeFeed(),      // 0
+                                SearchScreen(          // 1
+                                  onBack: () => setState(() => _currentIndex = 0),
+                                ),
+                                NetworkScreen(         // 2
+                                  onBack: () => setState(() => _currentIndex = 0),
+                                  onSearch: () => setState(() => _currentIndex = 1),
+                                ),
+                                MessagesListScreen(    // 3
+                                  onBack: () => setState(() => _currentIndex = 0),
+                                  onSearch: () => setState(() => _currentIndex = 1),
+                                ),
+                                ProfileScreen(         // 4
+                                  onBack: () => setState(() => _currentIndex = 0),
+                                ),
+                                NotificationsScreen(   // 5
+                                  onBack: () => setState(() => _currentIndex = 0),
+                                  onRefreshBadges: _loadBadgeCounts,
+                                ),
+                                RecentActivityScreen(  // 6
+                                  onBack: () => setState(() => _currentIndex = 0),
+                                ),
+                                SavedItemsScreen(      // 7
+                                  onBack: () => setState(() => _currentIndex = 0),
+                                ),
+                                SettingsScreen(        // 8
+                                  onBack: () => setState(() => _currentIndex = 0),
+                                ),
+                                GroupsScreen(          // 9
+                                  onBack: () => setState(() => _currentIndex = 0),
+                                ),
+                                EventsScreen(          // 10
+                                  onBack: () => setState(() => _currentIndex = 0),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Right Sidebar (Desktop/Wide)
+                          if (MediaQuery.of(context).size.width > 1200)
+                            SizedBox(
+                              width: 360,
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.fromLTRB(8, 12, 16, 100),
+                                child: _buildRightSideBar(),
+                              ),
+                            ),
+                        ],
+                      ),
+                    )
+                  : Row( // Mobile keeps flat row for better UX
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: IndexedStack(
+                            index: _currentIndex,
+                            children: [
+                              _buildHomeFeed(),
+                              SearchScreen(onBack: () => setState(() => _currentIndex = 0)),
+                              NetworkScreen(onBack: () => setState(() => _currentIndex = 0), onSearch: () => setState(() => _currentIndex = 1)),
+                              MessagesListScreen(onBack: () => setState(() => _currentIndex = 0), onSearch: () => setState(() => _currentIndex = 1)),
+                              ProfileScreen(onBack: () => setState(() => _currentIndex = 0)),
+                              NotificationsScreen(onBack: () => setState(() => _currentIndex = 0), onRefreshBadges: _loadBadgeCounts),
+                              RecentActivityScreen(onBack: () => setState(() => _currentIndex = 0)),
+                              SavedItemsScreen(onBack: () => setState(() => _currentIndex = 0)),
+                              SettingsScreen(onBack: () => setState(() => _currentIndex = 0)),
+                              GroupsScreen(onBack: () => setState(() => _currentIndex = 0)),
+                              EventsScreen(onBack: () => setState(() => _currentIndex = 0)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+              ),
             ],
           ),
-        ),
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                _buildHeader(isMobile),
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Left Sidebar (Desktop/Wide)
-                      if (MediaQuery.of(context).size.width > 900)
-                        SizedBox(
-                          width: 320,
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(24, 8, 8, 100),
-                            child: _buildLeftSideBar(),
-                          ),
-                        ),
-                      
-                      // Main Content
-                      Expanded(
-                        child: IndexedStack(
-                          index: _currentIndex,
-                          children: [
-                            _buildHomeFeed(),      // 0
-                            SearchScreen(          // 1
-                              onBack: () => setState(() => _currentIndex = 0),
-                            ),
-                            NetworkScreen(         // 2
-                              onBack: () => setState(() => _currentIndex = 0),
-                              onSearch: () => setState(() => _currentIndex = 1),
-                            ),
-                            MessagesListScreen(    // 3
-                              onBack: () => setState(() => _currentIndex = 0),
-                              onSearch: () => setState(() => _currentIndex = 1),
-                            ),
-                            ProfileScreen(         // 4
-                              onBack: () => setState(() => _currentIndex = 0),
-                            ),
-                            NotificationsScreen(   // 5
-                              onBack: () => setState(() => _currentIndex = 0),
-                              onRefreshBadges: _loadBadgeCounts,
-                            ),
-                            RecentActivityScreen(  // 6
-                              onBack: () => setState(() => _currentIndex = 0),
-                            ),
-                            SavedItemsScreen(      // 7
-                              onBack: () => setState(() => _currentIndex = 0),
-                            ),
-                            SettingsScreen(        // 8
-                              onBack: () => setState(() => _currentIndex = 0),
-                            ),
-                            GroupsScreen(          // 9
-                              onBack: () => setState(() => _currentIndex = 0),
-                            ),
-                            EventsScreen(          // 10
-                              onBack: () => setState(() => _currentIndex = 0),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      // Right Sidebar (Desktop/Wide)
-                      if (MediaQuery.of(context).size.width > 1200)
-                        SizedBox(
-                          width: 400,
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(24, 12, 24, 100),
-                            child: _buildRightSideBar(),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            
-            // Floating Bottom Nav Pill
-            Positioned(
-              bottom: 24,
-              left: 0,
-              right: 0,
-              child: Center(child: _buildBottomNavPill()),
-            ),
-          ],
-        ),
+          // Floating Bottom Nav Pill
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: Center(child: _buildBottomNavPill()),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildHeader(bool isMobile) {
     return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
+      ),
       padding: EdgeInsets.symmetric(
         horizontal: isMobile ? 12 : 24,
-        vertical: isMobile ? 12 : 16,
+        vertical: isMobile ? 10 : 12,
       ),
       child: SafeArea(
         bottom: false,
@@ -303,19 +371,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             if (isMobile)
               Builder(
                 builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu_rounded, color: Color(0xFF003366)),
+                  icon: const Icon(Icons.menu_rounded, color: Color(0xFF1C1C1E)),
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
-            const AWLogo(size: 36),
+            const AWLogo(size: 30),
             if (!isMobile) ...[
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               const Text(
                 'LinkSpec',
                 style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF003366),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1C1C1E),
                   letterSpacing: -0.5,
                 ),
               ),
@@ -324,51 +392,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // Domain Switch Pill
             GestureDetector(
               onTap: _isSwitchingDomain ? null : _showDomainSwitcher,
-              child: ClayContainer(
-                borderRadius: 20,
-                depth: 6,
+              child: Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 10 : 16,
-                  vertical: 8,
+                  horizontal: isMobile ? 10 : 14,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F0F5),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (_isSwitchingDomain)
                       const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue),
+                        width: 12, height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0066CC)),
                       )
                     else
-                      const Icon(Icons.swap_horiz, size: 18, color: Colors.blue),
-                    const SizedBox(width: 6),
+                      const Icon(Icons.swap_horiz, size: 16, color: Color(0xFF0066CC)),
+                    const SizedBox(width: 5),
                     Text(
                       _selectedDomain,
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                        fontSize: isMobile ? 12 : 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0066CC),
+                        fontSize: isMobile ? 12 : 13,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            // Notifications Bell (top bar)
+            const SizedBox(width: 8),
+            // Notifications Bell
             Stack(
               clipBehavior: Clip.none,
               children: [
-                _buildRoundIcon(Icons.notifications_none, onTap: () async {
+                _buildHeaderIcon(Icons.notifications_none_rounded, onTap: () async {
                   setState(() {
-                    _currentIndex = 5;  // Notifications is index 5
+                    _currentIndex = 5;
                     _unreadNotifications = 0;
                     _lastNotificationClear = DateTime.now();
                   });
                   try {
                     await SupabaseService.markAllNotificationsAsRead();
-                    debugPrint('Successfully marked notifications as read');
                     await _loadBadgeCounts();
                   } catch (e) {
                     debugPrint('Failed to mark notifications as read: $e');
@@ -376,44 +444,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 }),
                 if (_unreadNotifications > 0)
                   Positioned(
-                    right: 0,
-                    top: 0,
+                    right: 2,
+                    top: 2,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      width: 8, height: 8,
                       decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                      child: Text(_unreadNotifications.toString(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                     ),
                   ),
               ],
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             // Logout Button
-            _buildRoundIcon(Icons.logout_rounded, onTap: () async {
+            _buildHeaderIcon(Icons.logout_rounded, onTap: () async {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                  backgroundColor: const Color(0xFFE8F4FF),
-                  title: const Text(
-                    'Log out?',
-                    style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF003366)),
-                  ),
-                  content: const Text(
-                    'Are you sure you want to log out of LinkSpec?',
-                    style: TextStyle(color: Color(0xFF4A6FA5)),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: const Text('Log out?', style: TextStyle(fontWeight: FontWeight.w700)),
+                  content: const Text('Are you sure you want to log out of LinkSpec?'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(false),
-                      child: const Text('Cancel', style: TextStyle(color: Color(0xFF4A6FA5), fontWeight: FontWeight.w600)),
+                      child: const Text('Cancel'),
                     ),
-                    ElevatedButton(
+                    TextButton(
                       onPressed: () => Navigator.of(ctx).pop(true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1565C0),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
                       child: const Text('Log out', style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ],
@@ -422,38 +478,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (confirmed == true && mounted) {
                 try {
                   await Supabase.instance.client.auth.signOut();
-                  if (mounted) {
-                    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-                  }
+                  if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
                 } catch (e) {
                   debugPrint('Logout error: $e');
                 }
               }
             }),
-
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRoundIcon(IconData icon, {VoidCallback? onTap}) {
+  Widget _buildHeaderIcon(IconData icon, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
-      child: ClayContainer(
-        borderRadius: 100,
-        depth: 6,
-        child: Container(
-          padding: EdgeInsets.all(MediaQuery.of(context).size.width <= 900 ? 8 : 12),
-          child: Icon(
-            icon,
-            color: Colors.blue[800],
-            size: MediaQuery.of(context).size.width <= 900 ? 20 : 24,
-          ),
-        ),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        child: Icon(icon, color: const Color(0xFF1C1C1E), size: 22),
       ),
     );
   }
+
+  // Keep old name as alias so nothing breaks
+  Widget _buildRoundIcon(IconData icon, {VoidCallback? onTap}) => _buildHeaderIcon(icon, onTap: onTap);
 
   Widget _buildHomeFeed() {
     return CustomScrollView(
@@ -466,27 +514,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Column(
               children: [
                 _buildStartPostBox(),
-                const SizedBox(height: 24),
-                if (_isLoading)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 40),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_posts.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 60),
-                    child: Center(child: Text('No posts yet in this domain.')),
-                  ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
         ),
 
-        // Posts — lazy builder: only builds what is actually scrolled into view
-        // so _recordImpression() in PostCard.initState fires only for visible cards.
-        if (!_isLoading && _posts.isNotEmpty)
+        // Skeleton shown while initial loading
+        if (_isLoading)
+          const SliverPadding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 120),
+            sliver: SliverToBoxAdapter(
+              child: HomeSkeletonLoader(),
+            ),
+          )
+        else if (_posts.isEmpty)
+          SliverFillRemaining(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('No posts yet in this domain.'),
+                  if (_currentPage > 0) ...[
+                    const SizedBox(height: 16),
+                    _buildPaginationBar(),
+                  ],
+                ],
+              ),
+            ),
+          )
+        else ...[
+          // ── Post list ────────────────────────────────────────────────────
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) => Padding(
@@ -497,46 +557,137 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ),
+
+          // ── Pagination bar ───────────────────────────────────────────────
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+            sliver: SliverToBoxAdapter(
+              child: _buildPaginationBar(),
+            ),
+          ),
+        ],
       ],
     );
   }
 
+  /// Builds the Previous / page-info / Load More row.
+  Widget _buildPaginationBar() {
+    final isMobile = MediaQuery.of(context).size.width <= 600;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedOpacity(
+            opacity: _currentPage > 0 ? 1.0 : 0.3,
+            duration: const Duration(milliseconds: 200),
+            child: _isLoadingMore
+                ? const SizedBox.shrink()
+                : TextButton.icon(
+                    onPressed: _currentPage > 0 ? _loadPrevPage : null,
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 13),
+                    label: isMobile ? const SizedBox.shrink() : const Text('Previous'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF0066CC),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12),
+            child: _isLoadingMore
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F0F5),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Page ${_currentPage + 1}',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1C1C1E)),
+                    ),
+                  ),
+          ),
+          AnimatedOpacity(
+            opacity: _hasNextPage ? 1.0 : 0.3,
+            duration: const Duration(milliseconds: 200),
+            child: _isLoadingMore
+                ? const SizedBox.shrink()
+                : TextButton.icon(
+                    onPressed: _hasNextPage ? _loadNextPage : null,
+                    icon: isMobile ? const SizedBox.shrink() : const Text('Next'),
+                    label: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF0066CC),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStartPostBox() {
-    return ClayContainer(
-      borderRadius: 40,
-      depth: 10,
-      padding: const EdgeInsets.all(20),
+    final isMobile = MediaQuery.of(context).size.width < 480;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E5EA)),
+      ),
+      padding: EdgeInsets.all(isMobile ? 14 : 16),
       child: Column(
         children: [
           Row(
             children: [
               CircleAvatar(
-                radius: 24,
-                backgroundColor: Colors.white,
-                backgroundImage: _currentUserProfile?.avatarUrl != null ? NetworkImage(_currentUserProfile!.avatarUrl!) : null,
+                radius: isMobile ? 20 : 22,
+                backgroundColor: const Color(0xFFE5E5EA),
+                backgroundImage: _currentUserProfile?.avatarUrl != null
+                    ? NetworkImage(_currentUserProfile!.avatarUrl!)
+                    : null,
+                child: _currentUserProfile?.avatarUrl == null
+                    ? Text(
+                        (_currentUserProfile?.fullName ?? 'U').substring(0, 1).toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E)),
+                      )
+                    : null,
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: isMobile ? 10 : 12),
               Expanded(
                 child: GestureDetector(
                   onTap: () => _showCreatePostDialog(),
-                  child: ClayContainer(
-                    borderRadius: 30,
-                    depth: -6, // Inset feel
-                    emboss: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    child: Text('Start a post', style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w600)),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 14 : 16,
+                      vertical: isMobile ? 10 : 11,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F5F7),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFFE5E5EA)),
+                    ),
+                    child: Text(
+                      'Start a post...',
+                      style: TextStyle(color: Colors.grey[500], fontSize: isMobile ? 13 : 14),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: Color(0xFFE5E5EA)),
+          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildPostTypeBtn(Icons.image, 'Media', Colors.blue),
-              _buildPostTypeBtn(Icons.calendar_month, 'Event', Colors.orange),
-              _buildPostTypeBtn(Icons.article, 'Write article', Colors.orange[800]!),
+              _buildPostTypeBtn(Icons.image_outlined, 'Media', const Color(0xFF0066CC)),
+              _buildPostTypeBtn(Icons.calendar_month_outlined, 'Event', const Color(0xFFFF9500)),
+              _buildPostTypeBtn(Icons.article_outlined, 'Article', const Color(0xFFFF6B00)),
             ],
           ),
         ],
@@ -555,17 +706,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildPostTypeBtn(IconData icon, String label, Color color) {
+    final isMobile = MediaQuery.of(context).size.width < 480;
     return InkWell(
       onTap: () => _showCreatePostDialog(),
-      child: ClayContainer(
-        borderRadius: 15,
-        depth: 4,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            Icon(icon, color: color, size: isMobile ? 16 : 18),
+            SizedBox(width: isMobile ? 4 : 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: isMobile ? 12 : 13,
+                color: const Color(0xFF1C1C1E),
+              ),
+            ),
           ],
         ),
       ),
@@ -579,8 +738,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         GestureDetector(
           onTap: () => setState(() => _currentIndex = 4),
           child: ClayContainer(
-            borderRadius: 30,
-            depth: 8,
+            borderRadius: 16,
+            depth: 3,
             // Use a Stack so the avatar overlaps the cover INSIDE the container bounds
             child: Stack(
               clipBehavior: Clip.none,
@@ -589,21 +748,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Cover gradient — clipped to top rounded corners only
+                    // Cover photo — real image or gradient fallback
                     ClipRRect(
                       borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(30),
-                        topRight: Radius.circular(30),
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
                       ),
-                      child: Container(
-                        height: 72,
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFFFFB4DA), Color(0xFFB4DAFF)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
+                      child: SizedBox(
+                        height: 120,
+                        width: double.infinity,
+                        child: _currentUserProfile?.coverUrl != null
+                            ? Image.network(
+                                _currentUserProfile!.coverUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => _buildCoverGradient(),
+                              )
+                            : _buildCoverGradient(),
                       ),
                     ),
                     // Space for avatar (radius 40 = 80px, half overlapping = 40px below cover)
@@ -637,7 +797,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 // ── Avatar — Positioned to overlap the cover/body boundary ──
                 Positioned(
-                  top: 72 - 40, // cover height minus half the avatar = 32
+                  top: 120 - 40, // cover height minus half the avatar radius = 80
                   left: 0,
                   right: 0,
                   child: Center(
@@ -742,11 +902,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// Fallback gradient shown when no cover photo is uploaded.
+  Widget _buildCoverGradient() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFFFB4DA), Color(0xFFB4DAFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+    );
+  }
+
   Widget _buildSidebarGroup(List<Widget> items) {
     return ClayContainer(
-      borderRadius: 25,
-      depth: 6,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      borderRadius: 12,
+      depth: 2,
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(children: items),
     );
   }
@@ -802,97 +975,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
+        ClayContainer(
+          borderRadius: 14,
+          depth: 5,
           margin: const EdgeInsets.fromLTRB(8, 8, 4, 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE3F2FF),
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFABC8E8).withOpacity(0.7),
-                offset: const Offset(6, 6),
-                blurRadius: 16,
-                spreadRadius: 1,
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _selectedDomain,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Color(0xFF1C1C1E)),
+                  ),
+                  Row(children: [
+                    Icon(Icons.menu, size: 18, color: Colors.grey[500]),
+                    const SizedBox(width: 8),
+                    Icon(Icons.edit_note, size: 18, color: Colors.grey[500]),
+                  ]),
+                ],
               ),
-              const BoxShadow(
-                color: Colors.white,
-                offset: Offset(-6, -6),
-                blurRadius: 16,
-                spreadRadius: 1,
+              const SizedBox(height: 18),
+              Text('Trending tags', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.grey[700])),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildTag('#PreventiveCare'),
+                  _buildTag('#DigitalHealth'),
+                  _buildTag('#PatientAwareness'),
+                ],
               ),
             ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      _selectedDomain,
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1A2740)),
-                    ),
-                    Row(children: [
-                      Icon(Icons.menu, size: 20, color: Colors.blue[700]),
-                      const SizedBox(width: 8),
-                      Icon(Icons.edit_note, size: 20, color: Colors.blue[700]),
-                    ]),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const Text('Trending tags', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1A2740))),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildTag('#PreventiveCare'),
-                    _buildTag('#DigitalHealth'),
-                    _buildTag('#PatientAwareness'),
-                  ],
-                ),
-              ],
-            ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         // Suggested Discussions
-        Container(
+        ClayContainer(
+          borderRadius: 14,
+          depth: 5,
           margin: const EdgeInsets.fromLTRB(8, 0, 4, 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE3F2FF),
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFABC8E8).withOpacity(0.7),
-                offset: const Offset(6, 6),
-                blurRadius: 16,
-                spreadRadius: 1,
-              ),
-              const BoxShadow(
-                color: Colors.white,
-                offset: Offset(-6, -6),
-                blurRadius: 16,
-                spreadRadius: 1,
-              ),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Suggested Discussions', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Color(0xFF1C1C1E))),
+              const SizedBox(height: 14),
+              _buildDiscussionItem('The future of digital health in 2024', '150 comments'),
+              const SizedBox(height: 10),
+              _buildDiscussionItem('Healthy lifestyle tips for IT professionals', '36 comments'),
             ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Suggested Discussions', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1A2740))),
-                const SizedBox(height: 16),
-                _buildDiscussionItem('The future of digital health in 2024', '150 comments'),
-                const SizedBox(height: 12),
-                _buildDiscussionItem('Healthy lifestyle tips for IT professionals', '36 comments'),
-              ],
-            ),
           ),
         ),
       ],
@@ -900,37 +1037,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildTag(String label) {
-    return ClayContainer(
-      borderRadius: 15,
-      depth: 4,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8EAED), width: 0.5),
+      ),
+      child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: Colors.grey[700])),
     );
   }
 
   Widget _buildDiscussionItem(String title, String stats) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(8, 0, 4, 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFE3F2FF),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFABC8E8).withOpacity(0.7),
-            offset: const Offset(5, 5),
-            blurRadius: 12,
-            spreadRadius: 1,
-          ),
-          const BoxShadow(
-            color: Colors.white,
-            offset: Offset(-5, -5),
-            blurRadius: 12,
-            spreadRadius: 1,
-          ),
-        ],
+        color: const Color(0xFFF8F9FB),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8EAED), width: 0.5),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -941,25 +1067,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Color(0xFF1A2740),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Color(0xFF1C1C1E),
                     ),
                     softWrap: true,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.chat_bubble_outline, size: 13, color: Colors.grey),
-                      const SizedBox(width: 5),
-                      Text(stats, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                      Icon(Icons.chat_bubble_outline, size: 12, color: Colors.grey[400]),
+                      const SizedBox(width: 4),
+                      Text(stats, style: TextStyle(color: Colors.grey[500], fontSize: 11)),
                     ],
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.favorite_border, size: 20, color: Colors.blue),
+            Icon(Icons.favorite_border, size: 18, color: Colors.grey[400]),
           ],
         ),
       ),
@@ -970,9 +1096,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      backgroundColor: const Color(0xFFDCEDFF),
+      backgroundColor: Colors.white,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
@@ -982,9 +1108,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               Center(
                 child: Container(
-                  width: 40, height: 4,
+                  width: 36, height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.blue[200],
+                    color: Colors.grey[300],
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -992,7 +1118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 20),
               const Text(
                 'Switch Domain',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF003366)),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1C1C1E)),
               ),
               const SizedBox(height: 4),
               const Text(
@@ -1024,23 +1150,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       } catch (_) {
                         // Ignore DB write failure — cache is still updated
                       }
-                      // Reload feed and groups with new domain
-                      await _loadPosts();
+                      // Reload feed from page 0 with new domain
+                      await _loadPosts(page: 0);
                       await _loadGroups();
                       if (mounted) setState(() => _isSwitchingDomain = false);
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF1565C0) : const Color(0xFFF0F4FF),
+                        color: isSelected ? const Color(0xFF0066CC) : const Color(0xFFF5F5F7),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? const Color(0xFF1565C0) : const Color(0xFFBFD0EE),
-                          width: 1.5,
+                          color: isSelected ? const Color(0xFF0066CC) : const Color(0xFFE5E5EA),
+                          width: 1,
                         ),
                         boxShadow: isSelected
-                            ? [BoxShadow(color: const Color(0xFF1565C0).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))]
+                            ? [BoxShadow(color: const Color(0xFF0066CC).withOpacity(0.2), blurRadius: 6, offset: const Offset(0, 2))]
                             : [],
                       ),
                       child: Row(
@@ -1053,8 +1179,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Text(
                             d,
                             style: TextStyle(
-                              color: isSelected ? Colors.white : const Color(0xFF4A6FA5),
-                              fontWeight: FontWeight.w700,
+                              color: isSelected ? Colors.white : const Color(0xFF1C1C1E),
+                              fontWeight: FontWeight.w600,
                               fontSize: 14,
                             ),
                           ),
@@ -1075,47 +1201,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final bool isMobile = MediaQuery.of(context).size.width <= 900;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.3),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: Colors.white.withOpacity(0.5)),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(100),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: ClayContainer(
-            borderRadius: 100,
-            depth: 10,
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 6 : 12,
-              vertical: isMobile ? 6 : 8,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildNavIcon(Icons.home, 0),
-                _buildNavIcon(Icons.search, 1),
-                _buildNavIcon(Icons.groups_outlined, 2),
-                // Create Post Button
-                GestureDetector(
-                  onTap: () => _showCreatePostDialog(),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 8 : 14,
-                      vertical: 8,
-                    ),
-                    child: Icon(
-                      Icons.add_circle_outline_rounded,
-                      color: Colors.blue[400],
-                      size: isMobile ? 22 : 26,
-                    ),
-                  ),
-                ),
-                _buildNavIcon(Icons.mail_outline, 3, badge: _unreadMessages),
-                _buildNavIcon(Icons.person_pin, 4),
-              ],
-            ),
+        border: Border.all(color: const Color(0xFFE8EAED), width: 0.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 6 : 12,
+          vertical: isMobile ? 6 : 8,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildNavIcon(Icons.home, 0),
+            _buildNavIcon(Icons.search, 1),
+            _buildNavIcon(Icons.groups_outlined, 2),
+            // Create Post Button
+            GestureDetector(
+              onTap: () => _showCreatePostDialog(),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 8 : 14,
+                  vertical: 8,
+                ),
+                child: Icon(
+                  Icons.add_circle_outline_rounded,
+                  color: Colors.grey[400],
+                  size: isMobile ? 22 : 26,
+                ),
+              ),
+            ),
+            _buildNavIcon(Icons.mail_outline, 3, badge: _unreadMessages),
+            _buildNavIcon(Icons.person_pin, 4),
+          ],
         ),
       ),
     );
@@ -1141,7 +1266,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? Colors.blue[900] : Colors.blue[400],
+              color: isSelected ? const Color(0xFF0066CC) : Colors.grey[400],
               size: isMobile ? 22 : 26,
             ),
             if (badge > 0)
