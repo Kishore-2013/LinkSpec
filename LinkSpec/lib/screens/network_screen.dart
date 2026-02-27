@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/supabase_service.dart';
 import 'member_profile_screen.dart';
 import '../widgets/clay_container.dart';
@@ -128,16 +129,35 @@ class _NetworkScreenState extends State<NetworkScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _profiles.isEmpty
-              ? const Center(
-                  child: Text('No other professionals found in your domain yet.'),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _profiles.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Opacity(
+                    opacity: 0.4,
+                    child: SvgPicture.asset(
+                      'assets/svg/undraw_followers_m4z4.svg',
+                      width: 550,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _profiles.isEmpty
+                  ? const Center(
+                      child: Text('No other professionals found in your domain yet.'),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _profiles.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final profile = _profiles[index];
                     final targetId = profile['id'];
@@ -274,6 +294,8 @@ class _NetworkScreenState extends State<NetworkScreen> {
                     );
                   },
                 ),
+        ],
+      ),
     );
   }
 }

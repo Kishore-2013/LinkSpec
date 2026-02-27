@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/supabase_service.dart';
 import '../models/post.dart';
 import '../widgets/post_card.dart';
@@ -107,7 +108,29 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
             )
           : null,
       ),
-      body: _hasSearched ? _buildSearchResults() : _buildRecentSearches(),
+      body: Stack(
+        children: [
+          // Background Illustration
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Opacity(
+                    opacity: 0.4,
+                    child: SvgPicture.asset(
+                      'assets/svg/undraw_searching_no1g.svg',
+                      width: 450,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          _hasSearched ? _buildSearchResults() : _buildRecentSearches(),
+        ],
+      ),
     );
   }
 

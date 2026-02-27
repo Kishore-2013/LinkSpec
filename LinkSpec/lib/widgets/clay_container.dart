@@ -50,7 +50,7 @@ class ClayContainer extends StatelessWidget {
         padding: padding,
         margin: margin,
         decoration: BoxDecoration(
-          color: const Color(0xFFF2F4F7),
+          color: color,
           borderRadius: BorderRadius.circular(borderRadius),
           border: Border.all(color: const Color(0xFFCFD9E5), width: 1.5),
         ),
@@ -73,19 +73,19 @@ class ClayContainer extends StatelessWidget {
       padding: padding,
       margin: margin,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: color,
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(color: const Color(0xFFEBEEF2), width: 1),
         boxShadow: [
           // The "3D thickness" edge
           BoxShadow(
-            color: const Color(0xFFD1D9E6),
+            color: const Color(0xFFD1D9E6).withOpacity(color.opacity),
             offset: Offset(0, depth.clamp(0.0, 6.0)),
             blurRadius: 0,
           ),
           // The soft floating shadow
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withOpacity(0.06 * color.opacity),
             offset: Offset(0, depth + 4),
             blurRadius: 10,
           ),

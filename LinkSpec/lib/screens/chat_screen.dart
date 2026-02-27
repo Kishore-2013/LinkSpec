@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../widgets/post_card.dart';
@@ -122,12 +123,39 @@ class _ChatScreenState extends State<ChatScreen> {
                   : null,
             ),
             const SizedBox(width: 10),
-            Text(widget.otherUser['full_name'], style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color, fontSize: 18)),
+            Text(
+              widget.otherUser['full_name'],
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ),
       ),
-      body: Column(
+      body: Stack(
         children: [
+          // Background Illustration
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 80),
+                  child: Opacity(
+                    opacity: 0.4,
+                    child: SvgPicture.asset(
+                      'assets/svg/undraw_chatting_5u5z.svg',
+                      width: 400,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Column(
+            children: [
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -151,7 +179,6 @@ class _ChatScreenState extends State<ChatScreen> {
                               ),
                               margin: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
-                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
@@ -164,6 +191,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 borderRadius: BorderRadius.circular(16),
                                 child: PostCard(
                                   post: Post.fromJson(postData),
+                                  backgroundColor: Colors.white.withOpacity(0.3),
                                 ),
                               ),
                             ),
@@ -174,7 +202,9 @@ class _ChatScreenState extends State<ChatScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 10),
                               decoration: BoxDecoration(
-                                color: isMe ? Colors.blue : Theme.of(context).cardTheme.color,
+                                color: isMe 
+                                    ? Colors.blue.withOpacity(0.3) 
+                                    : (Theme.of(context).cardTheme.color ?? Colors.white).withOpacity(0.3),
                                 borderRadius: BorderRadius.only(
                                   topLeft: const Radius.circular(16),
                                   topRight: const Radius.circular(16),
@@ -195,9 +225,10 @@ class _ChatScreenState extends State<ChatScreen> {
                               ),
                               child: Text(
                                 msg['content'],
-                                style: TextStyle(
-                                  color: isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+                                style: const TextStyle(
+                                  color: Colors.black,
                                   fontSize: 15,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -205,7 +236,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: Text(
                               timeago.format(DateTime.parse(msg['created_at'])),
-                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                              style: TextStyle(fontSize: 10, color: Colors.black.withOpacity(0.6)),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -257,6 +288,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ],
             ),
+          ),
+            ],
           ),
         ],
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/supabase_service.dart';
 import '../config/app_constants.dart';
 
@@ -577,31 +578,90 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     );
 
     if (widget.isFullScreen) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF1A2740).withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+      return Stack(
+        children: [
+          // Background SVG
+          Positioned.fill(
+            child: Container(
+              color: const Color(0xFFF8F9FB), // Subtle background color base
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Opacity(
+                    opacity: 0.9,
+                    child: SvgPicture.asset(
+                      'assets/svg/undraw_post_eok2.svg',
+                      fit: BoxFit.contain,
+                      width: MediaQuery.of(context).size.width * 0.85,
+                      height: MediaQuery.of(context).size.height * 0.85,
+                    ),
+                  ),
+                ),
               ),
-            ],
+            ),
           ),
-          child: content,
-        ),
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1A2740).withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: content,
+            ),
+          ),
+        ],
       );
     }
 
     return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
-      child: content,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          children: [
+            // Background SVG
+            Positioned.fill(
+              child: Container(
+                color: const Color(0xFFF8F9FB),
+                child: Align(
+                  alignment: Alignment.center,
+                  child: Opacity(
+                    opacity: 0.9,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: SvgPicture.asset(
+                        'assets/svg/undraw_post_eok2.svg',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: content,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

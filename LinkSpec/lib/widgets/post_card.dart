@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:lottie/lottie.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/post.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -30,8 +32,9 @@ class ViewTracker {
 class PostCard extends StatefulWidget {
   final Post post;
   final VoidCallback? onPostDeleted;
+  final Color? backgroundColor;
 
-  const PostCard({super.key, required this.post, this.onPostDeleted});
+  const PostCard({super.key, required this.post, this.onPostDeleted, this.backgroundColor});
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -43,6 +46,7 @@ class _PostCardState extends State<PostCard> {
   int _commentCount = 0;
   bool _isFollowing = false;
   bool _isSaved = false;
+  bool _isLikeProcessing = false;
 
   @override
   void initState() {
@@ -74,6 +78,7 @@ class _PostCardState extends State<PostCard> {
   @override
   Widget build(BuildContext context) {
     return ClayContainer(
+      color: widget.backgroundColor ?? Colors.white,
       borderRadius: 14,
       depth: 3,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
@@ -115,7 +120,11 @@ class _PostCardState extends State<PostCard> {
                           Flexible(
                             child: Text(
                               widget.post.authorName ?? 'Unknown',
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900, 
+                                fontSize: 16,
+                                color: Colors.black,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -190,28 +199,33 @@ class _PostCardState extends State<PostCard> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildActionBtn(
-                  icon: _isLiked ? Icons.thumb_up_alt : Icons.thumb_up_alt_outlined,
-                  emoji: _isLiked ? '👍' : '🤍',
+                _ActionBtn(
+                  icon: Icons.favorite_border,
+                  lottieUrl: 'https://cdn.lordicon.com/nvsfzbop.json',
+                  markerName: 'morph-two-hearts',
+                  emoji: _isLiked ? '❤️' : '🤍',
                   label: 'Like',
                   count: _likeCount,
                   active: _isLiked,
                   onTap: () => _handleLike(),
                 ),
-                _buildActionBtn(
+                _ActionBtn(
                   icon: Icons.mode_comment_outlined,
+                  svgPath: 'assets/svg/wired-outline-981-consultation-hover-conversation-alt.svg',
+                  lottieUrl: 'https://cdn.lordicon.com/jdgfsfzr.json',
+                  markerName: 'hover-conversation-alt',
                   emoji: '💬',
                   label: 'Comment',
                   count: _commentCount,
                   onTap: _handleComment,
                 ),
-                _buildActionBtn(
+                _ActionBtn(
                   icon: Icons.share_outlined,
                   emoji: '🔗',
                   label: 'Share',
                   onTap: _handleShare,
                 ),
-                _buildActionBtn(
+                _ActionBtn(
                   icon: _isSaved ? Icons.bookmark : Icons.bookmark_border_outlined,
                   emoji: _isSaved ? '🔖' : '📌',
                   label: _isSaved ? 'Saved' : 'Save',
@@ -229,8 +243,16 @@ class _PostCardState extends State<PostCard> {
   // ─── Handlers ────────────────────────────────────────────────
 
   Future<void> _handleLike() async {
+    if (_isLikeProcessing) return;
+    
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
+
+    setState(() {
+      _isLikeProcessing = true;
+    });
+
+    final wasLiked = _isLiked;
 
     // Optimistic update
     setState(() {
@@ -240,11 +262,10 @@ class _PostCardState extends State<PostCard> {
 
     try {
       if (_isLiked) {
-        // Use upsert to avoid duplicate key errors
         await Supabase.instance.client.from('likes').upsert({
           'post_id': widget.post.id,
           'user_id': userId,
-        });
+        }, onConflict: 'post_id,user_id');
       } else {
         await Supabase.instance.client
             .from('likes')
@@ -252,14 +273,27 @@ class _PostCardState extends State<PostCard> {
             .eq('post_id', widget.post.id)
             .eq('user_id', userId);
       }
+    } on PostgrestException catch (e) {
+      if (e.code != '23505') {
+        if (mounted) {
+          setState(() {
+            _isLiked = wasLiked;
+            _likeCount = widget.post.likeCount + (_isLiked ? 0 : -1);
+          });
+        }
+      }
     } catch (e) {
-      // Rollback on failure
       if (mounted) {
         setState(() {
-          _isLiked = !_isLiked;
-          _likeCount += _isLiked ? 1 : -1;
+          _isLiked = wasLiked;
+          _likeCount = widget.post.likeCount + (_isLiked ? 0 : -1);
         });
-        debugPrint('Like error: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLikeProcessing = false;
+        });
       }
     }
   }
@@ -329,7 +363,11 @@ class _PostCardState extends State<PostCard> {
                 Expanded(
                   child: Text(
                     line.replaceAll('✓', '').replaceAll('-', '').trim(),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 14, 
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
                   ),
                 ),
               ],
@@ -345,28 +383,71 @@ class _PostCardState extends State<PostCard> {
               fontSize: 14,
               fontWeight: entry.key == 0 ? FontWeight.w900 : FontWeight.w600,
               height: 1.5,
-              color: entry.key == 0 ? const Color(0xFF003366) : const Color(0xFF1A2740),
+              color: Colors.black,
             ),
           ),
         );
       }).toList(),
     );
   }
+}
 
-  Widget _buildActionBtn({
-    required IconData icon,
-    required String emoji,
-    required String label,
-    int count = 0,
-    bool active = false,
-    VoidCallback? onTap,
-  }) {
+class _ActionBtn extends StatefulWidget {
+  final IconData icon;
+  final String? svgPath;
+  final String? lottieUrl;
+  final String? markerName;
+  final String emoji;
+  final String label;
+  final int count;
+  final bool active;
+  final VoidCallback? onTap;
+
+  const _ActionBtn({
+    required this.icon,
+    this.svgPath,
+    this.lottieUrl,
+    this.markerName,
+    required this.emoji,
+    required this.label,
+    this.count = 0,
+    this.active = false,
+    this.onTap,
+  });
+
+  @override
+  State<_ActionBtn> createState() => _ActionBtnState();
+}
+
+class _ActionBtnState extends State<_ActionBtn> with SingleTickerProviderStateMixin {
+  late AnimationController _lottieController;
+
+  @override
+  void initState() {
+    super.initState();
+    _lottieController = AnimationController(vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _lottieController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool active = widget.active;
+    // For buttons without an "active" concept (like Comment), 
+    // we show the animated icon if URLs are provided.
+    final bool showAnimated = widget.lottieUrl != null || widget.svgPath != null;
+    final bool isActuallyActive = active || (widget.label == 'Comment' && showAnimated);
+
     final color = active ? const Color(0xFF0066CC) : const Color(0xFF65676B);
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 480;
 
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: EdgeInsets.symmetric(
@@ -376,28 +457,98 @@ class _PostCardState extends State<PostCard> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: isMobile ? 18 : 20, color: color),
-            if (!isMobile) ...[
-              const SizedBox(width: 5),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return ScaleTransition(
+                  scale: animation,
+                  child: child,
+                );
+              },
+              child: isActuallyActive && (widget.lottieUrl != null || widget.svgPath != null)
+                  ? (widget.lottieUrl != null
+                      ? Lottie.network(
+                          widget.lottieUrl!,
+                          controller: _lottieController,
+                          key: const ValueKey('active_lottie'),
+                          width: isMobile ? 40 : 25,
+                          height: isMobile ? 40 : 25,
+                          onLoaded: (composition) {
+                            if (mounted) {
+                              _lottieController.duration = composition.duration;
+                              final marker = composition.markers.isEmpty
+                                  ? null
+                                  : composition.markers.firstWhere(
+                                      (m) => m.name == widget.markerName,
+                                      orElse: () => composition.markers.first,
+                                    );
+                              if (marker != null) {
+                                // Default pace, or customize per button if needed
+                                final duration = widget.label == 'Like' 
+                                    ? const Duration(milliseconds: 2000)
+                                    : const Duration(milliseconds: 4500);
+                                _lottieController.duration = duration;
+                                _lottieController.repeat(
+                                  min: marker.start,
+                                  max: marker.end,
+                                );
+                              } else {
+                                _lottieController.repeat();
+                              }
+                            }
+                          },
+                          delegates: LottieDelegates(
+                            values: [
+                              ValueDelegate.color(
+                                const ['**', '.primary', '**'],
+                                value: const Color(0xFF121331),
+                              ),
+                              ValueDelegate.color(
+                                const ['**', '.secondary', '**'],
+                                value: const Color(0xFF16C79E),
+                              ),
+                              ValueDelegate.strokeWidth(
+                                const ['**', 'stroke', '**'],
+                                value: 3.0,
+                              ),
+                            ],
+                          ),
+                          repeat: true,
+                        )
+                      : SvgPicture.asset(
+                          widget.svgPath!,
+                          key: const ValueKey('active_svg'),
+                          width: isMobile ? 26 : 40,
+                          height: isMobile ? 26 : 40,
+                        ))
+                  : Icon(
+                      widget.icon,
+                      key: const ValueKey('inactive_icon'),
+                      color: color,
+                      size: isMobile ? 20 : 22,
+                    ),
+            ),
+            if (widget.count > 0) ...[
+              const SizedBox(width: 4),
               Text(
-                count > 0 ? '$label  $count' : label,
+                widget.count.toString(),
                 style: TextStyle(
                   color: color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12.5,
-                ),
-              ),
-            ] else if (count > 0) ...[
-              const SizedBox(width: 3),
-              Text(
-                '$count',
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
+                  fontSize: isMobile ? 12 : 13,
+                  fontWeight: active ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
             ],
+            const SizedBox(width: 6),
+            if (screenWidth > 600)
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                ),
+              ),
           ],
         ),
       ),
