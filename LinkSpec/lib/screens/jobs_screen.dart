@@ -145,7 +145,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
                     onRefresh: _loadUserDomainAndJobs,
-                    child: _filteredJobs.isEmpty
+                  child: _filteredJobs.isEmpty
                         ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -166,31 +166,37 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
                               ],
                             ),
                           )
-                        : ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            itemCount: _filteredJobs.length,
-                            itemBuilder: (context, index) {
-                              final job = _filteredJobs[index];
-                              return GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => JobDetailScreen(job: job),
-                                    ),
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              final int crossAxisCount = constraints.maxWidth > 800 ? 2 : 1;
+                              
+                              if (crossAxisCount > 1) {
+                                return GridView.builder(
+                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: 16,
+                                    mainAxisSpacing: 16,
+                                    childAspectRatio: 1.4,
+                                  ),
+                                  itemCount: _filteredJobs.length,
+                                  itemBuilder: (context, index) {
+                                    final job = _filteredJobs[index];
+                                    return _buildResponsiveJobCard(job);
+                                  },
+                                );
+                              }
+                              
+                              return ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                itemCount: _filteredJobs.length,
+                                itemBuilder: (context, index) {
+                                  final job = _filteredJobs[index];
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _buildResponsiveJobCard(job),
                                   );
                                 },
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: ClayContainer(
-                                    borderRadius: 14,
-                                    depth: 5,
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                                      child: _buildJobCard(job),
-                                    ),
-                                  ),
-                                ),
                               );
                             },
                           ),
@@ -265,6 +271,27 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
         return matchesSearch && matchesStatus;
       }).toList();
     });
+  }
+
+  Widget _buildResponsiveJobCard(Job job) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => JobDetailScreen(job: job),
+          ),
+        );
+      },
+      child: ClayContainer(
+        borderRadius: 14,
+        depth: 5,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          child: _buildJobCard(job),
+        ),
+      ),
+    );
   }
 
   Widget _buildJobCard(Job job) {

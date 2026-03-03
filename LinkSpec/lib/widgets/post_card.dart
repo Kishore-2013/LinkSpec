@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lottie/lottie.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -10,6 +11,9 @@ import 'comments_bottom_sheet.dart';
 import 'share_post_dialog.dart';
 import '../screens/saved_items_screen.dart';
 import '../services/supabase_service.dart';
+
+import '../providers/follow_provider.dart';
+import '../providers/saved_posts_provider.dart';
 
 /// Session-level tracker so each post is counted as an impression only ONCE
 /// per app session, no matter how many times the user scrolls past it.
@@ -29,7 +33,7 @@ class ViewTracker {
   static void clear() => _seenPostIds.clear();
 }
 
-class PostCard extends StatefulWidget {
+class PostCard extends ConsumerStatefulWidget {
   final Post post;
   final VoidCallback? onPostDeleted;
   final Color? backgroundColor;
@@ -37,16 +41,16 @@ class PostCard extends StatefulWidget {
   const PostCard({super.key, required this.post, this.onPostDeleted, this.backgroundColor});
 
   @override
-  State<PostCard> createState() => _PostCardState();
+  ConsumerState<PostCard> createState() => _PostCardState();
 }
 
-class _PostCardState extends State<PostCard> {
+class _PostCardState extends ConsumerState<PostCard> {
   bool _isLiked = false;
   int _likeCount = 0;
   int _commentCount = 0;
-  bool _isFollowing = false;
   bool _isSaved = false;
   bool _isLikeProcessing = false;
+  bool _isExpanded = false; // For Read More
 
   @override
   void initState() {
@@ -54,13 +58,14 @@ class _PostCardState extends State<PostCard> {
     _likeCount = widget.post.likeCount;
     _commentCount = widget.post.commentCount;
     _isLiked = widget.post.isLiked;
-    _isFollowing = widget.post.isFollowing;
-    _isSaved = SavedPostsStore.isSaved(widget.post.id);
-    // Defer impression tracking to AFTER the first frame is painted on screen.
-    // This ensures only posts actually rendered in the viewport are counted,
-    // not posts built during tree construction but not yet visible.
+    _isSaved = ref.read(savedPostsProvider).contains(widget.post.id);
+
+    // Initialize follow provider with the author's status from the post object
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _recordImpression();
+      if (mounted) {
+        ref.read(followProvider.notifier).setFollowStatus(widget.post.authorId, widget.post.isFollowing);
+        _recordImpression();
+      }
     });
   }
 
@@ -71,12 +76,17 @@ class _PostCardState extends State<PostCard> {
     // Never count the author viewing their own post
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     if (currentUserId == null || currentUserId == widget.post.authorId) return;
-    // Fire-and-forget \u2014 errors swallowed inside incrementViewCount
+    // Fire-and-forget — errors swallowed inside incrementViewCount
     SupabaseService.incrementViewCount(widget.post.id);
   }
 
   @override
   Widget build(BuildContext context) {
+    // Watch the global follow status for this specific author
+    final isFollowing = ref.watch(followProvider)[widget.post.authorId] ?? widget.post.isFollowing;
+    // Watch saved status
+    final isSaved = ref.watch(savedPostsProvider).contains(widget.post.id);
+
     return ClayContainer(
       color: widget.backgroundColor ?? Colors.white,
       borderRadius: 14,
@@ -85,7 +95,7 @@ class _PostCardState extends State<PostCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Avatar, Name, Connect
+          // Header: Avatar, Name, Unite
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Row(
@@ -144,45 +154,48 @@ class _PostCardState extends State<PostCard> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Connect Button
-                GestureDetector(
-                  onTap: () => setState(() => _isFollowing = !_isFollowing),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: MediaQuery.of(context).size.width < 400 ? 8 : 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _isFollowing
-                          ? const Color(0xFF0066CC).withOpacity(0.08)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color(0xFF0066CC),
-                        width: 1,
+                // Connect/Follow Button - Not shown for current user's own posts
+                if (Supabase.instance.client.auth.currentUser?.id != widget.post.authorId)
+                  GestureDetector(
+                    onTap: () async {
+                      try {
+                        await ref.read(followProvider.notifier).toggleFollow(widget.post.authorId);
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to update follow status: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isFollowing ? Colors.grey[100] : const Color(0xFF0066CC),
+                        borderRadius: BorderRadius.circular(20),
+                        border: isFollowing ? Border.all(color: const Color(0xFF0066CC)) : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isFollowing ? Icons.check : Icons.add_rounded,
+                            color: isFollowing ? const Color(0xFF0066CC) : Colors.white,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isFollowing ? 'Following' : 'Unite',
+                            style: TextStyle(
+                              color: isFollowing ? const Color(0xFF0066CC) : Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _isFollowing ? Icons.check : Icons.add,
-                          size: 14,
-                          color: const Color(0xFF0066CC),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _isFollowing ? 'Following' : 'Connect',
-                          style: const TextStyle(
-                            color: Color(0xFF0066CC),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -191,8 +204,8 @@ class _PostCardState extends State<PostCard> {
           _buildPostContent(widget.post.content),
           const SizedBox(height: 20),
           // Divider
-          Divider(height: 1, thickness: 0.5, color: Colors.grey[200]),
-          const SizedBox(height: 8),
+          Divider(height: 0.5, thickness: 0.5, color: Colors.grey[200]),
+          const SizedBox(height: 6),
           // Actions: Like, Comment, Share, Save
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -226,10 +239,10 @@ class _PostCardState extends State<PostCard> {
                   onTap: _handleShare,
                 ),
                 _ActionBtn(
-                  icon: _isSaved ? Icons.bookmark : Icons.bookmark_border_outlined,
-                  emoji: _isSaved ? '🔖' : '📌',
-                  label: _isSaved ? 'Saved' : 'Save',
-                  active: _isSaved,
+                  icon: isSaved ? Icons.bookmark : Icons.bookmark_border_outlined,
+                  emoji: isSaved ? '🔖' : '📌',
+                  label: isSaved ? 'Saved' : 'Save',
+                  active: isSaved,
                   onTap: _handleSave,
                 ),
               ],
@@ -324,8 +337,8 @@ class _PostCardState extends State<PostCard> {
   }
 
   void _handleSave() {
-    // Use the in-memory store — no Supabase table required
-    final nowSaved = SavedPostsStore.toggle(widget.post.id);
+    ref.read(savedPostsProvider.notifier).toggle(widget.post.id);
+    final nowSaved = ref.read(savedPostsProvider).contains(widget.post.id);
     setState(() => _isSaved = nowSaved);
 
     ScaffoldMessenger.of(context).clearSnackBars();
@@ -345,49 +358,55 @@ class _PostCardState extends State<PostCard> {
   // ─── UI Builders ─────────────────────────────────────────────
 
   Widget _buildPostContent(String content) {
-    final lines = content.split('\n');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: lines.asMap().entries.map((entry) {
-        final line = entry.value;
-        if (line.isEmpty) return const SizedBox(height: 8);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textStyle = const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          height: 1.5,
+          color: Colors.black,
+        );
 
-        if (line.trim().startsWith('✓') || line.trim().startsWith('-')) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.check, size: 16, color: Colors.blue),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    line.replaceAll('✓', '').replaceAll('-', '').trim(),
-                    style: const TextStyle(
-                      fontSize: 14, 
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
+        final textSpan = TextSpan(text: content, style: textStyle);
+        final textPainter = TextPainter(
+          text: textSpan,
+          maxLines: 5,
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout(maxWidth: constraints.maxWidth);
+
+        final isOverflowing = textPainter.didExceedMaxLines;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              content,
+              maxLines: _isExpanded ? null : 5,
+              overflow: _isExpanded ? TextOverflow.visible : TextOverflow.fade,
+              style: textStyle,
+            ),
+            if (isOverflowing)
+              Align(
+                alignment: Alignment.bottomRight,
+                child: GestureDetector(
+                  onTap: () => setState(() => _isExpanded = !_isExpanded),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      _isExpanded ? 'Show less' : 'Read more...',
+                      style: const TextStyle(
+                        color: Color(0xFF0066CC),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
-              ],
-            ),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            line,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: entry.key == 0 ? FontWeight.w900 : FontWeight.w600,
-              height: 1.5,
-              color: Colors.black,
-            ),
-          ),
+              ),
+          ],
         );
-      }).toList(),
+      },
     );
   }
 }
@@ -471,8 +490,8 @@ class _ActionBtnState extends State<_ActionBtn> with SingleTickerProviderStateMi
                           widget.lottieUrl!,
                           controller: _lottieController,
                           key: const ValueKey('active_lottie'),
-                          width: isMobile ? 40 : 25,
-                          height: isMobile ? 40 : 25,
+                          width: isMobile ? 24 : 24,
+                          height: isMobile ? 24 : 24,
                           onLoaded: (composition) {
                             if (mounted) {
                               _lottieController.duration = composition.duration;
@@ -518,8 +537,8 @@ class _ActionBtnState extends State<_ActionBtn> with SingleTickerProviderStateMi
                       : SvgPicture.asset(
                           widget.svgPath!,
                           key: const ValueKey('active_svg'),
-                          width: isMobile ? 26 : 40,
-                          height: isMobile ? 26 : 40,
+                          width: isMobile ? 24 : 24,
+                          height: isMobile ? 24 : 24,
                         ))
                   : Icon(
                       widget.icon,

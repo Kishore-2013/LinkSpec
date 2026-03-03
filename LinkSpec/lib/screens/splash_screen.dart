@@ -58,38 +58,42 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _redirect() async {
-    await Future.delayed(const Duration(seconds: 2));
+    // Short delay for the logo animation to be visible
+    await Future.delayed(const Duration(milliseconds: 800));
 
     if (!mounted || _hasRedirected) return;
+    _hasRedirected = true;
 
     final session = Supabase.instance.client.auth.currentSession;
 
     if (session == null) {
-      // Not logged in - go to login
+      // Not logged in → go to login immediately
       Navigator.of(context).pushReplacementNamed('/login');
-    } else {
-      // Check if user has completed domain selection
-      try {
-        final profile = await Supabase.instance.client
-            .from('profiles')
-            .select()
-            .eq('id', session.user.id)
-            .maybeSingle();
+      return;
+    }
 
-        if (!mounted) return;
+    // User is authenticated — check if they completed domain selection.
+    // Use a TIMEOUT so we never hang forever on slow networks.
+    try {
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select()
+          .eq('id', session.user.id)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 8)); // ← never hang forever
 
-        if (profile == null) {
-          // Profile doesn't exist - needs domain selection
-          Navigator.of(context).pushReplacementNamed('/domain-selection');
-        } else {
-          // Profile exists - go to home
-          Navigator.of(context).pushReplacementNamed('/home');
-        }
-      } catch (e) {
-        // Error checking profile - go to login
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/login');
-        }
+      if (!mounted) return;
+
+      if (profile == null) {
+        Navigator.of(context).pushReplacementNamed('/domain-selection');
+      } else {
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
+    } catch (e) {
+      // Timeout, network error, or any Supabase error → send to login.
+      debugPrint('SplashScreen redirect error: $e');
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/login');
       }
     }
   }

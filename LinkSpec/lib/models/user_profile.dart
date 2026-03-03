@@ -9,7 +9,7 @@ class UserProfile {
   final List<Map<String, dynamic>> education;
   final List<Map<String, dynamic>> projects;
   final List<String> skills;
-  final String? industry;
+  final String? motherDomain;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -17,6 +17,7 @@ class UserProfile {
     required this.id,
     required this.fullName,
     required this.domainId,
+    this.motherDomain,
     this.bio,
     this.avatarUrl,
     this.coverUrl,
@@ -24,7 +25,6 @@ class UserProfile {
     this.education = const [],
     this.projects = const [],
     this.skills = const [],
-    this.industry,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -34,6 +34,7 @@ class UserProfile {
       id: json['id'] as String,
       fullName: json['full_name'] as String,
       domainId: json['domain_id'] as String,
+      motherDomain: json['mother_domain'] as String?,
       bio: json['bio'] as String?,
       avatarUrl: json['avatar_url'] as String?,
       coverUrl: json['cover_url'] as String?,
@@ -41,7 +42,6 @@ class UserProfile {
       education: List<Map<String, dynamic>>.from(json['education'] ?? []),
       projects: List<Map<String, dynamic>>.from(json['projects'] ?? []),
       skills: List<String>.from(json['skills'] ?? []),
-      industry: json['industry'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -59,7 +59,7 @@ class UserProfile {
       'education': education,
       'projects': projects,
       'skills': skills,
-      'industry': industry,
+      'mother_domain': motherDomain,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -69,6 +69,7 @@ class UserProfile {
     String? id,
     String? fullName,
     String? domainId,
+    String? motherDomain,
     String? bio,
     String? avatarUrl,
     String? coverUrl,
@@ -76,7 +77,6 @@ class UserProfile {
     List<Map<String, dynamic>>? education,
     List<Map<String, dynamic>>? projects,
     List<String>? skills,
-    String? industry,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -84,6 +84,7 @@ class UserProfile {
       id: id ?? this.id,
       fullName: fullName ?? this.fullName,
       domainId: domainId ?? this.domainId,
+      motherDomain: motherDomain ?? this.motherDomain,
       bio: bio ?? this.bio,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       coverUrl: coverUrl ?? this.coverUrl,
@@ -91,7 +92,6 @@ class UserProfile {
       education: education ?? this.education,
       projects: projects ?? this.projects,
       skills: skills ?? this.skills,
-      industry: industry ?? this.industry,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

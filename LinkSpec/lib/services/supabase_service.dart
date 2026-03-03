@@ -53,6 +53,11 @@ class SupabaseService {
     await _client.from('profiles').insert({
       'id': userId,
       'full_name': fullName,
+      // mother_domain: permanent home domain set at registration.
+      // RLS messaging policies compare this field, not domain_id.
+      'mother_domain': domainId,
+      // domain_id: current active domain (mirrors mother_domain at sign-up;
+      // may diverge later if the user switches domains).
       'domain_id': domainId,
       'bio': bio,
       'avatar_url': avatarUrl,
@@ -68,7 +73,6 @@ class SupabaseService {
     List<Map<String, dynamic>>? education,
     List<Map<String, dynamic>>? projects,
     List<String>? skills,
-    String? industry,
   }) async {
     final userId = _client.auth.currentUser?.id;
     
@@ -84,7 +88,6 @@ class SupabaseService {
     if (education != null) updates['education'] = education;
     if (projects != null) updates['projects'] = projects;
     if (skills != null) updates['skills'] = skills;
-    if (industry != null) updates['industry'] = industry;
 
     if (updates.isNotEmpty) {
       await _client
@@ -108,13 +111,17 @@ class SupabaseService {
 
     await _client
         .from('profiles')
-        .update({'domain_id': newDomain})
+        .update({
+          'domain_id': newDomain,
+          'industry': newDomain,
+        })
         .eq('id', userId);
     
     // Clear local cache to force refresh with new domain content
     _myDomain = newDomain;
     if (_currentUserProfile != null) {
       _currentUserProfile!['domain_id'] = newDomain;
+      _currentUserProfile!['industry'] = newDomain;
     }
   }
 
@@ -217,6 +224,32 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
+  /// Get ALL users in the database (no domain filter).
+  /// Used for the messaging directory so users can message anyone.
+  static Future<List<Map<String, dynamic>>> getAllProfiles({
+    int limit = 100,
+    int offset = 0,
+    String? searchQuery,
+  }) async {
+    final myId = _client.auth.currentUser?.id;
+    if (myId == null) return [];
+
+    var query = _client
+        .from('profiles')
+        .select()
+        .neq('id', myId); // exclude self
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      query = query.ilike('full_name', '%$searchQuery%');
+    }
+
+    final response = await query
+        .order('full_name', ascending: true)
+        .range(offset, offset + limit - 1);
+
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   /// Check if user has completed domain selection
   static Future<bool> hasCompletedDomainSelection() async {
     final profile = await getCurrentUserProfile();
@@ -274,6 +307,40 @@ class SupabaseService {
         .limit(20);
 
     return List<Map<String, dynamic>>.from(response);
+  }
+
+  /// Search for people only among accepted connections
+  static Future<List<Map<String, dynamic>>> searchConnections(String query) async {
+    final myId = _client.auth.currentUser?.id;
+    if (myId == null) return [];
+
+    try {
+      // 1. Get IDs of accepted connections
+      final requests = await _client
+          .from('connection_requests')
+          .select('sender_id, receiver_id')
+          .eq('status', 'accepted')
+          .or('sender_id.eq.$myId,receiver_id.eq.$myId');
+
+      final connectionIds = (requests as List).map((req) {
+        return req['sender_id'] == myId ? req['receiver_id'] : req['sender_id'];
+      }).cast<String>().toList();
+
+      if (connectionIds.isEmpty) return [];
+
+      // 2. Search profiles among these IDs
+      final response = await _client
+          .from('profiles')
+          .select()
+          .inFilter('id', connectionIds)
+          .or('full_name.ilike.%$query%,bio.ilike.%$query%')
+          .limit(20);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error searching connections: $e');
+      return [];
+    }
   }
 
   // ============================================================================
@@ -619,7 +686,7 @@ class SupabaseService {
   // MESSAGE OPERATIONS
   // ============================================================================
 
-  /// Send a message (optionally sharing a post)
+  /// Send a message to any user — no domain restriction.
   static Future<void> sendMessage({
     required String receiverId,
     String? content,
@@ -636,7 +703,6 @@ class SupabaseService {
     });
   }
 
-  /// Get messages between current user and another user
   static Future<List<Map<String, dynamic>>> getMessages(String otherUserId) async {
     final myId = _client.auth.currentUser?.id;
     if (myId == null) return [];
@@ -645,15 +711,37 @@ class SupabaseService {
         .from('messages')
         .select('''
           *,
-          posts:post_id (*)
+          posts:post_id (
+            *,
+            profiles:author_id (
+              full_name,
+              avatar_url
+            )
+          )
         ''')
         .or('and(sender_id.eq.$myId,receiver_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,receiver_id.eq.$myId)')
         .order('created_at', ascending: true);
 
-    return List<Map<String, dynamic>>.from(response);
+    final messages = List<Map<String, dynamic>>.from(response);
+    
+    // Flatten post author info so Post.fromJson works correctly
+    return messages.map((msg) {
+      if (msg['posts'] != null) {
+        final post = Map<String, dynamic>.from(msg['posts']);
+        final profile = post['profiles'];
+        if (profile != null) {
+          post['author_name'] = profile['full_name'];
+          post['author_avatar'] = profile['avatar_url'];
+        }
+        msg['posts'] = post;
+      }
+      return msg;
+    }).toList();
   }
 
-  /// Get count of unread messages for current user
+  /// Get count of unread messages for current user.
+  /// Catches both is_read = false AND is_read = NULL (Supabase column default
+  /// is often NULL rather than false, so .eq('is_read', false) misses them).
   static Future<int> getUnreadMessageCount() async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return 0;
@@ -662,15 +750,35 @@ class SupabaseService {
           .from('messages')
           .select('id')
           .eq('receiver_id', userId)
-          .eq('is_read', false);
+          .or('is_read.eq.false,is_read.is.null'); // catches NULL and false
       return (response as List).length;
-    } catch (_) {
-      // Fallback: if is_read column doesn't exist, return 0
+    } catch (e) {
+      debugPrint('getUnreadMessageCount error: $e');
       return 0;
     }
   }
 
-  /// Mark all messages from a specific user as read
+  /// Get the set of sender IDs that have sent unread messages to the current user.
+  /// Used to drive the per-user blue bubble indicator in the messaging directory.
+  static Future<Set<String>> getUnreadSenderIds() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return {};
+    try {
+      final response = await _client
+          .from('messages')
+          .select('sender_id')
+          .eq('receiver_id', userId)
+          .or('is_read.eq.false,is_read.is.null');
+      return (response as List)
+          .map((row) => row['sender_id'] as String)
+          .toSet();
+    } catch (e) {
+      debugPrint('getUnreadSenderIds error: $e');
+      return {};
+    }
+  }
+
+  /// Mark all messages from a specific sender as read.
   static Future<void> markMessagesAsRead(String otherUserId) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return;
@@ -680,8 +788,27 @@ class SupabaseService {
           .update({'is_read': true})
           .eq('receiver_id', userId)
           .eq('sender_id', otherUserId)
-          .eq('is_read', false);
-    } catch (_) {}
+          .or('is_read.eq.false,is_read.is.null'); // mark NULL and false rows
+    } catch (e) {
+      // Surface the error so it's visible during debugging rather than failing silently
+      debugPrint('markMessagesAsRead error (senderId=$otherUserId): $e');
+    }
+  }
+
+  /// Mark ALL messages for current user as read
+  static Future<void> markAllMessagesAsRead() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      // Simplest approach: mark all where we are the receiver as read.
+      // This bypasses any NULL vs false logic issues.
+      await _client
+          .from('messages')
+          .update({'is_read': true})
+          .eq('receiver_id', userId);
+    } catch (e) {
+      debugPrint('Error marking messages as read: $e');
+    }
   }
 
   /// Get list of unique users the current user has chatted with
@@ -847,12 +974,12 @@ class SupabaseService {
   }
 
   // ============================================================================
-  // CONNECT OPERATIONS (mutual connection requests)
+  // UNITE OPERATIONS (mutual connection requests)
   // ============================================================================
 
-  /// Send a connection request to another user
+  /// Send a unite request to another user
   /// Status flow: pending → accepted
-  static Future<void> sendConnectRequest(String targetUserId) async {
+  static Future<void> sendUniteRequest(String targetUserId) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
 
@@ -863,8 +990,8 @@ class SupabaseService {
     });
   }
 
-  /// Withdraw a pending connection request
-  static Future<void> withdrawConnectRequest(String targetUserId) async {
+  /// Withdraw a pending unite request
+  static Future<void> withdrawUniteRequest(String targetUserId) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
 
@@ -875,8 +1002,8 @@ class SupabaseService {
         .eq('receiver_id', targetUserId);
   }
 
-  /// Accept a connection request from another user
-  static Future<void> acceptConnectRequest(String senderUserId) async {
+  /// Accept a unite request from another user
+  static Future<void> acceptUniteRequest(String senderUserId) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
 
@@ -973,8 +1100,8 @@ class SupabaseService {
     }
   }
 
-  /// Get connection (mutual) count for a user
-  static Future<int> getConnectCount(String userId) async {
+  /// Get unite (mutual) count for a user
+  static Future<int> getUniteCount(String userId) async {
     try {
       final myId = _client.auth.currentUser?.id;
       if (myId == null) return 0;
@@ -986,6 +1113,34 @@ class SupabaseService {
       return (data as List).length;
     } catch (_) {
       return 0;
+    }
+  }
+
+  /// Get list of mutual connections (accepted) with profiles
+  static Future<List<Map<String, dynamic>>> getAcceptedConnections(String userId) async {
+    try {
+      final response = await _client
+          .from('connection_requests')
+          .select('sender_id, receiver_id, sender:profiles!connection_requests_sender_id_fkey(*), receiver:profiles!connection_requests_receiver_id_fkey(*)')
+          .or('sender_id.eq.$userId,receiver_id.eq.$userId')
+          .eq('status', 'accepted');
+      
+      final List<Map<String, dynamic>> connections = [];
+      for (var row in (response as List)) {
+        if (row['sender_id'] == userId) {
+          if (row['receiver'] != null) {
+            connections.add(row['receiver'] as Map<String, dynamic>);
+          }
+        } else {
+          if (row['sender'] != null) {
+            connections.add(row['sender'] as Map<String, dynamic>);
+          }
+        }
+      }
+      return connections;
+    } catch (e) {
+      debugPrint('Error fetching connections: $e');
+      return [];
     }
   }
 
@@ -1094,6 +1249,31 @@ class SupabaseService {
     }
     
     return List<Map<String, dynamic>>.from(await query.order('created_at', ascending: false));
+  }
+
+  /// Create a new group
+  static Future<void> createGroup({
+    required String name,
+    required String description,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    // Fetch the freshest domain directly from the profile to ensure RLS compliance
+    final profile = await _client
+        .from('profiles')
+        .select('domain_id')
+        .eq('id', userId)
+        .maybeSingle();
+    
+    final domainId = profile?['domain_id'];
+    if (domainId == null) throw Exception('User domain not found. Please complete your profile.');
+
+    await _client.from('groups').insert({
+      'name': name,
+      'description': description,
+      'domain_id': domainId,
+    });
   }
 
   /// Get events for the user's domain
@@ -1252,36 +1432,26 @@ class SupabaseService {
     return (response as List).length;
   }
 
-  /// Get count of unread notifications for current user
-  static Future<int> getUnreadNotificationCount() async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) {
-      debugPrint('SERVICE: No user session for count.');
-      return 0;
-    }
-    
-    try {
-      final response = await _client
-          .from('notifications')
-          .select()
-          .eq('user_id', userId)
-          .neq('is_read', true);
-      
-      final data = response as List;
-      debugPrint('DEBUG: getUnreadNotificationCount - Auth ID: $userId | Found: ${data.length}');
-      if (data.isNotEmpty) {
-        debugPrint('DEBUG: First unread ID: ${data[0]['id']} | User ID in DB: ${data[0]['user_id']}');
-      }
-      return data.length;
-    } catch (e) {
-      debugPrint('Error getting notification count: $e');
-      return 0;
-    }
-  }
-
   // ============================================================================
   // NOTIFICATION OPERATIONS
   // ============================================================================
+
+  /// Get count of unread notifications for the current user.
+  static Future<int> getUnreadNotificationCount() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return 0;
+    try {
+      final response = await _client
+          .from('notifications')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('is_read', false);
+      return (response as List).length;
+    } catch (e) {
+      debugPrint('getUnreadNotificationCount error: $e');
+      return 0;
+    }
+  }
 
   /// Get notifications for the current user
   static Future<List<Map<String, dynamic>>> getNotifications() async {

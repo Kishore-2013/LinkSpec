@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_l10n.dart';
 import '../providers/theme_provider.dart';
 import '../services/supabase_service.dart';
@@ -17,28 +18,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final List<Map<String, dynamic>> _categories = [
     {'key': 'account_prefs', 'icon': Icons.person_outlined},
     {'key': 'sign_security', 'icon': Icons.lock_outlined},
-    {'key': 'visibility',    'icon': Icons.visibility_outlined},
-    {'key': 'notifications', 'icon': Icons.notifications_none},
   ];
 
   bool _darkMode = false;
   bool _twoFactor = false;
-  String _profileVisibility = 'All members';
-  bool _syncContacts = false;
-  bool _personalizedAds = true;
 
-  // Visibility & Activity toggles
-  bool _activeStatus = true;
-  bool _shareJobChanges = true;
-  bool _mentionsTags = true;
+  // Real user data loaded from Supabase
+  String _userEmail = '';
+  String _userPhone = ''; 
+  String _userDisabilityStatus = '';
+  bool _isVerificationsLoading = true;
 
-  // Notification toggles
-  bool _notifJobSearch = true;
-  bool _notifHiring = true;
-  bool _notifConnecting = true;
-  bool _notifNetwork = true;
-  
-  // Profile controllers
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _headlineController = TextEditingController();
@@ -58,16 +48,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _loadInitialProfileData() async {
     try {
       final profile = await SupabaseService.getCurrentUserProfile();
+      // Real email comes from Supabase Auth, not the profile table
+      final authEmail = Supabase.instance.client.auth.currentUser?.email ?? '';
       if (profile != null) {
         final fullName = profile['full_name'] as String? ?? '';
         final names = fullName.split(' ');
         _firstNameController.text = names.isNotEmpty ? names[0] : '';
         _lastNameController.text = names.length > 1 ? names.sublist(1).join(' ') : '';
         _headlineController.text = profile['bio'] as String? ?? '';
-        _industryController.text = profile['industry'] as String? ?? 'Technology';
+        _industryController.text = (profile['industry'] as String?) ?? (profile['domain_id'] as String?) ?? '';
+        if (mounted) {
+          setState(() {
+            _userEmail = authEmail;
+            // Phone is not collected from users; leave empty
+            _userPhone = (profile['phone'] as String?)?.trim() ?? '';
+            _userDisabilityStatus = (profile['disability_status'] as String?)?.trim() ?? '';
+            _isVerificationsLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() { _userEmail = authEmail; _isVerificationsLoading = false; });
       }
     } catch (e) {
       debugPrint('Error loading profile: $e');
+      if (mounted) setState(() => _isVerificationsLoading = false);
     }
   }
 
@@ -78,7 +82,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       await SupabaseService.updateProfile(
         fullName: fullName,
         bio: _headlineController.text,
-        industry: _industryController.text,
       );
       
       if (mounted) {
@@ -139,7 +142,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: const Text('Settings'),
-        leading: isWideScreen ? null : IconButton(
+        leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
           onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
         ),
@@ -261,10 +264,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return _buildAccountPreferences();
       case 'sign_security':
         return _buildSignInSecurity();
-      case 'visibility':
-        return _buildVisibility();
-      case 'notifications':
-        return _buildNotifications();
       default:
         return const SizedBox.shrink();
     }
@@ -342,32 +341,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ]),
-        _buildSection(_t('gen_prefs'), [
-          _buildSettingTile(
-            'Sync contacts',
-            trailingWidget: Switch(
-              value: _syncContacts,
-              onChanged: (val) => setState(() => _syncContacts = val),
-              activeColor: Colors.blue[700],
-            ),
-          ),
-          _buildSettingTile(
-            'Personalized ads',
-            trailingWidget: Switch(
-              value: _personalizedAds,
-              onChanged: (val) => setState(() => _personalizedAds = val),
-              activeColor: Colors.blue[700],
-            ),
-          ),
-          _buildSettingTile(_t('profile_photo'), trailing: _t(_profileVisibility == 'All members' ? 'all_members' : _profileVisibility == 'My network' ? 'my_network' : 'only_me'), onTap: () => _showVisibilityPicker()),
-        ]),
         const SizedBox(height: 20),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+              onPressed: () async {
+                // Properly sign out: clear cache, invalidate Supabase session,
+                // then replace entire navigation stack so back button cannot
+                // return the user to the home feed.
+                SupabaseService.clearCache();
+                await Supabase.instance.client.auth.signOut();
+                if (mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                }
+              },
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.red,
                 side: const BorderSide(color: Colors.red),
@@ -394,56 +383,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 16),
           _buildTextField('Headline', _headlineController),
           const SizedBox(height: 16),
-          _buildTextField('Industry', _industryController),
+          // Industry is read-only and follows domain
+          _buildTextField('Industry', _industryController, readOnly: true),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _isSavingProfile ? null : _saveProfile,
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 50),
               backgroundColor: Colors.blue[700],
+              foregroundColor: Colors.white,
             ),
             child: _isSavingProfile 
                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Save Changes'),
+                : const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTextField(String label, dynamic controllerOrValue) {
+  Widget _buildTextField(String label, dynamic controllerOrValue, {bool readOnly = false}) {
     return TextField(
       controller: controllerOrValue is TextEditingController 
           ? controllerOrValue 
           : TextEditingController(text: controllerOrValue.toString()),
+      readOnly: readOnly,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        filled: readOnly,
+        fillColor: readOnly ? Colors.grey[100] : null,
       ),
-    );
-  }
-
-  void _showVisibilityPicker() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: ['All members', 'My network', 'Only me'].map((opt) {
-              return ListTile(
-                title: Text(opt),
-                onTap: () {
-                  setState(() => _profileVisibility = opt);
-                  Navigator.pop(context);
-                },
-                trailing: _profileVisibility == opt ? Icon(Icons.check, color: Colors.blue[700]) : null,
-              );
-            }).toList(),
-          ),
-        );
-      },
     );
   }
 
@@ -451,18 +421,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Column(
       children: [
         _buildSection('Account access', [
-          _buildSettingTile('Email addresses', trailing: 'kishore@example.com', onTap: () => _navigateToDetail('Email addresses', _buildEmailManagement())),
-          _buildSettingTile('Phone numbers', trailing: '+91 98765 43210', onTap: () => _navigateToDetail('Phone numbers', _buildPhoneManagement())),
-          _buildSettingTile('Change password', onTap: () => _navigateToDetail('Change password', _buildChangePasswordForm())),
-          _buildSettingTile('Where you\'re signed in', onTap: () => _navigateToDetail('Active Sessions', _buildSessionsList())),
           _buildSettingTile(
-            'Two-factor authentication',
-            trailingWidget: Switch(
-              value: _twoFactor,
-              onChanged: (val) => setState(() => _twoFactor = val),
-              activeColor: Colors.blue[700],
-            ),
+            'Email addresses',
+            trailing: _userEmail.isNotEmpty ? _userEmail : 'Not set',
+            onTap: () => _navigateToDetail('Email addresses', _buildEmailManagement()),
           ),
+          _buildSettingTile(
+            'Phone numbers',
+            trailing: _userPhone.isNotEmpty ? _userPhone : 'Not added',
+            onTap: () => _navigateToDetail('Phone numbers', _buildPhoneManagement()),
+          ),
+          _buildSettingTile('Change password', onTap: () => _navigateToDetail('Change password', _buildChangePasswordForm())),
         ]),
       ],
     );
@@ -484,134 +453,102 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 50),
               backgroundColor: Colors.blue[700],
+              foregroundColor: Colors.white,
             ),
-            child: const Text('Update Password'),
+            child: const Text('Update Password', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildVisibility() {
-    return Column(
-      children: [
-        _buildSection('Visibility of your profile & network', [
-          _buildSettingTile('Profile viewing options', trailing: 'Your name and headline', onTap: () => _showProfileViewingOptions()),
-          _buildSettingTile('Edit your public profile', onTap: () => _navigateToDetail('Public Profile Settings', _buildPublicProfileSettings())),
-          _buildSettingTile('Who can see or download your email address', trailing: 'Connections', onTap: () => _showEmailVisibilityPicker()),
-          _buildSettingTile('Connections', trailing: 'On', onTap: () => _showToggleDialog('Connections visibility', 'Allow connections to see your connection list')),
-        ]),
-        _buildSection('Visibility of your activity', [
-          _buildSettingTile(
-            'Manage active status',
-            trailingWidget: Switch(
-              value: _activeStatus,
-              onChanged: (val) => setState(() => _activeStatus = val),
-              activeColor: Colors.blue[700],
-            ),
-          ),
-          _buildSettingTile(
-            'Share job changes from profile',
-            trailingWidget: Switch(
-              value: _shareJobChanges,
-              onChanged: (val) => setState(() => _shareJobChanges = val),
-              activeColor: Colors.blue[700],
-            ),
-          ),
-          _buildSettingTile(
-            'Mentions or tags',
-            trailingWidget: Switch(
-              value: _mentionsTags,
-              onChanged: (val) => setState(() => _mentionsTags = val),
-              activeColor: Colors.blue[700],
-            ),
-          ),
-        ]),
-      ],
-    );
-  }
-
-  Widget _buildNotifications() {
-    return Column(
-      children: [
-        _buildSection('Notifications you receive', [
-          _buildSettingTile(
-            'Searching for a job',
-            trailingWidget: Switch(
-              value: _notifJobSearch,
-              onChanged: (val) => setState(() => _notifJobSearch = val),
-              activeColor: Colors.blue[700],
-            ),
-          ),
-          _buildSettingTile(
-            'Hiring someone',
-            trailingWidget: Switch(
-              value: _notifHiring,
-              onChanged: (val) => setState(() => _notifHiring = val),
-              activeColor: Colors.blue[700],
-            ),
-          ),
-          _buildSettingTile(
-            'Connecting with others',
-            trailingWidget: Switch(
-              value: _notifConnecting,
-              onChanged: (val) => setState(() => _notifConnecting = val),
-              activeColor: Colors.blue[700],
-            ),
-          ),
-          _buildSettingTile(
-            'Network updates',
-            trailingWidget: Switch(
-              value: _notifNetwork,
-              onChanged: (val) => setState(() => _notifNetwork = val),
-              activeColor: Colors.blue[700],
-            ),
-          ),
-        ]),
-      ],
-    );
-  }
-
   Widget _buildDemographicsForm() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildTextField('Gender', 'Male'),
-          const SizedBox(height: 16),
-          _buildTextField('Disability status', 'None'),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), backgroundColor: Colors.blue[700]),
-            child: const Text('Save Demographics'),
-          ),
-        ],
+    // Use persistent controllers seeded with current values so Save captures them
+    final disabilityController = TextEditingController(text: _userDisabilityStatus);
+    bool isSaving = false;
+    return StatefulBuilder(
+      builder: (ctx, setLocal) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            TextField(
+              controller: disabilityController,
+              decoration: InputDecoration(
+                labelText: 'Disability status (optional)',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: isSaving ? null : () async {
+                setLocal(() => isSaving = true);
+                try {
+                  final userId = Supabase.instance.client.auth.currentUser?.id;
+                  if (userId != null) {
+                    await Supabase.instance.client.from('profiles').update({
+                      'disability_status': disabilityController.text.trim(),
+                    }).eq('id', userId);
+                    // Update local state so next open reflects saved values
+                    if (mounted) {
+                      setState(() {
+                        _userDisabilityStatus = disabilityController.text.trim();
+                      });
+                    }
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) _showFeedback('Demographics saved!');
+                } catch (e) {
+                  if (mounted) _showFeedback('Error saving: $e');
+                } finally {
+                  setLocal(() => isSaving = false);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                backgroundColor: Colors.blue[700],
+                foregroundColor: Colors.white,
+              ),
+              child: isSaving
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Save Demographics', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildVerificationsList() {
+    if (_isVerificationsLoading) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(32),
+        child: CircularProgressIndicator(),
+      ));
+    }
     return ListView(
+      shrinkWrap: true,
       children: [
+        // Email — always shown; verified = user has a confirmed auth account
         ListTile(
           leading: const Icon(Icons.email, color: Colors.blue),
-          title: const Text('Email verified'),
-          subtitle: const Text('kishore@example.com'),
-          trailing: Icon(Icons.check_circle, color: Colors.blue[700]),
+          title: const Text('Email address'),
+          subtitle: Text(_userEmail.isNotEmpty ? _userEmail : 'Not set'),
+          trailing: _userEmail.isNotEmpty
+              ? Icon(Icons.check_circle, color: Colors.blue[700])
+              : const Icon(Icons.cancel_outlined, color: Colors.grey),
         ),
+        // Phone — only show as verified if we actually have a number on file
         ListTile(
-          leading: const Icon(Icons.phone, color: Colors.blue),
-          title: const Text('Phone verified'),
-          subtitle: const Text('+91 98765 43210'),
-          trailing: Icon(Icons.check_circle, color: Colors.blue[700]),
-        ),
-        ListTile(
-          leading: const Icon(Icons.business, color: Colors.blue),
-          title: const Text('Work email'),
-          subtitle: const Text('kishore@applywizz.com'),
-          onTap: () {},
-          trailing: const Text('Verify', style: TextStyle(color: Colors.blue)),
+          leading: const Icon(Icons.phone, color: Colors.grey),
+          title: const Text('Phone number'),
+          subtitle: Text(_userPhone.isNotEmpty ? _userPhone : 'Not added'),
+          trailing: _userPhone.isNotEmpty
+              ? Icon(Icons.check_circle, color: Colors.blue[700])
+              : TextButton(
+                  onPressed: () => _showFeedback('Phone verification coming soon'),
+                  child: const Text('Add', style: TextStyle(color: Colors.blue)),
+                ),
         ),
       ],
     );
@@ -621,15 +558,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Column(
       children: [
         ListTile(
-          title: const Text('kishore@example.com'),
+          title: Text(_userEmail.isNotEmpty ? _userEmail : 'No email set'),
           subtitle: const Text('Primary email'),
-          trailing: Icon(Icons.check_circle, color: Colors.blue[700]),
+          trailing: _userEmail.isNotEmpty ? Icon(Icons.check_circle, color: Colors.blue[700]) : null,
         ),
         const Divider(),
         ListTile(
           leading: const Icon(Icons.add),
           title: const Text('Add email address'),
-          onTap: () => _showFeedback('Email added'),
+          onTap: () => _showFeedback('Contact support to change your email'),
         ),
       ],
     );
@@ -638,16 +575,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _buildPhoneManagement() {
     return Column(
       children: [
-        ListTile(
-          title: const Text('+91 98765 43210'),
-          subtitle: const Text('Primary phone'),
-          trailing: Icon(Icons.check_circle, color: Colors.blue[700]),
-        ),
+        if (_userPhone.isNotEmpty)
+          ListTile(
+            title: Text(_userPhone),
+            subtitle: const Text('Primary phone'),
+            trailing: Icon(Icons.check_circle, color: Colors.blue[700]),
+          )
+        else
+          const ListTile(
+            title: Text('No phone number added'),
+            subtitle: Text('Phone number is optional'),
+          ),
         const Divider(),
         ListTile(
           leading: const Icon(Icons.add),
           title: const Text('Add phone number'),
-          onTap: () => _showFeedback('Phone added'),
+          onTap: () => _showFeedback('Phone number feature coming soon'),
         ),
       ],
     );
@@ -668,62 +611,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           trailing: TextButton(onPressed: () {}, child: const Text('Sign out')),
         ),
       ],
-    );
-  }
-
-  Widget _buildPublicProfileSettings() {
-    return Column(
-      children: [
-        _buildSection('Profile visibility', [
-          _buildSettingTile('Public visibility', trailingWidget: Switch(value: true, onChanged: (v) {}, activeColor: Colors.blue[700])),
-          _buildSettingTile('Headline', trailingWidget: Switch(value: true, onChanged: (v) {}, activeColor: Colors.blue[700])),
-          _buildSettingTile('Experience', trailingWidget: Switch(value: true, onChanged: (v) {}, activeColor: Colors.blue[700])),
-        ]),
-      ],
-    );
-  }
-
-  void _showProfileViewingOptions() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(title: const Text('Your name and headline'), subtitle: const Text('Visible to everyone'), onTap: () => Navigator.pop(context)),
-            ListTile(title: const Text('Private profile characteristics'), subtitle: const Text('e.g. Someone at LinkSpec'), onTap: () => Navigator.pop(context)),
-            ListTile(title: const Text('Private mode'), subtitle: const Text('No information shared'), onTap: () => Navigator.pop(context)),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showEmailVisibilityPicker() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: ['Only me', 'First-degree connections', 'Everyone'].map((opt) {
-            return ListTile(title: Text(opt), onTap: () => Navigator.pop(context));
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  void _showToggleDialog(String title, String content) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(content),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Off')),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('On')),
-        ],
-      ),
     );
   }
 }

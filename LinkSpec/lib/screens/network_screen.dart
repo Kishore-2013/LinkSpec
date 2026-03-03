@@ -2,22 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../services/supabase_service.dart';
 import 'member_profile_screen.dart';
+import 'chat_screen.dart';
 import '../widgets/clay_container.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/follow_provider.dart';
+import '../providers/unite_provider.dart';
 
-class NetworkScreen extends StatefulWidget {
+
+class NetworkScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
   final VoidCallback? onSearch;
   const NetworkScreen({Key? key, this.onBack, this.onSearch}) : super(key: key);
 
   @override
-  State<NetworkScreen> createState() => _NetworkScreenState();
+  ConsumerState<NetworkScreen> createState() => _NetworkScreenState();
 }
 
-class _NetworkScreenState extends State<NetworkScreen> {
+class _NetworkScreenState extends ConsumerState<NetworkScreen> {
   List<Map<String, dynamic>> _profiles = [];
-  Set<String> _followingIds = {};
-  Map<String, String> _connectStatuses = {}; // userId -> 'none'|'pending_sent'|'pending_received'|'connected'
   bool _isLoading = true;
+
 
   @override
   void initState() {
@@ -26,7 +30,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
   }
 
   Future<void> _loadNetwork() async {
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
     try {
       // 1. Get other profiles in the same domain
       final profiles = await SupabaseService.getProfilesInSameDomain(limit: 50);
@@ -38,66 +42,79 @@ class _NetworkScreenState extends State<NetworkScreen> {
       final otherIds = others.map((p) => p['id'] as String).toList();
 
       if (otherIds.isEmpty) {
-        setState(() {
-          _profiles = [];
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _profiles = [];
+            _isLoading = false;
+          });
+        }
         return;
       }
 
       // 2. Batch check follow statuses and connection statuses
-      // We do these in parallel for speed
       final results = await Future.wait([
         SupabaseService.getFollowStatuses(otherIds),
         SupabaseService.getConnectionStatuses(otherIds),
       ]);
 
-      setState(() {
-        _profiles = others;
-        _followingIds = results[0] as Set<String>;
-        _connectStatuses = results[1] as Map<String, String>;
-      });
+      // Update follow provider for all profiles shown
+      final followResults = results[0] as Set<String>;
+      final followNotifier = ref.read(followProvider.notifier);
+      for (var id in otherIds) {
+        followNotifier.setFollowStatus(id, followResults.contains(id));
+      }
+
+      if (mounted) {
+        final uniteResults = results[1] as Map<String, String>;
+        final uniteNotifier = ref.read(uniteProvider.notifier);
+        uniteResults.forEach((id, status) {
+          uniteNotifier.setUniteStatus(id, status);
+        });
+
+        setState(() {
+          _profiles = others;
+        });
+      }
+
     } catch (e) {
       print('Error loading network: $e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _toggleFollow(String targetUserId) async {
-    final isFollowing = _followingIds.contains(targetUserId);
     try {
-      if (isFollowing) {
-        await SupabaseService.unfollowUser(targetUserId);
-        setState(() => _followingIds.remove(targetUserId));
-      } else {
-        await SupabaseService.followUser(targetUserId);
-        setState(() => _followingIds.add(targetUserId));
-      }
+      await ref.read(followProvider.notifier).toggleFollow(targetUserId);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Action failed: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action failed: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
-  Future<void> _handleConnect(String targetUserId) async {
-    final status = _connectStatuses[targetUserId] ?? 'none';
+  Future<void> _handleUnite(Map<String, dynamic> profile) async {
+    final targetUserId = profile['id'];
+    final status = ref.read(uniteProvider)[targetUserId] ?? 'none';
     try {
       if (status == 'none') {
-        await SupabaseService.sendConnectRequest(targetUserId);
-        setState(() => _connectStatuses[targetUserId] = 'pending_sent');
+        await ref.read(uniteProvider.notifier).sendRequest(targetUserId);
       } else if (status == 'pending_sent') {
-        await SupabaseService.withdrawConnectRequest(targetUserId);
-        setState(() => _connectStatuses[targetUserId] = 'none');
+        await ref.read(uniteProvider.notifier).withdrawRequest(targetUserId);
       } else if (status == 'pending_received') {
-        await SupabaseService.acceptConnectRequest(targetUserId);
-        setState(() => _connectStatuses[targetUserId] = 'connected');
+        await ref.read(uniteProvider.notifier).acceptRequest(targetUserId);
       } else if (status == 'connected') {
-        await SupabaseService.removeConnection(targetUserId);
-        setState(() => _connectStatuses[targetUserId] = 'none');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(otherUser: profile),
+          ),
+        );
       }
     } catch (e) {
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Action failed: $e'), backgroundColor: Colors.red),
@@ -161,20 +178,22 @@ class _NetworkScreenState extends State<NetworkScreen> {
                   itemBuilder: (context, index) {
                     final profile = _profiles[index];
                     final targetId = profile['id'];
-                    final isFollowing = _followingIds.contains(targetId);
-                    final connectStatus = _connectStatuses[targetId] ?? 'none';
+                    final followMap = ref.watch(followProvider);
+                    final isFollowing = followMap[targetId] ?? false;
+                    final connectStatus = ref.watch(uniteProvider)[targetId] ?? 'none';
+
 
                     // Determine Connect button appearance
                     final connectLabel = switch (connectStatus) {
                       'pending_sent' => 'Pending',
                       'pending_received' => 'Accept',
-                      'connected' => 'Connected',
-                      _ => 'Connect',
+                      'connected' => 'Message',
+                      _ => 'Unite',
                     };
                     final connectIcon = switch (connectStatus) {
                       'pending_sent' => Icons.hourglass_top_rounded,
                       'pending_received' => Icons.check_circle_outline,
-                      'connected' => Icons.people_alt_rounded,
+                      'connected' => Icons.message_outlined,
                       _ => Icons.person_add_outlined,
                     };
 
@@ -240,7 +259,7 @@ class _NetworkScreenState extends State<NetworkScreen> {
                                   // Connect button
                                   Expanded(
                                     child: OutlinedButton.icon(
-                                      onPressed: () => _handleConnect(targetId),
+                                      onPressed: () => _handleUnite(profile),
                                       icon: Icon(connectIcon, size: 15),
                                       label: Text(connectLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                       style: OutlinedButton.styleFrom(

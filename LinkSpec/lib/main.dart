@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/supabase_config.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
@@ -12,10 +13,12 @@ import 'screens/events_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/saved_items_screen.dart';
 import 'screens/reset_password_screen.dart';
+import 'screens/verification_screen.dart';
 import 'providers/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
@@ -104,6 +107,16 @@ class LinkSpecApp extends ConsumerWidget {
         '/search': (context) => const SearchScreen(),
         '/saved-items': (context) => const SavedItemsScreen(),
         '/reset-password': (context) => const ResetPasswordScreen(),
+        '/verification': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+          return VerificationScreen(
+            email: args?['email'] ?? '',
+            providerType: args?['providerType'] ?? 'gmail',
+            password: args?['password'],
+            fullName: args?['fullName'],
+            isSignUp: args?['isSignUp'] ?? false,
+          );
+        },
       },
     );
   }

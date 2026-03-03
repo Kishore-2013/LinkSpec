@@ -83,6 +83,11 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen>
       await Supabase.instance.client.from('profiles').upsert({
         'id': user.id,
         'full_name': _fullNameController.text.trim(),
+        // mother_domain: the domain chosen at registration — permanent home domain
+        // used by RLS policies to gate messaging between users
+        'mother_domain': _selectedDomain,
+        // domain_id: the user's current active domain (same as mother_domain at
+        // registration, but may change later via switchDomain)
         'domain_id': _selectedDomain,
         'bio': _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
       });
@@ -168,12 +173,25 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen>
                           _sectionLabel('Select Your Domain'),
                           const SizedBox(height: 4),
                           Text(
-                            'You\'ll connect with professionals in your selected field',
+                            'You\'ll unite with professionals in your selected field',
                             style: TextStyle(color: Colors.grey[500], fontSize: 12),
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 20),
 
-                          ...(_domains.map((d) => _buildDomainTile(d))),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final int crossAxisCount = constraints.maxWidth > 400 ? 2 : 1;
+                              return GridView.count(
+                                crossAxisCount: crossAxisCount,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: 2.2,
+                                children: _domains.map((d) => _buildDomainTile(d)).toList(),
+                              );
+                            },
+                          ),
                           const SizedBox(height: 24),
 
                           // ── Bio (Optional) ──────────────────────────────
@@ -271,55 +289,49 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen>
     final color = d['color'] as Color;
     final isSelected = _selectedDomain == id;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedDomain = id),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.12) : Colors.white.withOpacity(0.55),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isSelected ? color : Colors.blue.withOpacity(0.15),
-              width: isSelected ? 2 : 1,
+    return GestureDetector(
+      onTap: () => setState(() => _selectedDomain = id),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.12) : Colors.white.withOpacity(0.55),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? color : Colors.blue.withOpacity(0.15),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [BoxShadow(color: color.withOpacity(0.18), blurRadius: 12, offset: const Offset(0, 4))]
+              : [BoxShadow(color: const Color(0xFF1A2740).withOpacity(0.04), blurRadius: 6)],
+        ),
+        child: Row(
+          children: [
+            // Icon pill
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(isSelected ? 0.18 : 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 20),
             ),
-            boxShadow: isSelected
-                ? [BoxShadow(color: color.withOpacity(0.18), blurRadius: 12, offset: const Offset(0, 4))]
-                : [BoxShadow(color: const Color(0xFF1A2740).withOpacity(0.04), blurRadius: 6)],
-          ),
-          child: Row(
-            children: [
-              // Icon pill
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(isSelected ? 0.18 : 0.1),
-                  borderRadius: BorderRadius.circular(14),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                id,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: isSelected ? color : const Color(0xFF1A2740),
                 ),
-                child: Icon(icon, color: color, size: 24),
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  id,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                    color: isSelected ? color : const Color(0xFF1A2740),
-                  ),
-                ),
-              ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: isSelected
-                    ? Icon(Icons.check_circle_rounded, color: color, size: 24, key: const ValueKey('checked'))
-                    : Icon(Icons.radio_button_unchecked, color: Colors.grey[300], size: 24, key: const ValueKey('unchecked')),
-              ),
-            ],
-          ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded, color: color, size: 20),
+          ],
         ),
       ),
     );

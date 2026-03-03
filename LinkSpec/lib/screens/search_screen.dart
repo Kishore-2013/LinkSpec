@@ -8,7 +8,16 @@ import 'member_profile_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   final VoidCallback? onBack;
-  const SearchScreen({Key? key, this.onBack}) : super(key: key);
+  /// Set true only when this screen is the active tab so the keyboard
+  /// doesn't pop up when the screen is hidden in the IndexedStack.
+  final bool autofocusSearch;
+  final bool searchOnlyConnections;
+  const SearchScreen({
+    Key? key,
+    this.onBack,
+    this.autofocusSearch = false,
+    this.searchOnlyConnections = false,
+  }) : super(key: key);
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -28,7 +37,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: widget.searchOnlyConnections ? 1 : 2, vsync: this);
   }
 
   @override
@@ -47,12 +56,19 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
     });
 
     try {
-      final postsData = await SupabaseService.searchPosts(query);
-      final peopleData = await SupabaseService.searchProfiles(query);
+      List<Post> postsData = [];
+      if (!widget.searchOnlyConnections) {
+        final posts = await SupabaseService.searchPosts(query);
+        postsData = posts.map((p) => Post.fromJson(p)).toList();
+      }
+
+      final peopleData = widget.searchOnlyConnections
+          ? await SupabaseService.searchConnections(query)
+          : await SupabaseService.searchProfiles(query);
 
       if (mounted) {
         setState(() {
-          _postResults = postsData.map((p) => Post.fromJson(p)).toList();
+          _postResults = postsData;
           _peopleResults = peopleData;
           _isLoading = false;
         });
@@ -86,7 +102,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: TextField(
             controller: _searchController,
-            autofocus: true,
+            autofocus: widget.autofocusSearch,
             decoration: const InputDecoration(
               hintText: 'Search posts or people...',
               border: InputBorder.none,
@@ -96,16 +112,24 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
           ),
         ),
         bottom: _hasSearched 
-          ? TabBar(
-              controller: _tabController,
-              labelColor: Colors.blue[800],
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: Colors.blue[800],
-              tabs: const [
-                Tab(text: 'Posts'),
-                Tab(text: 'People'),
-              ],
-            )
+          ? (widget.searchOnlyConnections 
+              ? TabBar(
+                  controller: _tabController,
+                  labelColor: Colors.blue[800],
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: Colors.blue[800],
+                  tabs: const [Tab(text: 'Unites')],
+                )
+              : TabBar(
+                  controller: _tabController,
+                  labelColor: Colors.blue[800],
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: Colors.blue[800],
+                  tabs: const [
+                    Tab(text: 'Posts'),
+                    Tab(text: 'People'),
+                  ],
+                ))
           : null,
       ),
       body: Stack(
@@ -169,19 +193,20 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
     return TabBarView(
       controller: _tabController,
       children: [
-        // Posts Results
-        _postResults.isEmpty 
-          ? _buildEmptyState('No posts found matching "${_searchController.text}"')
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _postResults.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
-              itemBuilder: (context, index) => PostCard(post: _postResults[index]),
-            ),
+        if (!widget.searchOnlyConnections)
+          // Posts Results
+          _postResults.isEmpty 
+            ? _buildEmptyState('No posts found matching "${_searchController.text}"')
+            : ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: _postResults.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
+                itemBuilder: (context, index) => PostCard(post: _postResults[index]),
+              ),
 
-        // People Results
+        // People / Connections Results
         _peopleResults.isEmpty 
-          ? _buildEmptyState('No people found matching "${_searchController.text}"')
+          ? _buildEmptyState('No ' + (widget.searchOnlyConnections ? 'unites' : 'people') + ' found matching "${_searchController.text}"')
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: _peopleResults.length,

@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import '../widgets/aw_logo.dart';
 import '../services/supabase_service.dart';
+import '../utils/validators.dart';
+import '../api/route_handler.dart';
 
 /// Login / Sign-Up Screen — Minimalistic design.
 /// Clean white surface, hairline input borders, single accent colour.
@@ -130,60 +132,32 @@ class _LoginScreenState extends State<LoginScreen>
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final fullName = _nameController.text.trim();
+
     try {
-      if (_isSignUp) {
-        final response = await Supabase.instance.client.auth.signUp(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-          emailRedirectTo: null,
+      // ── Trigger Domain-Based OTP ──
+      final success = await RouteHandler.initiateVerification(email);
+
+      if (!mounted) return;
+
+      if (success) {
+        // Navigate to Verification UI
+        Navigator.pushNamed(
+          context,
+          '/verification',
+          arguments: {
+            'email': email,
+            'password': password,
+            'fullName': fullName,
+            'isSignUp': _isSignUp,
+            'providerType': email.endsWith('@gmail.com') ? 'gmail' : 'microsoft',
+          },
         );
-
-        if (!mounted) return;
-
-        if (response.user != null && response.session != null) {
-          Navigator.of(context).pushReplacementNamed(
-            '/domain-selection',
-            arguments: {'fullName': _nameController.text.trim()},
-          );
-        } else if (response.user != null) {
-          _showSnack(
-            'Account created! Check your email to verify, then sign in.',
-            isError: false,
-          );
-          setState(() => _isSignUp = false);
-        } else {
-          _showSnack('Failed to create account. Please try again.');
-        }
       } else {
-        await Supabase.instance.client.auth.signInWithPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
-
-        if (!mounted) return;
-
-        final userId = Supabase.instance.client.auth.currentUser?.id;
-        if (userId != null) {
-          try {
-            final profile = await Supabase.instance.client
-                .from('profiles')
-                .select()
-                .eq('id', userId)
-                .maybeSingle();
-
-            if (!mounted) return;
-            Navigator.of(context).pushReplacementNamed(
-              profile == null ? '/domain-selection' : '/home',
-            );
-          } catch (_) {
-            if (mounted) {
-              Navigator.of(context).pushReplacementNamed('/domain-selection');
-            }
-          }
-        }
+        _showSnack('Verification could not be initiated. Please check your network.');
       }
-    } on AuthException catch (e) {
-      _showSnack(e.message);
     } catch (e) {
       _showSnack('An error occurred: $e');
     } finally {
@@ -219,19 +193,19 @@ class _LoginScreenState extends State<LoginScreen>
       backgroundColor: _bg,
       body: Stack(
         children: [
-          // ── layer 1: marble texture full-page base (Bottom Layer) ────────
+          // ── Background Layers (Mobile only or base) ──
           Positioned.fill(
             child: SvgPicture.asset(
               'assets/svg/marble_texture.svg',
               fit: BoxFit.cover,
-              colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.09), BlendMode.dstATop),
+              colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.04), BlendMode.dstATop),
             ),
           ),
-          // ── layer 2: Decorative SVGs (Top layer of the Background) ────────
+          
+          // Decorative Blobs (Faint)
           IgnorePointer(
             child: Stack(
               children: [
-                // soft grey blob — top-left
                 Positioned(
                   top: -20, left: -20,
                   child: AnimatedBuilder(
@@ -241,27 +215,11 @@ class _LoginScreenState extends State<LoginScreen>
                       child: child,
                     ),
                     child: Opacity(
-                      opacity: 0.5,
-                      child: SvgPicture.asset('assets/svg/soft_coral.svg', width: 350, color: Colors.grey[400]),
+                      opacity: 0.25,
+                      child: SvgPicture.asset('assets/svg/soft_coral.svg', width: 350, color: Colors.grey[300]),
                     ),
                   ),
                 ),
-                // side organic curve — bottom-right
-                Positioned(
-                  bottom: -20, right: -30,
-                  child: AnimatedBuilder(
-                    animation: _blobCtrl,
-                    builder: (_, child) => Transform.translate(
-                      offset: Offset(_blobFloat3.value * 0.2, _blobFloat3.value),
-                      child: child,
-                    ),
-                    child: Opacity(
-                      opacity: 0.4,
-                      child: SvgPicture.asset('assets/svg/side_organic_curve.svg', width: 240, color: Colors.grey[500]),
-                    ),
-                  ),
-                ),
-                // soft green blob (tinted grey) — bottom-left
                 Positioned(
                   bottom: -90, left: -130,
                   child: AnimatedBuilder(
@@ -271,30 +229,139 @@ class _LoginScreenState extends State<LoginScreen>
                       child: child,
                     ),
                     child: Opacity(
-                      opacity: 0.35,
-                      child: SvgPicture.asset('assets/svg/soft_green_blob.svg', width: 300, color: Colors.grey[400]),
+                      opacity: 0.2,
+                      child: SvgPicture.asset('assets/svg/soft_green_blob.svg', width: 300, color: Colors.grey[300]),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-
-          // ── foreground: scrollable login form ────────────────────────────
+          
+          // ── foreground ───────────────────────────────────────────────────
           SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isDesktop = constraints.maxWidth > 900;
+                
+                if (isDesktop) {
+                  return _buildDesktopLayout();
+                } else {
+                  return _buildMobileLayout();
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopLayout() {
+    return Row(
+      children: [
+        // Left Side: Branding & Image
+        Expanded(
+          flex: 5,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  'assets/images/login_web_background.png', // Assuming it's copied or handled
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF0066CC), Color(0xFF003366)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(60.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const AWLogo(size: 80, showAppName: false),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Unite with your\nprofessional domain.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 48,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.5,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'LinkSpec is the domain-gated networking platform\nfor the modern professional.',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Right Side: Form
+        Expanded(
+          flex: 4,
+          child: Container(
+            color: Colors.white,
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-                child: FadeTransition(
-                  opacity: _fadeAnim,
-                  child: SlideTransition(
-                    position: _slideAnim,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
+                padding: const EdgeInsets.all(60),
+                child: _buildFormContent(),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        child: FadeTransition(
+          opacity: _fadeAnim,
+          child: SlideTransition(
+            position: _slideAnim,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: _buildFormContent(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
                           // ── Logo ───────────────────────────────────────
                           Center(
                             child: AWLogo(
@@ -386,11 +453,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   keyboardType: TextInputType.emailAddress,
                                   textInputAction: TextInputAction.next,
                                   onSubmitted: (_) => FocusScope.of(context).requestFocus(_passFocus),
-                                  validator: (v) {
-                                    if (v == null || v.trim().isEmpty) return 'Email is required';
-                                    if (!v.contains('@')) return 'Enter a valid email';
-                                    return null;
-                                  },
+                                  validator: Validators.validateEmail,
                                   autofillHints: [AutofillHints.email],
                                 ),
                                 const SizedBox(height: 20),
@@ -492,16 +555,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+                      );
   }
 
   // ── Forgot Password Logic ────────────────────────────────────────────────

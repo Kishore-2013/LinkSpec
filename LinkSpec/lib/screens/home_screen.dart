@@ -26,6 +26,7 @@ import '../widgets/aw_logo.dart';
 import '../widgets/skeleton_loader.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'dart:async';
+import '../providers/saved_posts_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -36,6 +37,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
+  bool _isSearchMessageContext = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _scrollController = ScrollController();
   // ── Pagination ─────────────────────────────────────────────────────────────
@@ -68,8 +70,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _selectedDomain = 'Medical';
   bool _isSwitchingDomain = false;
 
-  // Track when we last cleared notifications to prevent race conditions
+  // Track when we last cleared notifications / messages to prevent race conditions
   DateTime? _lastNotificationClear;
+  DateTime? _lastMessageClear;
+
+  // Scroll-aware bottom nav
+  bool _navVisible = true;
+  double _lastScrollOffset = 0;
+
+  // Realtime channels — stored so they can be unsubscribed in dispose()
+  RealtimeChannel? _messagesChannel;
+  RealtimeChannel? _notificationsChannel;
 
   @override
   void initState() {
@@ -78,9 +89,182 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _loadPosts();
     _loadGroups();
     _loadBadgeCounts();
-    // Refresh badges every 30 seconds
-    _badgeTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Refresh badges every 30 seconds as a non-realtime fallback
+    _badgeTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _loadBadgeCounts();
+    });
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+
+    // ── Messages Realtime (badge update only) ────────────────────────────────
+    _messagesChannel = Supabase.instance.client
+        .channel('home:messages:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'messages',
+          callback: (_) => _loadBadgeCounts(),
+        )
+        .subscribe();
+
+    // ── Notifications Realtime (badge + overlay SnackBar) ────────────────────
+    if (userId != null) {
+      _notificationsChannel = Supabase.instance.client
+          .channel('home:notifications:$userId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.insert,   // only fire on new rows
+            schema: 'public',
+            table: 'notifications',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'user_id',
+              value: userId,
+            ),
+            callback: (payload) => _onNewNotification(payload),
+          )
+          .subscribe();
+    }
+
+    // Scroll-aware nav bar
+    _scrollController.addListener(() {
+      final offset = _scrollController.offset;
+      if (offset > _lastScrollOffset + 10 && _navVisible) {
+        setState(() => _navVisible = false);
+      } else if (offset < _lastScrollOffset - 10 && !_navVisible) {
+        setState(() => _navVisible = true);
+      }
+      _lastScrollOffset = offset;
+    });
+  }
+
+  /// Called by the Realtime channel whenever a new notification row is inserted.
+  Future<void> _onNewNotification(PostgresChangePayload payload) async {
+    // 1. Update the badge count immediately
+    if (mounted) {
+      setState(() => _unreadNotifications++);
+    }
+
+    // 2. Fetch actor name for the banner (the raw row has actor_id but no joined name)
+    final newRow = payload.newRecord;
+    final type    = newRow['type'] as String? ?? 'notification';
+    final actorId = newRow['actor_id'] as String?;
+
+    String actorName = 'Someone';
+    if (actorId != null) {
+      try {
+        final profile = await SupabaseService.getUserProfile(actorId);
+        actorName = profile?['full_name'] as String? ?? 'Someone';
+      } catch (_) {}
+    }
+
+    final message = switch (type) {
+      'like'         => '$actorName liked your post',
+      'comment'      => '$actorName commented on your post',
+      'like_comment' => '$actorName liked your comment',
+      'connection'   => '$actorName united with you',
+      _              => '$actorName sent you a notification',
+    };
+
+    // 3. Show the overlay banner (safe even if on a different tab)
+    if (mounted) {
+      _showNotificationBanner(message, type);
+    }
+  }
+
+  /// Displays a rich SnackBar overlay visible from any tab.
+  void _showNotificationBanner(String message, String type) {
+    final iconData = switch (type) {
+      'like'         => Icons.favorite_rounded,
+      'comment'      => Icons.chat_bubble_rounded,
+      'like_comment' => Icons.favorite_border_rounded,
+      'connection'   => Icons.people_rounded,
+      _              => Icons.notifications_rounded,
+    };
+    final iconColor = switch (type) {
+      'like'         => Colors.red,
+      'like_comment' => Colors.pink,
+      'connection'   => Colors.blue,
+      _              => const Color(0xFF0066CC),
+    };
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF2C2C2E)
+            : Colors.white,
+        elevation: 6,
+        content: IntrinsicHeight(
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(iconData, color: iconColor, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : const Color(0xFF1C1C1E),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              // Tap to jump to notifications tab
+              TextButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  _navigateTo(5);
+                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'View',
+                  style: TextStyle(
+                    color: iconColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Switch page and close the mobile drawer if it is open.
+  void _navigateTo(int index) {
+    // Close the drawer first (safe to call even if drawer is not open)
+    if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+      Navigator.of(context).pop();
+    }
+    setState(() {
+      _currentIndex = index;
+      if (index == 1) {
+        _isSearchMessageContext = false;
+      }
+      if (index == 3) {
+        _unreadMessages = 0; // Clear locally when entering messages tab
+        _lastMessageClear = DateTime.now(); // Race condition guard
+        SupabaseService.markAllMessagesAsRead(); // Mark them in the database too
+      }
     });
   }
 
@@ -88,6 +272,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
     _badgeTimer?.cancel();
     _scrollController.dispose();
+    // Unsubscribe Realtime channels to prevent memory leaks
+    _messagesChannel?.unsubscribe();
+    _notificationsChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -97,7 +284,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final notifCount = await SupabaseService.getUnreadNotificationCount();
       if (mounted) {
         setState(() {
-          _unreadMessages = msgCount;
+          // Guard: If we cleared messages in the last 3 seconds,
+          // suppress the old count to give the DB time to catch up.
+          // Keep the window short (3s) so any new message that arrives
+          // after that still updates the badge correctly.
+          final isMessageRecentlyCleared = _lastMessageClear != null &&
+              DateTime.now().difference(_lastMessageClear!).inSeconds < 3;
+
+          // Force 0 if on messages tab OR if we cleared recently.
+          if (_currentIndex != 3 && !isMessageRecentlyCleared) {
+            _unreadMessages = msgCount;
+          } else {
+            _unreadMessages = 0;
+          }
           
           // Guard: If we cleared notifications in the last 5 seconds, 
           // ignore any non-zero count from the server to prevent race conditions.
@@ -243,108 +442,94 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               _buildHeader(isMobile),
               Expanded(
-                child: !isMobile 
-                  ? Transform(
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.0005) // subtle perspective
-                        ..rotateY(-0.06) // tilt right
-                        ..rotateX(0.04), // tilt up
-                      alignment: Alignment.center,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Left Sidebar (Desktop/Wide)
-                          if (MediaQuery.of(context).size.width > 900)
-                            SizedBox(
-                              width: 300,
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.fromLTRB(16, 12, 8, 100),
-                                child: _buildLeftSideBar(),
-                              ),
-                            ),
-                          // Main Content
-                          Expanded(
-                            child: IndexedStack(
-                              index: _currentIndex,
-                              children: [
-                                _buildHomeFeed(),      // 0
-                                SearchScreen(          // 1
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                ),
-                                NetworkScreen(         // 2
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                  onSearch: () => setState(() => _currentIndex = 1),
-                                ),
-                                MessagesListScreen(    // 3
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                  onSearch: () => setState(() => _currentIndex = 1),
-                                ),
-                                ProfileScreen(         // 4
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                ),
-                                NotificationsScreen(   // 5
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                  onRefreshBadges: _loadBadgeCounts,
-                                ),
-                                RecentActivityScreen(  // 6
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                ),
-                                SavedItemsScreen(      // 7
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                ),
-                                SettingsScreen(        // 8
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                ),
-                                GroupsScreen(          // 9
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                ),
-                                EventsScreen(          // 10
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Right Sidebar (Desktop/Wide)
-                          if (MediaQuery.of(context).size.width > 1200)
-                            SizedBox(
-                              width: 360,
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.fromLTRB(8, 12, 16, 100),
-                                child: _buildRightSideBar(),
-                              ),
-                            ),
-                        ],
-                      ),
-                    )
-                  : Row( // Mobile keeps flat row for better UX
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: IndexedStack(
-                            index: _currentIndex,
-                            children: [
-                              _buildHomeFeed(),
-                              SearchScreen(onBack: () => setState(() => _currentIndex = 0)),
-                              NetworkScreen(onBack: () => setState(() => _currentIndex = 0), onSearch: () => setState(() => _currentIndex = 1)),
-                              MessagesListScreen(onBack: () => setState(() => _currentIndex = 0), onSearch: () => setState(() => _currentIndex = 1)),
-                              ProfileScreen(onBack: () => setState(() => _currentIndex = 0)),
-                              NotificationsScreen(onBack: () => setState(() => _currentIndex = 0), onRefreshBadges: _loadBadgeCounts),
-                              RecentActivityScreen(onBack: () => setState(() => _currentIndex = 0)),
-                              SavedItemsScreen(onBack: () => setState(() => _currentIndex = 0)),
-                              SettingsScreen(onBack: () => setState(() => _currentIndex = 0)),
-                              GroupsScreen(onBack: () => setState(() => _currentIndex = 0)),
-                              EventsScreen(onBack: () => setState(() => _currentIndex = 0)),
-                            ],
-                          ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Desktop Navigation Rail / Sidebar
+                    if (!isMobile)
+                      _buildDesktopNavRail(),
+                    
+                    // Main Content / Post Feed
+                    Expanded(
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 0 : 20,
                         ),
-                      ],
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Left Column (Home Feed / Profile info)
+                            Expanded(
+                              flex: 3,
+                              child: IndexedStack(
+                                index: _currentIndex,
+                                children: [
+                                  _buildHomeFeed(),      // 0
+                                  SearchScreen(          // 1
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                    autofocusSearch: _currentIndex == 1,
+                                    searchOnlyConnections: _isSearchMessageContext,
+                                  ),
+                                  NetworkScreen(         // 2
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                    onSearch: () => setState(() => _currentIndex = 1),
+                                  ),
+                                  MessagesListScreen(    // 3
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                    onSearch: () => setState(() {
+                                      _currentIndex = 1;
+                                      _isSearchMessageContext = true;
+                                    }),
+                                  ),
+                                  ProfileScreen(         // 4
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                  ),
+                                  NotificationsScreen(   // 5
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                    onRefreshBadges: _loadBadgeCounts,
+                                  ),
+                                  RecentActivityScreen(  // 6
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                  ),
+                                  SavedItemsScreen(      // 7
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                  ),
+                                  SettingsScreen(        // 8
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                  ),
+                                  GroupsScreen(          // 9
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                  ),
+                                  EventsScreen(          // 10
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Right Sidebar (Only on wide screens)
+                            if (MediaQuery.of(context).size.width > 1200 && _currentIndex == 0)
+                              SizedBox(
+                                width: 360,
+                                child: SingleChildScrollView(
+                                  padding: const EdgeInsets.only(left: 20, top: 8),
+                                  child: _buildRightSideBar(),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
+                  ],
+                ),
               ),
+
             ],
           ),
-          // Floating Bottom Nav Pill
-          Positioned(
-            bottom: 20,
+          // Floating Bottom Nav Pill — hides when scrolling up, shows on scroll down
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOut,
+            bottom: _navVisible ? 20 : -90,
             left: 0,
             right: 0,
             child: Center(child: _buildBottomNavPill()),
@@ -477,8 +662,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               );
               if (confirmed == true && mounted) {
                 try {
+                  SupabaseService.clearCache();
+                  ref.read(savedPostsProvider.notifier).clear();
                   await Supabase.instance.client.auth.signOut();
-                  if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                  if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
                 } catch (e) {
                   debugPrint('Logout error: $e');
                 }
@@ -707,8 +894,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildPostTypeBtn(IconData icon, String label, Color color) {
     final isMobile = MediaQuery.of(context).size.width < 480;
+    // Map label to PostType
+    PostType postType = PostType.general;
+    if (label == 'Event') postType = PostType.event;
+    if (label == 'Article') postType = PostType.article;
     return InkWell(
-      onTap: () => _showCreatePostDialog(),
+      onTap: () => _showCreatePostDialog(postType: postType),
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -736,7 +927,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       children: [
         // Profile Card
         GestureDetector(
-          onTap: () => setState(() => _currentIndex = 4),
+          onTap: () => _navigateTo(4),
           child: ClayContainer(
             borderRadius: 16,
             depth: 3,
@@ -842,11 +1033,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _buildSidebarGroup([
           _buildSidebarItem(
             Icons.bookmark, 'Saved items',
-            onTap: () => setState(() => _currentIndex = 7),
+            onTap: () => _navigateTo(7),
           ),
           _buildSidebarItem(
             Icons.settings, 'Settings',
-            onTap: () => setState(() => _currentIndex = 8),
+            onTap: () => _navigateTo(8),
           ),
         ]),
         const SizedBox(height: 12),
@@ -854,7 +1045,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _buildSidebarItem(
             Icons.trending_up, 'Recent activity',
             showPlus: true,
-            onTap: () => setState(() => _currentIndex = 6),
+            onTap: () => _navigateTo(6),
             onPlusTap: () {
               showDialog(
                 context: context,
@@ -867,22 +1058,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // Mixed recent content
           _buildSidebarItem(
             Icons.article_outlined, 'Latest posts',
-            onTap: () => setState(() => _currentIndex = 6),
+            onTap: () => _navigateTo(6),
           ),
           _buildSidebarItem(
             Icons.event_note_outlined, 'Upcoming events',
-            onTap: () => setState(() => _currentIndex = 6),
+            onTap: () => _navigateTo(6),
           ),
-          // Dynamic group channels
-          ..._sidebarGroups.take(2).map((group) => _buildSidebarItem(
-            Icons.tag,
-            '# ${group.name}',
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => GroupDetailScreen(group: group)),
-              );
-            },
-          )),
+          /* Removed dynamic group tags */
         ]),
         const SizedBox(height: 12),
         // Groups & Events — combined container
@@ -890,12 +1072,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _buildSidebarItem(
             Icons.group, 'Groups',
             isAction: true,
-            onTap: () => setState(() => _currentIndex = 9),
+            onTap: () => _navigateTo(9),
           ),
           _buildSidebarItem(
             Icons.event, 'Events',
             isAction: true,
-            onTap: () => setState(() => _currentIndex = 10),
+            onTap: () => _navigateTo(10),
           ),
         ]),
       ],
@@ -915,11 +1097,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  Widget _buildDesktopNavRail() {
+    return Container(
+      width: 280,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(right: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: _buildLeftSideBar(),
+            ),
+          ),
+          // Sidebar Footer (optional)
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              '© 2026 LinkSpec',
+              style: TextStyle(color: Colors.grey, fontSize: 11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSidebarGroup(List<Widget> items) {
-    return ClayContainer(
-      borderRadius: 12,
-      depth: 2,
-      padding: const EdgeInsets.symmetric(vertical: 6),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E5EA), width: 0.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(children: items),
     );
   }
@@ -931,40 +1152,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     VoidCallback? onTap,
     VoidCallback? onPlusTap,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        splashColor: Colors.blue.withOpacity(0.08),
-        highlightColor: Colors.blue.withOpacity(0.05),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
-          child: Row(
-            children: [
-              Icon(icon, size: 20, color: isAction ? Colors.blue[600] : Colors.blue[400]),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: isAction ? Colors.blue[600] : const Color(0xFF1A2740),
-                    fontSize: 14,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: isAction ? const Color(0xFF0066CC) : const Color(0xFF1C1C1E),
                 ),
-              ),
-              if (showPlus)
-                GestureDetector(
-                  onTap: onPlusTap ?? onTap,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.add, size: 18, color: Colors.blue[400]),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isAction ? const Color(0xFF0066CC) : const Color(0xFF1C1C1E),
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              if (showArrow) Icon(Icons.chevron_right, size: 20, color: Colors.grey[400]),
-            ],
+                if (showPlus)
+                  GestureDetector(
+                    onTap: onPlusTap ?? onTap,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F0F5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(Icons.add, size: 14, color: Color(0xFF1C1C1E)),
+                    ),
+                  ),
+                if (showArrow) 
+                  const Icon(Icons.chevron_right, size: 18, color: Color(0xFF8E8E93)),
+              ],
+            ),
           ),
         ),
       ),
@@ -1159,7 +1390,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF0066CC) : const Color(0xFFF5F5F7),
+                        color: isSelected ? 
+                        const Color(0xFF0066CC) : const Color(0xFFF5F5F7),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: isSelected ? const Color(0xFF0066CC) : const Color(0xFFE5E5EA),
@@ -1220,7 +1452,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildNavIcon(Icons.home, 0),
+            _buildNavIcon(Icons.home_filled, 0),
             _buildNavIcon(Icons.search, 1),
             _buildNavIcon(Icons.groups_outlined, 2),
             // Create Post Button
@@ -1246,15 +1478,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildNavIcon(IconData icon, int index, {int badge = 0}) {
+  Widget _buildNavIcon(IconData? icon, int index, {int badge = 0, String? assetPath}) {
     final bool isSelected = _currentIndex == index;
     final bool isMobile = MediaQuery.of(context).size.width <= 900;
     return GestureDetector(
       onTap: () {
         setState(() {
           _currentIndex = index;
-          if (index == 3) _unreadMessages = 0;
+          if (index == 3) {
+            _unreadMessages = 0;
+            _lastMessageClear = DateTime.now();
+            SupabaseService.markAllMessagesAsRead();
+          }
         });
+        // Close drawer if open (bottom nav tapped while sidebar was open)
+        if (_scaffoldKey.currentState?.isDrawerOpen == true) {
+          Navigator.of(context).pop();
+        }
       },
       child: Container(
         padding: EdgeInsets.symmetric(
@@ -1264,11 +1504,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? const Color(0xFF0066CC) : Colors.grey[400],
-              size: isMobile ? 22 : 26,
-            ),
+            assetPath != null
+                ? Container(
+                    width: isMobile ? 22 : 26,
+                    height: isMobile ? 22 : 26,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFF0066CC) : Colors.transparent,
+                        width: 1.5,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.asset(
+                      assetPath,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : Icon(
+                    icon,
+                    color: isSelected ? const Color(0xFF0066CC) : Colors.grey[400],
+                    size: isMobile ? 22 : 26,
+                  ),
             if (badge > 0)
               Positioned(
                 right: -4,

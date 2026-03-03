@@ -51,7 +51,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
 
     // Only show full-screen loader if we have no data yet
-    if (_notifications.isEmpty) setState(() => _isLoading = true);
+    if (_notifications.isEmpty && mounted) setState(() => _isLoading = true);
     
     try {
       final data = await SupabaseService.getNotifications();
@@ -165,8 +165,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         icon = Icons.chat_bubble;
         iconColor = Colors.blue;
         break;
+      case 'like_comment':
+        message = 'liked your comment';
+        icon = Icons.favorite_border_rounded;
+        iconColor = Colors.pink;
+        break;
       case 'connection':
-        message = 'connected with you';
+        message = 'united with you';
         icon = Icons.person_add;
         iconColor = Colors.blue[700]!;
         break;

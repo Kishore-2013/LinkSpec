@@ -3,8 +3,6 @@ class AppL10n {
     'English': {
       'account_prefs': 'Account preferences',
       'sign_security': 'Sign in & security',
-      'visibility': 'Visibility',
-      'notifications': 'Notifications',
       'profile_info': 'Profile information',
       'full_name': 'Name, location, and industry',
       'display': 'Display',
@@ -21,8 +19,6 @@ class AppL10n {
     'Hindi': {
       'account_prefs': 'अकाउंट प्राथमिकताएं',
       'sign_security': 'साइन इन और सुरक्षा',
-      'visibility': 'दृश्यता',
-      'notifications': 'सूचनाएं',
       'profile_info': 'प्रोफ़ाइल जानकारी',
       'full_name': 'नाम, स्थान और उद्योग',
       'display': 'प्रदर्शन',
@@ -39,8 +35,6 @@ class AppL10n {
     'Tamil': {
       'account_prefs': 'கணக்கு முன்னுரிமைகள்',
       'sign_security': 'உள்நுழைவு மற்றும் பாதுகாப்பு',
-      'visibility': 'நேரடி நிலை',
-      'notifications': 'அறிவிப்புகள்',
       'profile_info': 'சுயவிவரத் தகவல்',
       'full_name': 'பெயர், இடம் மற்றும் தொழில்',
       'display': 'காட்சி',
@@ -57,8 +51,6 @@ class AppL10n {
     'Telugu': {
       'account_prefs': 'ఖాతా ప్రాధాన్యతలు',
       'sign_security': 'సైన్ ఇన్ & భద్రత',
-      'visibility': 'కనిపించే తీరు',
-      'notifications': 'నోటిఫికేషన్లు',
       'profile_info': 'ప్రొఫైల్ సమాచారం',
       'full_name': 'పేరు, ప్రాంతం మరియు పరిశ్రమ',
       'display': 'డిస్ప్లే',
@@ -75,8 +67,6 @@ class AppL10n {
     'Kannada': {
       'account_prefs': 'ಖಾತೆ ಆದ್ಯತೆಗಳು',
       'sign_security': 'ಸೈನ್ ಇನ್ ಮತ್ತು ಭದ್ರತೆ',
-      'visibility': 'ಗೋಚರತೆ',
-      'notifications': 'ಅಧಿಸೂಚನೆಗಳು',
       'profile_info': 'ಪ್ರೊಫೈಲ್ ಮಾಹಿತಿ',
       'full_name': 'ಹೆಸರು, ಸ್ಥಳ ಮತ್ತು ಉದ್ಯಮ',
       'display': 'ಪ್ರದರ್ಶನ',
@@ -93,8 +83,6 @@ class AppL10n {
     'Malayalam': {
       'account_prefs': 'അക്കൗണ്ട് മുൻഗണനകൾ',
       'sign_security': 'സൈൻ ഇൻ & സുരക്ഷ',
-      'visibility': 'ദൃശ്യപരത',
-      'notifications': 'അറിയിപ്പുകൾ',
       'profile_info': 'പ്രൊഫൈൽ വിവരങ്ങൾ',
       'full_name': 'പേര്, സ്ഥലം, വ്യവസായം',
       'display': 'ഡിസ്പ്ലേ',

@@ -1,41 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/post.dart';
 import '../services/supabase_service.dart';
 import '../widgets/post_card.dart';
-
-/// In-memory store for saved post IDs (shared across the session).
-/// Screens can call [SavedPostsStore.toggle] and [SavedPostsStore.isSaved].
-class SavedPostsStore {
-  SavedPostsStore._();
-  static final Set<String> _savedIds = {};
-
-  static bool isSaved(String postId) => _savedIds.contains(postId);
-
-  static bool toggle(String postId) {
-    if (_savedIds.contains(postId)) {
-      _savedIds.remove(postId);
-      return false; // now unsaved
-    } else {
-      _savedIds.add(postId);
-      return true; // now saved
-    }
-  }
-
-  static Set<String> get all => Set.unmodifiable(_savedIds);
-
-  static void clear() => _savedIds.clear();
-}
+import '../providers/saved_posts_provider.dart';
 
 /// Saved Items Screen — LinkedIn-style saved posts view.
-class SavedItemsScreen extends StatefulWidget {
+class SavedItemsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
   const SavedItemsScreen({Key? key, this.onBack}) : super(key: key);
 
   @override
-  State<SavedItemsScreen> createState() => _SavedItemsScreenState();
+  ConsumerState<SavedItemsScreen> createState() => _SavedItemsScreenState();
 }
 
-class _SavedItemsScreenState extends State<SavedItemsScreen> {
+class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
   int _selectedSection = 0; // 0 = My items, 1 = Job tracker
 
   List<Post> _allPosts = [];
@@ -47,10 +26,19 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
     _loadSavedPosts();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload when the screen becomes active/visible (e.g., navigated back to)
+    if (!_isLoading) {
+      _loadSavedPosts();
+    }
+  }
+
   Future<void> _loadSavedPosts() async {
     setState(() => _isLoading = true);
     try {
-      final savedIds = SavedPostsStore.all.toList();
+      final savedIds = ref.read(savedPostsProvider).toList();
       if (savedIds.isEmpty) {
         setState(() {
           _allPosts = [];
@@ -78,6 +66,13 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width <= 700;
+    
+    // Listen for changes in saved posts set to reload the list dynamically
+    ref.listen(savedPostsProvider, (previous, next) {
+      if (previous?.length != next.length) {
+        _loadSavedPosts();
+      }
+    });
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -327,7 +322,7 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             ),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
             child: const Text(
               'Go to Feed',
               style: TextStyle(
@@ -392,7 +387,14 @@ class _SavedItemsScreenState extends State<SavedItemsScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 10),
                   ),
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Coming soon'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
                   child: const Text(
                     'Browse Jobs',
                     style: TextStyle(
