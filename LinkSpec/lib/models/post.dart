@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Post Model
 class Post {
   final String id;
@@ -8,6 +10,8 @@ class Post {
   final DateTime updatedAt;
   
   final String? imageUrl;
+  final bool isAutomated;
+  final String? linkedJobId;
   
   // Additional fields from posts_with_stats view
   final String? authorName;
@@ -16,6 +20,7 @@ class Post {
   final int commentCount;
   final bool isLiked;
   final bool isFollowing;
+  final bool isTrending; // Flag for top weekly posts
 
   Post({
     required this.id,
@@ -31,9 +36,15 @@ class Post {
     this.commentCount = 0,
     this.isLiked = false,
     this.isFollowing = false,
+    this.isTrending = false,
+    this.isAutomated = false,
+    this.linkedJobId,
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
+    if (json['image_url'] != null) {
+      debugPrint('DEBUG: Model parsing post ${json['id']} with image: ${json['image_url']}');
+    }
     return Post(
       id: json['id'] as String,
       authorId: json['author_id'] as String,
@@ -48,6 +59,9 @@ class Post {
       commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
       isLiked: json['is_liked'] as bool? ?? false,
       isFollowing: json['is_following'] as bool? ?? false,
+      isTrending: json['is_trending'] as bool? ?? false,
+      isAutomated: json['is_automated'] as bool? ?? false,
+      linkedJobId: json['linked_job_id'] as String?,
     );
   }
 
@@ -63,6 +77,8 @@ class Post {
       'author_name': authorName,
       'author_avatar': authorAvatar,
       'like_count': likeCount,
+      'is_automated': isAutomated,
+      'linked_job_id': linkedJobId,
     };
   }
 
@@ -77,6 +93,8 @@ class Post {
     String? authorName,
     String? authorAvatar,
     int? likeCount,
+    bool? isAutomated,
+    String? linkedJobId,
   }) {
     return Post(
       id: id ?? this.id,
@@ -89,6 +107,8 @@ class Post {
       authorName: authorName ?? this.authorName,
       authorAvatar: authorAvatar ?? this.authorAvatar,
       likeCount: likeCount ?? this.likeCount,
+      isAutomated: isAutomated ?? this.isAutomated,
+      linkedJobId: linkedJobId ?? this.linkedJobId,
     );
   }
 

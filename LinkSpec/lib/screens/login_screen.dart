@@ -132,32 +132,45 @@ class _LoginScreenState extends State<LoginScreen>
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
-    final email = _emailController.text.trim();
+    final email    = _emailController.text.trim();
     final password = _passwordController.text;
     final fullName = _nameController.text.trim();
 
     try {
-      // ── Trigger Domain-Based OTP ──
-      final success = await RouteHandler.initiateVerification(email);
-
-      if (!mounted) return;
-
-      if (success) {
-        // Navigate to Verification UI
-        Navigator.pushNamed(
-          context,
-          '/verification',
-          arguments: {
-            'email': email,
-            'password': password,
-            'fullName': fullName,
-            'isSignUp': _isSignUp,
-            'providerType': email.endsWith('@gmail.com') ? 'gmail' : 'microsoft',
-          },
-        );
+      if (_isSignUp) {
+        // ── New user: send OTP first, verify before creating account ──
+        final success = await RouteHandler.initiateVerification(email);
+        if (!mounted) return;
+        if (success) {
+          Navigator.pushNamed(
+            context,
+            '/verification',
+            arguments: {
+              'email': email,
+              'password': password,
+              'fullName': fullName,
+              'isSignUp': true,
+              'providerType': email.endsWith('@gmail.com') ? 'gmail' : 'microsoft',
+            },
+          );
+        } else {
+          _showSnack('Verification could not be initiated. Please check your network.');
+        }
       } else {
-        _showSnack('Verification could not be initiated. Please check your network.');
+        // ── Existing user: direct sign-in, no OTP needed ──
+        final response = await Supabase.instance.client.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
+        if (!mounted) return;
+        if (response.session != null) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        } else {
+          _showSnack('Sign in failed. Please check your credentials.');
+        }
       }
+    } on AuthException catch (e) {
+      _showSnack(e.message);
     } catch (e) {
       _showSnack('An error occurred: $e');
     } finally {
@@ -265,30 +278,21 @@ class _LoginScreenState extends State<LoginScreen>
           flex: 5,
           child: Stack(
             children: [
+              // Clean solid background — no image, no gradient
               Positioned.fill(
-                child: Image.asset(
-                  'assets/images/login_web_background.png', // Assuming it's copied or handled
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF0066CC), Color(0xFF003366)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
+                child: Container(color: const Color(0xFFF0F4FF)),
+              ),
+              // SVG illustration centered in the upper portion
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(48, 48, 48, 180),
+                  child: SvgPicture.asset(
+                    'assets/svg/undraw_login_weas.svg',
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.black.withOpacity(0.6), Colors.transparent],
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                  ),
-                ),
-              ),
+              // Branding text at the bottom
               Padding(
                 padding: const EdgeInsets.all(60.0),
                 child: Column(
@@ -300,7 +304,7 @@ class _LoginScreenState extends State<LoginScreen>
                     const Text(
                       'Unite with your\nprofessional domain.',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Color(0xFF1C1C1E),
                         fontSize: 48,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -1.5,
@@ -311,7 +315,7 @@ class _LoginScreenState extends State<LoginScreen>
                     Text(
                       'LinkSpec is the domain-gated networking platform\nfor the modern professional.',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: const Color(0xFF1C1C1E).withOpacity(0.6),
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
                       ),

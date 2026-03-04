@@ -11,6 +11,12 @@ import 'comments_bottom_sheet.dart';
 import 'share_post_dialog.dart';
 import '../screens/saved_items_screen.dart';
 import '../services/supabase_service.dart';
+import '../screens/search_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
+import '../models/job.dart';
+import '../screens/job_detail_screen.dart';
+import '../api/job_service.dart';
 
 import '../providers/follow_provider.dart';
 import '../providers/saved_posts_provider.dart';
@@ -48,9 +54,9 @@ class _PostCardState extends ConsumerState<PostCard> {
   bool _isLiked = false;
   int _likeCount = 0;
   int _commentCount = 0;
-  bool _isSaved = false;
   bool _isLikeProcessing = false;
   bool _isExpanded = false; // For Read More
+  double? _imageAspectRatio; // Loaded from actual image dimensions
 
   @override
   void initState() {
@@ -58,7 +64,6 @@ class _PostCardState extends ConsumerState<PostCard> {
     _likeCount = widget.post.likeCount;
     _commentCount = widget.post.commentCount;
     _isLiked = widget.post.isLiked;
-    _isSaved = ref.read(savedPostsProvider).contains(widget.post.id);
 
     // Initialize follow provider with the author's status from the post object
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -67,6 +72,25 @@ class _PostCardState extends ConsumerState<PostCard> {
         _recordImpression();
       }
     });
+    // Pre-load image to get real aspect ratio
+    if (widget.post.imageUrl != null && widget.post.imageUrl!.trim().isNotEmpty) {
+      _resolveImageAspectRatio(widget.post.imageUrl!);
+    }
+  }
+
+  void _resolveImageAspectRatio(String url) {
+    final imageProvider = NetworkImage(url);
+    final stream = imageProvider.resolve(const ImageConfiguration());
+    stream.addListener(ImageStreamListener(
+      (info, _) {
+        if (mounted) {
+          final w = info.image.width.toDouble();
+          final h = info.image.height.toDouble();
+          if (h > 0) setState(() => _imageAspectRatio = w / h);
+        }
+      },
+      onError: (_, __) {}, // keep null ratio, fallback to unconstrained
+    ));
   }
 
   void _recordImpression() {
@@ -87,13 +111,27 @@ class _PostCardState extends ConsumerState<PostCard> {
     // Watch saved status
     final isSaved = ref.watch(savedPostsProvider).contains(widget.post.id);
 
-    return ClayContainer(
-      color: widget.backgroundColor ?? Colors.white,
-      borderRadius: 14,
-      depth: 3,
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.backgroundColor ?? Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E5EA), width: 0.8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClayContainer(
+        color: widget.backgroundColor ?? Colors.white,
+        borderRadius: 16,
+        depth: 2,
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
         children: [
           // Header: Avatar, Name, Unite
           Padding(
@@ -110,7 +148,10 @@ class _PostCardState extends ConsumerState<PostCard> {
                   child: CircleAvatar(
                     radius: 28,
                     backgroundImage: widget.post.authorAvatar != null
-                        ? NetworkImage(widget.post.authorAvatar!)
+                        ? null
+                        : null,
+                    foregroundImage: widget.post.authorAvatar != null
+                        ? CachedNetworkImageProvider(widget.post.authorAvatar!)
                         : null,
                     child: widget.post.authorAvatar == null
                         ? Text(
@@ -140,6 +181,31 @@ class _PostCardState extends ConsumerState<PostCard> {
                           ),
                           const SizedBox(width: 4),
                           const Text('• 1st', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          if (widget.post.isTrending) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.local_fire_department, color: Colors.orange, size: 12),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    'Trending',
+                                    style: TextStyle(
+                                      color: Colors.orange, 
+                                      fontSize: 10, 
+                                      fontWeight: FontWeight.w700
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                       Text(
@@ -202,6 +268,79 @@ class _PostCardState extends ConsumerState<PostCard> {
           const SizedBox(height: 16),
           // Content
           _buildPostContent(widget.post.content),
+
+          // Post Image
+          if (widget.post.imageUrl != null && widget.post.imageUrl!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: _imageAspectRatio != null
+                  ? AspectRatio(
+                      aspectRatio: _imageAspectRatio!,
+                      child: CachedNetworkImage(
+                        imageUrl: widget.post.imageUrl!,
+                        alignment: Alignment.topCenter,
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                        filterQuality: FilterQuality.high,
+                        placeholder: (context, url) => Shimmer.fromColors(
+                          baseColor: Colors.grey[300]!,
+                          highlightColor: Colors.grey[100]!,
+                          child: Container(
+                            color: Colors.white,
+                            width: double.infinity,
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: Colors.grey[100],
+                          child: const Center(
+                            child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                          ),
+                        ),
+                      ),
+                    )
+                  // While aspect ratio hasn't loaded yet, show shimmer at 16:9
+                  : AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: CachedNetworkImage(
+                        imageUrl: widget.post.imageUrl!,
+                        alignment: Alignment.topCenter,
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                        filterQuality: FilterQuality.high,
+                        placeholder: (context, url) => Shimmer.fromColors(
+                          baseColor: Colors.grey[300]!,
+                          highlightColor: Colors.grey[100]!,
+                          child: Container(color: Colors.white),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: Colors.grey[100],
+                          child: const Center(
+                            child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+          
+          // View Job Button (for automated job posts)
+          if (widget.post.linkedJobId != null) ...[
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _handleViewJob(widget.post.linkedJobId!),
+              icon: const Icon(Icons.work_outline, size: 18),
+              label: const Text('View Job Details', style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0066CC),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+            ),
+          ],
+          
           const SizedBox(height: 20),
           // Divider
           Divider(height: 0.5, thickness: 0.5, color: Colors.grey[200]),
@@ -250,8 +389,9 @@ class _PostCardState extends ConsumerState<PostCard> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ─── Handlers ────────────────────────────────────────────────
 
@@ -337,10 +477,11 @@ class _PostCardState extends ConsumerState<PostCard> {
   }
 
   void _handleSave() {
+    final isCurrentlySaved = ref.read(savedPostsProvider).contains(widget.post.id);
     ref.read(savedPostsProvider.notifier).toggle(widget.post.id);
+    // After toggle, check the new state from the provider
     final nowSaved = ref.read(savedPostsProvider).contains(widget.post.id);
-    setState(() => _isSaved = nowSaved);
-
+  
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -355,36 +496,103 @@ class _PostCardState extends ConsumerState<PostCard> {
     );
   }
 
+  Future<void> _handleViewJob(String jobId) async {
+    try {
+      final jobData = await JobService.fetchJobById(jobId);
+      if (jobData != null && mounted) {
+        final job = Job.fromJson(jobData);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Job listing no longer available')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading job: $e')),
+        );
+      }
+    }
+  }
+
+  // ─── Hashtag navigation ───────────────────────────────────────
+
+  void _navigateToTag(String tag) {
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => _TagSearchPage(initialTag: tag),
+      ),
+    );
+  }
+
   // ─── UI Builders ─────────────────────────────────────────────
+
+  static final _tagPattern = RegExp(r'(#[A-Za-z][A-Za-z0-9_]*)');
 
   Widget _buildPostContent(String content) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final textStyle = const TextStyle(
+        const textStyle = TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
           height: 1.5,
           color: Colors.black,
         );
 
+        // ── Overflow detection (same as before) ────────────────
         final textSpan = TextSpan(text: content, style: textStyle);
         final textPainter = TextPainter(
           text: textSpan,
-          maxLines: 5,
+          maxLines: 4,
           textDirection: TextDirection.ltr,
-        );
-        textPainter.layout(maxWidth: constraints.maxWidth);
-
+        )..layout(maxWidth: constraints.maxWidth);
         final isOverflowing = textPainter.didExceedMaxLines;
+
+        // ── Parse into plain + hashtag spans ──────────────────
+        final spans = <InlineSpan>[];
+        int cursor = 0;
+        for (final match in _tagPattern.allMatches(content)) {
+          if (match.start > cursor) {
+            spans.add(TextSpan(
+              text: content.substring(cursor, match.start),
+              style: textStyle,
+            ));
+          }
+          final tag = match.group(0)!;
+          spans.add(WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: GestureDetector(
+              onTap: () => _navigateToTag(tag),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Text(
+                  tag,
+                  style: textStyle.copyWith(
+                    color: const Color(0xFF0066CC),
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+            ),
+          ));
+          cursor = match.end;
+        }
+        if (cursor < content.length) {
+          spans.add(TextSpan(text: content.substring(cursor), style: textStyle));
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              content,
-              maxLines: _isExpanded ? null : 5,
+            RichText(
+              maxLines: _isExpanded ? null : 4,
               overflow: _isExpanded ? TextOverflow.visible : TextOverflow.fade,
-              style: textStyle,
+              text: TextSpan(children: spans),
             ),
             if (isOverflowing)
               Align(
@@ -437,6 +645,28 @@ class _ActionBtn extends StatefulWidget {
   @override
   State<_ActionBtn> createState() => _ActionBtnState();
 }
+
+// ─── Tag Search Page ─────────────────────────────────────────────────────────
+/// Thin wrapper that opens SearchScreen with [initialTag] pre-populated.
+class _TagSearchPage extends StatefulWidget {
+  final String initialTag;
+  const _TagSearchPage({required this.initialTag});
+  @override
+  State<_TagSearchPage> createState() => _TagSearchPageState();
+}
+
+class _TagSearchPageState extends State<_TagSearchPage> {
+  @override
+  Widget build(BuildContext context) {
+    return SearchScreen(
+      initialQuery: widget.initialTag,
+      autofocusSearch: false,
+      onBack: () => Navigator.of(context).pop(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _ActionBtnState extends State<_ActionBtn> with SingleTickerProviderStateMixin {
   late AnimationController _lottieController;

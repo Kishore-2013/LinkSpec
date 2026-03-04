@@ -7,6 +7,7 @@ import 'chat_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/follow_provider.dart';
 import '../providers/unite_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 
 class MemberProfileScreen extends ConsumerStatefulWidget {
@@ -186,8 +187,8 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
                           decoration: BoxDecoration(
                             color: Colors.grey[300],
                             image: const DecorationImage(
-                              image: NetworkImage(
-                                'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2070&auto=format&fit=crop',
+                              image: CachedNetworkImageProvider(
+                                 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2070&auto=format&fit=crop',
                               ),
                               fit: BoxFit.cover,
                             ),
@@ -303,7 +304,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
                           radius: 55,
                           backgroundColor: Colors.blue[50],
                           backgroundImage: _profile!.avatarUrl != null
-                              ? NetworkImage(_profile!.avatarUrl!)
+                              ? CachedNetworkImageProvider(_profile!.avatarUrl!)
                               : null,
                           child: _profile!.avatarUrl == null
                               ? Text(
@@ -604,7 +605,7 @@ extension on _MemberProfileScreenState {
                       final conn = connections[index];
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundImage: conn['avatar_url'] != null ? NetworkImage(conn['avatar_url']) : null,
+                          backgroundImage: conn['avatar_url'] != null ? CachedNetworkImageProvider(conn['avatar_url']) : null,
                           child: conn['avatar_url'] == null ? Text(conn['full_name'][0].toUpperCase()) : null,
                         ),
                         title: Text(conn['full_name'] ?? 'Unknown'),

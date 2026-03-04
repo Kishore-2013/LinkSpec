@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // Diagnostic: Force filesystem update. Corrected unread counts.
 /// Supabase Service for LinkSpec
@@ -11,6 +13,12 @@ class SupabaseService {
   // Cache for current user data to avoid redundant network calls
   static Map<String, dynamic>? _currentUserProfile;
   static String? _myDomain;
+
+  /// Clear image cache to prevent memory-related rendering glitches on Web
+  static void optimizeMemory() {
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    PaintingBinding.instance.imageCache.clear();
+  }
 
   static String? getCurrentUserId() => _client.auth.currentUser?.id;
 
@@ -125,36 +133,62 @@ class SupabaseService {
     }
   }
 
-  /// Upload avatar image and return public URL
+  /// Upload avatar image and return public URL (Binary-Standard)
   static Future<String> uploadAvatar(Uint8List bytes, String fileName) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
-    final path = 'avatars/$userId/$fileName';
-    await _client.storage.from('profiles').uploadBinary(
+    
+    final profileBucket = dotenv.env['SUPABASE_PROFILE_BUCKET'] ?? 'profiles';
+    final ext = fileName.split('.').last.toLowerCase();
+    final path = 'avatars/$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    
+    await _client.storage.from(profileBucket).uploadBinary(
       path,
       bytes,
-      fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+      fileOptions: FileOptions(
+        upsert: true, 
+        contentType: _getMimeType(ext),
+      ),
     );
-    final url = _client.storage.from('profiles').getPublicUrl(path);
-    // Save to profile
+    final url = _client.storage.from(profileBucket).getPublicUrl(path);
     await _client.from('profiles').update({'avatar_url': url}).eq('id', userId);
     return url;
   }
 
-  /// Upload cover photo and return public URL
+  /// Upload cover photo and return public URL (Binary-Standard)
   static Future<String> uploadCoverPhoto(Uint8List bytes, String fileName) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
-    final path = 'covers/$userId/$fileName';
-    await _client.storage.from('profiles').uploadBinary(
+    
+    final profileBucket = dotenv.env['SUPABASE_PROFILE_BUCKET'] ?? 'profiles';
+    final ext = fileName.split('.').last.toLowerCase();
+    final path = 'covers/$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    
+    await _client.storage.from(profileBucket).uploadBinary(
       path,
       bytes,
-      fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+      fileOptions: FileOptions(
+        upsert: true, 
+        contentType: _getMimeType(ext),
+      ),
     );
-    final url = _client.storage.from('profiles').getPublicUrl(path);
-    // Save to profile
+    final url = _client.storage.from(profileBucket).getPublicUrl(path);
     await _client.from('profiles').update({'cover_url': url}).eq('id', userId);
     return url;
+  }
+
+  static String _getMimeType(String ext) {
+    switch (ext) {
+      case 'png': return 'image/png';
+      case 'webp': return 'image/webp';
+      case 'heic': return 'image/heic';
+      case 'gif': return 'image/gif';
+      case 'jpg':
+      case 'jpeg':
+      case 'jfif':
+        return 'image/jpeg';
+      default: return 'image/octet-stream'; // Safe fallback for binary data
+    }
   }
 
   /// Get current user's profile with in-memory caching
@@ -256,10 +290,33 @@ class SupabaseService {
     return profile != null && profile['domain_id'] != null;
   }
 
-  /// Global search for posts across all domains
+  /// Global search for posts — hashtag-aware.
+  ///
+  /// • Queries < 2 characters or without any letter/digit are ignored (returns []).
+  /// • If [query] starts with '#', we look for the exact hashtag token in content.
+  /// • Otherwise we search for the query as a hashtag (prefix-match, e.g. '#med' → '#Medical')
+  ///   AND as a plain word. Single chars like '.' are rejected.
   static Future<List<Map<String, dynamic>>> searchPosts(String query) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return [];
+    return searchPostsByHashtag(query);
+  }
+
+  /// Core hashtag-aware implementation (also called by SearchManager).
+  static Future<List<Map<String, dynamic>>> searchPostsByHashtag(String rawQuery) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    // Reject trivially short or symbol-only queries.
+    final q = rawQuery.trim();
+    if (q.length < 2 || !q.contains(RegExp(r'[a-zA-Z0-9]'))) return [];
+
+    // Normalise: strip leading '#'
+    final tagWord = q.startsWith('#') ? q.substring(1) : q;
+
+    // Build the filter: match '#<tagWord>' as a word boundary token.
+    // We look for the literal string '#<tag>' inside content (case-insensitive).
+    final filter = '#$tagWord';
 
     final response = await _client
         .from('posts')
@@ -273,27 +330,36 @@ class SupabaseService {
           likes:likes(count),
           comments:comments(count)
         ''')
-        .ilike('content', '%$query%')
+        .ilike('content', '%$filter%')
         .order('created_at', ascending: false)
-        .limit(20);
+        .limit(30);
 
     final posts = List<Map<String, dynamic>>.from(response);
-    
-    // Process results similarly to getPosts to include counts and basic author info
+
+    // Batch fetch like/follow statuses
+    final postIds  = posts.map((p) => p['id']  as String).toList();
+    final authorIds = posts.map((p) => p['author_id'] as String).toSet().toList();
+    final likedSet = await getLikeStatuses(postIds);
+    final followingSet = await getFollowStatuses(authorIds);
+
     return posts.map((post) {
-      final profile = post['profiles'];
-      final likes = post['likes'] as List?;
-      final likeCount = likes != null && likes.isNotEmpty ? (likes[0]['count'] ?? 0) : 0;
-      final comments = post['comments'] as List?;
+      final profile      = post['profiles'];
+      final postId       = post['id']        as String;
+      final authorId     = post['author_id'] as String;
+      final likes        = post['likes']     as List?;
+      final likeCount    = likes != null && likes.isNotEmpty ? (likes[0]['count'] ?? 0) : 0;
+      final comments     = post['comments']  as List?;
       final commentCount = comments != null && comments.isNotEmpty ? (comments[0]['count'] ?? 0) : 0;
 
       return {
         ...post,
-        'author_name': profile?['full_name'],
-        'author_avatar': profile?['avatar_url'],
-        'author_domain': profile?['domain_id'],
-        'like_count': likeCount,
-        'comment_count': commentCount,
+        'author_name':    profile?['full_name'],
+        'author_avatar':  profile?['avatar_url'],
+        'author_domain':  profile?['domain_id'],
+        'like_count':     likeCount,
+        'comment_count':  commentCount,
+        'is_liked':       likedSet.contains(postId),
+        'is_following':   followingSet.contains(authorId),
       };
     }).toList();
   }
@@ -347,21 +413,6 @@ class SupabaseService {
   // POST OPERATIONS
   // ============================================================================
 
-  /// Upload an image to post-images bucket
-  static Future<String> uploadPostImage({
-    required String name,
-    required dynamic file, // Can be File (mobile) or Uint8List (web)
-  }) async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
-
-    final path = '$userId/${DateTime.now().millisecondsSinceEpoch}_$name';
-    
-    await _client.storage.from('post-images').uploadBinary(path, file);
-    
-    return _client.storage.from('post-images').getPublicUrl(path);
-  }
-
   /// Create a new post
   /// [targetDomainId] — if provided, the post appears in THAT domain's feed
   /// instead of the author's own domain (useful for cross-domain job posts, etc.).
@@ -369,6 +420,8 @@ class SupabaseService {
     required String content,
     String? imageUrl,
     String? targetDomainId, // Optional: override target domain
+    bool isAutomated = false,
+    String? linkedJobId,
   }) async {
     final userId = _client.auth.currentUser?.id;
     
@@ -387,16 +440,22 @@ class SupabaseService {
       domainId = profile?['domain_id'];
     }
 
+    final payload = {
+      'author_id': userId,
+      'content': content,
+      'image_url': imageUrl,
+      'is_automated': isAutomated,
+      'linked_job_id': linkedJobId,
+      if (domainId != null) 'domain_id': domainId,
+    };
+    debugPrint('DEBUG: Creating post with payload: $payload');
+
     final response = await _client
         .from('posts')
-        .insert({
-          'author_id': userId,
-          'content': content,
-          'image_url': imageUrl,
-          if (domainId != null) 'domain_id': domainId,
-        })
+        .insert(payload)
         .select()
         .single();
+    debugPrint('DEBUG: Post created response: $response');
 
     return response;
   }
@@ -564,7 +623,7 @@ class SupabaseService {
           likes:likes(count),
           comments:comments(count)
         ''')
-        .inFilter('id', postIds);
+        .filter('id', 'in', postIds);
 
     final posts = List<Map<String, dynamic>>.from(response);
     
@@ -1489,14 +1548,17 @@ class SupabaseService {
         .eq('id', notificationId);
   }
 
+  // Inflight guard — prevents concurrent callers from stacking up identical
+  // SELECT + UPDATE round-trips when the user opens the notifications tab quickly.
+  static bool _isMarkingAllRead = false;
+
   /// Mark all notifications for the current user as read
   static Future<void> markAllNotificationsAsRead() async {
+    if (_isMarkingAllRead) return; // ← debounce: drop concurrent calls
     final userId = _client.auth.currentUser?.id;
-    if (userId == null) {
-      debugPrint('ERROR: markAllNotificationsAsRead - No user logged in');
-      return;
-    }
-    
+    if (userId == null) return;
+
+    _isMarkingAllRead = true;
     try {
       // 1. Get IDs of all unread notifications first
       final unreadResponse = await _client
@@ -1504,25 +1566,21 @@ class SupabaseService {
           .select('id')
           .eq('user_id', userId)
           .neq('is_read', true);
-      
-      final unreadList = unreadResponse as List;
-      if (unreadList.isEmpty) {
-        debugPrint('SERVICE: No unread notifications found to clear.');
-        return;
-      }
-      
-      final ids = unreadList.map((n) => n['id'] as String).toList();
-      debugPrint('SERVICE: Attempting to clear IDs: $ids');
 
-      // 2. Update them specifically by ID (sometimes more reliable with RLS)
+      final unreadList = unreadResponse as List;
+      if (unreadList.isEmpty) return; // nothing to do — no log needed
+
+      final ids = unreadList.map((n) => n['id'] as String).toList();
+
+      // 2. Update them specifically by ID (more reliable with RLS)
       await _client
           .from('notifications')
           .update({'is_read': true})
           .filter('id', 'in', ids);
-          
-      debugPrint('DATABASE: Successfully sent update for notifications read status.');
     } catch (e) {
       debugPrint('CRITICAL ERROR in markAllNotificationsAsRead: $e');
+    } finally {
+      _isMarkingAllRead = false;
     }
   }
 
@@ -1568,4 +1626,171 @@ class SupabaseService {
         })
         .map((data) => List<Map<String, dynamic>>.from(data));
   }
+
+  // ============================================================================
+  // SIDEBAR — TRENDING TAGS
+  // Scan the last 100 posts in [domain], regex-extract #hashtags, return top [limit].
+  // ============================================================================
+  static Future<List<String>> getTrendingTags({
+    required String domain,
+    int scanLimit = 100,
+    int limit = 5,
+  }) async {
+    final rows = await _client
+        .from('posts')
+        .select('content')
+        .eq('domain_id', domain)
+        .order('created_at', ascending: false)
+        .limit(scanLimit);
+
+    final tagCount = <String, int>{};
+    final hashtagRe = RegExp(r'#(\w+)', caseSensitive: false);
+
+    for (final row in rows) {
+      final content = (row['content'] as String?) ?? '';
+      for (final m in hashtagRe.allMatches(content)) {
+        final tag = '#${m.group(1)!.toLowerCase()}';
+        tagCount[tag] = (tagCount[tag] ?? 0) + 1;
+      }
+    }
+
+    if (tagCount.isEmpty) return [];
+
+    final sorted = tagCount.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return sorted.take(limit).map((e) => e.key).toList();
+  }
+
+  // ============================================================================
+  // SIDEBAR — SUGGESTED DISCUSSIONS
+  // Top [limit] posts by comment_count from [domain].
+  // Requires posts_with_stats view (which includes comment_count).
+  // ============================================================================
+  static Future<List<Map<String, dynamic>>> getSuggestedDiscussions({
+    required String domain,
+    int limit = 3,
+  }) async {
+    try {
+      final rows = await _client
+          .from('posts_with_stats')
+          .select('id, content, comment_count, created_at, domain_id')
+          .eq('domain_id', domain)
+          .order('comment_count', ascending: false)
+          .limit(limit);
+      return List<Map<String, dynamic>>.from(rows);
+    } catch (_) {
+      // Fallback: query posts directly if view unavailable
+      final rows = await _client
+          .from('posts')
+          .select('id, content, created_at')
+          .eq('domain_id', domain)
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return List<Map<String, dynamic>>.from(rows);
+    }
+  }
+
+  // ============================================================================
+  // SIDEBAR — UPCOMING EVENTS  (event_date >= today)
+  // ============================================================================
+  static Future<List<Map<String, dynamic>>> getUpcomingEvents({int limit = 5}) async {
+    final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
+    final rows  = await _client
+        .from('events')
+        .select('id, title, event_date, location')
+        .gte('event_date', today)
+        .order('event_date', ascending: true)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(rows);
+  }
+
+  // ============================================================================
+  // SIDEBAR — MY RECENT ACTIVITY  (current user only, auth.uid()-gated)
+  // Returns a flat list of activity items sorted by recency.
+  //   type: 'post' | 'like' | 'comment'
+  // ============================================================================
+  static Future<List<Map<String, dynamic>>> getMyRecentActivity({int limit = 10}) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    // Recent posts by the user
+    final myPosts = await _client
+        .from('posts')
+        .select('id, content, created_at')
+        .eq('author_id', userId)
+        .order('created_at', ascending: false)
+        .limit(5);
+
+    // Recent comments by the user
+    final myComments = await _client
+        .from('comments')
+        .select('id, content, created_at, post_id')
+        .eq('author_id', userId)
+        .order('created_at', ascending: false)
+        .limit(5);
+
+    // Recent likes by the user
+    final myLikes = await _client
+        .from('likes')
+        .select('id, created_at, post_id')
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .limit(5);
+
+    final activities = <Map<String, dynamic>>[];
+
+    for (final p in myPosts) {
+      activities.add({
+        'type': 'post',
+        'id': p['id'],
+        'summary': (p['content'] as String? ?? '').length > 80
+            ? '${(p['content'] as String).substring(0, 80)}…'
+            : p['content'],
+        'created_at': p['created_at'],
+      });
+    }
+    for (final c in myComments) {
+      activities.add({
+        'type': 'comment',
+        'id': c['id'],
+        'post_id': c['post_id'],
+        'summary': (c['content'] as String? ?? '').length > 80
+            ? '${(c['content'] as String).substring(0, 80)}…'
+            : c['content'],
+        'created_at': c['created_at'],
+      });
+    }
+    for (final l in myLikes) {
+      activities.add({
+        'type': 'like',
+        'id': l['id'],
+        'post_id': l['post_id'],
+        'summary': 'You liked a post',
+        'created_at': l['created_at'],
+      });
+    }
+
+    // Sort all by recency
+    activities.sort((a, b) {
+      final ta = DateTime.tryParse(a['created_at'] as String? ?? '') ?? DateTime(0);
+      final tb = DateTime.tryParse(b['created_at'] as String? ?? '') ?? DateTime(0);
+      return tb.compareTo(ta);
+    });
+
+    return activities.take(limit).toList();
+  }
+
+  // ============================================================================
+  // SIDEBAR — LATEST POSTS STREAM
+  // ============================================================================
+  static Stream<List<Map<String, dynamic>>> getLatestPostsStream({int limit = 10}) {
+    return _client
+        .from('posts')
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .limit(limit)
+        .map((data) => List<Map<String, dynamic>>.from(data));
+  }
 }
+

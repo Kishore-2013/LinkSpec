@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local Configuration & Secrets
+.env
+*.pem
+*.txt
+test_otp.json
+supabase/.temp/

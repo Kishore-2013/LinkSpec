@@ -229,21 +229,6 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                     )
                   : null,
             ),
-            // Green dot = has prior conversation thread
-            if (hasConversation)
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                ),
-              ),
           ],
         ),
         title: Text(

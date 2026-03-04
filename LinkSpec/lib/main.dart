@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,6 +16,10 @@ import 'screens/saved_items_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/verification_screen.dart';
 import 'providers/theme_provider.dart';
+import 'api/session_cache.dart';
+// Conditional import: picks web_lifecycle.dart on Web, stub on mobile/desktop.
+import 'api/web_lifecycle_stub.dart'
+    if (dart.library.html) 'api/web_lifecycle.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +28,18 @@ void main() async {
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
   );
+
+  // Register the beforeunload / lifecycle hook.
+  // WebLifecycleHelper is a no-op stub on mobile; uses dart:html on Web.
+  _registerWebUnloadListener();
+
   runApp(const ProviderScope(child: LinkSpecApp()));
+}
+
+/// Registers a `beforeunload` JS handler (Web) or no-op (mobile).
+/// Uses conditional imports to keep dart:html out of the mobile build.
+void _registerWebUnloadListener() {
+  WebLifecycleHelper.register();
 }
 
 class LinkSpecApp extends ConsumerWidget {

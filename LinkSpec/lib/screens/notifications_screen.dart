@@ -16,18 +16,20 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   List<AppNotification> _notifications = [];
   bool _isLoading = true;
+  bool _isLoadingNotifs = false; // inflight guard for _loadNotifications
+  bool _hasMarkedRead = false;   // only mark-all once per open session
   StreamSubscription? _notifSubscription;
 
   @override
   void initState() {
     super.initState();
-    _loadNotifications();
+    _markAndLoad();   // first open: mark-all + fetch
     _setupRealtime();
   }
 
   void _setupRealtime() {
-    _notifSubscription = SupabaseService.getNotificationsStream().listen((data) {
-      // Stream only returns raw data, so we refresh the rich data (with joins)
+    _notifSubscription = SupabaseService.getNotificationsStream().listen((_) {
+      // Realtime update: just refresh the list, no need to re-mark-all
       if (mounted) _loadNotifications();
     });
   }
@@ -38,34 +40,46 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadNotifications() async {
-    // Immediate action: mark all as read so the badge disappears instantly
-    try {
-      debugPrint('UI: NotificationsScreen calling markAllNotificationsAsRead');
-      await SupabaseService.markAllNotificationsAsRead();
-      // Small delay to allow DB sync before parent re-fetches count
-      await Future.delayed(const Duration(milliseconds: 300));
-      widget.onRefreshBadges?.call();
-    } catch (e) {
-      debugPrint('UI: markAllNotificationsAsRead failed: $e');
+  /// First-open path: mark all read THEN fetch the list once.
+  Future<void> _markAndLoad() async {
+    if (!_hasMarkedRead) {
+      _hasMarkedRead = true;
+      try {
+        await SupabaseService.markAllNotificationsAsRead();
+        await Future.delayed(const Duration(milliseconds: 200));
+        widget.onRefreshBadges?.call();
+      } catch (e) {
+        debugPrint('UI: markAllNotificationsAsRead failed: $e');
+      }
     }
+    await _loadNotifications();
+  }
+
+  /// Pure data fetch — no side-effects. Called by Realtime and pull-to-refresh.
+  Future<void> _loadNotifications() async {
+    if (_isLoadingNotifs) return; // drop concurrent calls
+    _isLoadingNotifs = true;
 
     // Only show full-screen loader if we have no data yet
     if (_notifications.isEmpty && mounted) setState(() => _isLoading = true);
-    
+
     try {
       final data = await SupabaseService.getNotifications();
       if (mounted) {
         setState(() {
           _notifications = data.map((n) => AppNotification.fromJson(n)).toList();
-          // Update local state so matches DB (all read)
-          _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
+          // Mirror DB read state locally (all marked read by _markAndLoad)
+          if (_hasMarkedRead) {
+            _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
+          }
           _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error loading notifications: $e');
+      debugPrint('Error loading notifications: $e');
       if (mounted) setState(() => _isLoading = false);
+    } finally {
+      _isLoadingNotifs = false;
     }
   }
 
@@ -119,8 +133,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           IconButton(
             icon: const Icon(Icons.done_all_rounded, color: Colors.blue, size: 22),
             onPressed: () async {
-              await SupabaseService.markAllNotificationsAsRead();
-              _loadNotifications();
+              // Reset gate so _markAndLoad re-fires the write
+              _hasMarkedRead = false;
+              await _markAndLoad();
             },
             tooltip: 'Mark all as read',
           ),

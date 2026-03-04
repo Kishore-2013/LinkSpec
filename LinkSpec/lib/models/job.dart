@@ -10,6 +10,9 @@ class Job {
   final DateTime postedAt;
   final String type; // Full-time, Remote, etc.
   final bool isSaved;
+  final bool hasApplied;
+  final String? postedBy;
+  final List<String> applicationFormSchema;
 
   Job({
     required this.id,
@@ -22,6 +25,9 @@ class Job {
     required this.postedAt,
     required this.type,
     this.isSaved = false,
+    this.hasApplied = false,
+    this.postedBy,
+    this.applicationFormSchema = const [],
   });
 
   factory Job.fromJson(Map<String, dynamic> json) {
@@ -36,11 +42,18 @@ class Job {
       postedAt: DateTime.parse(json['posted_at']),
       type: json['type'],
       isSaved: json['is_saved'] ?? false,
+      hasApplied: json['has_applied'] ?? false,
+      postedBy: json['posted_by'],
+      applicationFormSchema: json['application_form_schema'] != null 
+          ? List<String>.from(json['application_form_schema']) 
+          : [],
     );
   }
 
   Job copyWith({
     bool? isSaved,
+    bool? hasApplied,
+    String? postedBy,
   }) {
     return Job(
       id: id,
@@ -53,6 +66,9 @@ class Job {
       postedAt: postedAt,
       type: type,
       isSaved: isSaved ?? this.isSaved,
+      hasApplied: hasApplied ?? this.hasApplied,
+      postedBy: postedBy ?? this.postedBy,
+      applicationFormSchema: applicationFormSchema,
     );
   }
 }

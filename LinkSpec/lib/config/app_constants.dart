@@ -40,7 +40,8 @@ class AppConstants {
   static const int minNameLength = 2;
   static const int maxNameLength = 50;
   static const int maxBioLength = 200;
-  static const int maxPostLength = 1000;
+  static const int minPostLength = 500;
+  static const int maxPostLength = 5000;
   
   // UI
   static const double defaultPadding = 16.0;

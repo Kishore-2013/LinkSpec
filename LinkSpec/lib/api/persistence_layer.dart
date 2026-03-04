@@ -36,6 +36,12 @@ class PersistenceLayer {
     return prefs.getString(key);
   }
 
+  /// Deletes non-sensitive data.
+  static Future<void> delete(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
+  }
+
   /// Clears all non-sensitive cached data.
   static Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();

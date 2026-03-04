@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../services/supabase_service.dart';
 import '../config/app_constants.dart';
+import '../api/post_sanitizer.dart';
+import '../api/post_service.dart';
 
 enum PostType { general, article, event }
 
@@ -34,14 +37,13 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   
-  XFile? _imageFile;
   Uint8List? _imageBytes;
-  final _picker = ImagePicker();
+  String? _imageName;
 
-  // Target domain: null = author's own domain, otherwise explicit domain
   String? _targetDomain;
-  String? _myDomain; // loaded from profile
-  String? _domainError; // inline error shown inside the dialog
+  String? _myDomain;
+  String? _domainError;
+  String? _contentError; // caution message from sanitizer
 
   @override
   void initState() {
@@ -76,18 +78,24 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
 
   Future<void> _pickImage() async {
     try {
-      final pickedFile = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        imageQuality: 85,
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true, // Crucial for Web binary handling
       );
 
-      if (pickedFile != null) {
-        final bytes = await pickedFile.readAsBytes();
+      if (result != null && result.files.single.bytes != null) {
+        Uint8List bytes = result.files.single.bytes!;
+        String name = result.files.single.name;
+        
+        // Heavy Compression Check (>5MB)
+        if (bytes.length > 5 * 1024 * 1024) {
+          bytes = await _compressImage(bytes);
+        }
+
         setState(() {
-          _imageFile = pickedFile;
           _imageBytes = bytes;
+          _imageName = name;
         });
       }
     } catch (e) {
@@ -95,10 +103,21 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     }
   }
 
+  Future<Uint8List> _compressImage(Uint8List bytes) async {
+    // Note: Quality 80 provides a good balance between size and detail.
+    final compressed = await FlutterImageCompress.compressWithList(
+      bytes,
+      minWidth: 1200,
+      minHeight: 1200,
+      quality: 80,
+    );
+    return compressed;
+  }
+
   void _removeImage() {
     setState(() {
-      _imageFile = null;
       _imageBytes = null;
+      _imageName = null;
     });
   }
 
@@ -118,24 +137,30 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     });
 
     try {
+      // ── Smart Clean: sanitize & validate ──────────────────────────
+      final result = PostSanitizer.processPostContent(_contentController.text);
+      if (!result.isValid) {
+        setState(() {
+          _contentError = result.error;
+          _isLoading = false;
+        });
+        return;
+      }
+      setState(() => _contentError = null);
+
       String? imageUrl;
 
       // 1. Upload image if selected
-      if (_imageBytes != null && _imageFile != null) {
-        imageUrl = await SupabaseService.uploadPostImage(
-          name: _imageFile!.name,
-          file: _imageBytes!,
+      if (_imageBytes != null && _imageName != null) {
+        final ext = _imageName!.split('.').last.toLowerCase();
+        imageUrl = await PostService.uploadPostImage(
+          bytes: _imageBytes!,
+          extension: ext,
         );
       }
 
-      // Prepare metadata for non-general posts if columns don't exist yet, 
-      // we can optionally prefix content or wait for DB update.
-      // But for now, let's assume we'll use a modified createPost service.
-      
-      String finalContent = _contentController.text.trim();
-      
-      // If we don't have DB columns, we'll store as JSON in content for now
-      // so it's "safe" but functional.
+      String finalContent = result.cleaned; // use sanitized content
+
       if (widget.postType == PostType.article) {
         finalContent = "ARTICLE_TITLE: ${_titleController.text}\n\n$finalContent";
       } else if (widget.postType == PostType.event) {
@@ -435,27 +460,91 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                 const SizedBox(height: 16),
               ],
 
-              // Content Field
-              TextFormField(
-                controller: _contentController,
-                decoration: InputDecoration(
-                  hintText: widget.postType == PostType.article ? 'Article body...' : (widget.postType == PostType.event ? 'Event description...' : 'What\'s on your mind?'),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  counterText: '${_contentController.text.length}/${AppConstants.maxPostLength}',
-                ),
-                maxLines: widget.postType == PostType.article ? 15 : 5,
-                maxLength: AppConstants.maxPostLength,
-                textInputAction: TextInputAction.newline,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter some content';
-                  }
-                  return null;
-                },
-                onChanged: (value) {
-                  setState(() {}); // Update character count
+              // ── Content field with simple counter ────────────────
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _contentController,
+                builder: (context, value, _) {
+                  final len  = value.text.length;
+                  final minL = AppConstants.minPostLength;
+                  final maxL = AppConstants.maxPostLength;
+
+                  final String counterLabel = len < minL
+                      ? '$len / min $minL'
+                      : '$len chars';
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: _contentController,
+                        decoration: InputDecoration(
+                          hintText: widget.postType == PostType.article
+                              ? 'Article body...'
+                              : (widget.postType == PostType.event
+                                  ? 'Event description...'
+                                  : "What's on your mind?"),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          counterText: '', // hide built-in counter
+                        ),
+                        maxLines: widget.postType == PostType.article ? 15 : 12,
+                        maxLength: maxL,
+                        textInputAction: TextInputAction.newline,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Please enter some content';
+                          }
+                          return null;
+                        },
+                        onChanged: (_) => setState(() => _contentError = null),
+                      ),
+                      // Simple plain counter
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, right: 4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              counterLabel,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // ── Caution banner ─────────────────────────
+                      if (_contentError != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            border: Border.all(color: Colors.amber.shade400),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.warning_amber_rounded, size: 16, color: Colors.amber.shade800),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _contentError!,
+                                  style: TextStyle(
+                                    color: Colors.amber.shade900,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
                 },
               ),
               const SizedBox(height: 16),
@@ -470,11 +559,15 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.memory(
-                        _imageBytes!,
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Image.memory(
+                          _imageBytes!,
+                          width: double.infinity,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
+                          gaplessPlayback: true,
+                        ),
                       ),
                     ),
                     Positioned(

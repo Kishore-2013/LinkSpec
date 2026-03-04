@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/post.dart';
 import '../services/supabase_service.dart';
 import '../widgets/post_card.dart';
+import '../api/saved_posts_service.dart';
 import '../providers/saved_posts_provider.dart';
 
 /// Saved Items Screen — LinkedIn-style saved posts view.
@@ -19,47 +20,83 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
 
   List<Post> _allPosts = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _currentPage = 0;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _loadSavedPosts();
+    _loadSavedPosts(reset: true);
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoading && !_isLoadingMore && _hasMore && _selectedSection == 0) {
+        _loadSavedPosts();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Reload when the screen becomes active/visible (e.g., navigated back to)
-    if (!_isLoading) {
-      _loadSavedPosts();
+    // Reload when the screen becomes active/visible
+    if (!_isLoading && _allPosts.isEmpty) {
+      _loadSavedPosts(reset: true);
     }
   }
 
-  Future<void> _loadSavedPosts() async {
-    setState(() => _isLoading = true);
-    try {
-      final savedIds = ref.read(savedPostsProvider).toList();
-      if (savedIds.isEmpty) {
-        setState(() {
-          _allPosts = [];
-          _isLoading = false;
-        });
-        return;
-      }
+  Future<void> _loadSavedPosts({bool reset = false}) async {
+    if (reset) {
+      setState(() {
+        _isLoading = true;
+        _currentPage = 0;
+        _hasMore = true;
+        _allPosts = [];
+      });
+    } else {
+      if (!_hasMore || _isLoadingMore) return;
+      setState(() => _isLoadingMore = true);
+    }
 
-      // Load ONLY the posts we've saved — much faster
-      final data = await SupabaseService.getPostsByIds(savedIds);
-      final posts = data.map((d) => Post.fromJson(d)).toList();
-      
+    try {
+      final data = await SavedPostsService.fetchSavedPosts(
+        page: _currentPage,
+        pageSize: 10,
+      );
+
+      final newPosts = data.map((d) => Post.fromJson(d)).toList();
+
       if (mounted) {
         setState(() {
-          _allPosts = posts;
-          _isLoading = false;
+          if (reset) {
+            _allPosts = newPosts;
+            _isLoading = false;
+          } else {
+            _allPosts.addAll(newPosts);
+            _isLoadingMore = false;
+          }
+          _hasMore = newPosts.length == 10;
+          _currentPage++;
         });
       }
     } catch (e) {
-      print('Error loading saved posts: $e');
-      if (mounted) setState(() => _isLoading = false);
+      debugPrint('Error loading saved posts: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -70,7 +107,17 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
     // Listen for changes in saved posts set to reload the list dynamically
     ref.listen(savedPostsProvider, (previous, next) {
       if (previous?.length != next.length) {
-        _loadSavedPosts();
+        // If an item was unsaved, remove it from the list locally
+        if (next.length < (previous?.length ?? 0)) {
+          final removedIds = (previous ?? {}).difference(next);
+          setState(() {
+            _allPosts.removeWhere((p) => removedIds.contains(p.id));
+          });
+        } else {
+          // If a new item was saved, we might want to refresh the first page 
+          // but usually the user saves from the home feed and then visits here.
+          _loadSavedPosts(reset: true);
+        }
       }
     });
 
@@ -105,12 +152,14 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
               ]
             : null,
       ),
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      body: SingleChildScrollView(
+        controller: _scrollController,
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // ── Left nav panel (Desktop only) ──────────────────────────
               if (!isMobile)
                 Padding(
@@ -148,8 +197,9 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildNavTile({
     required IconData icon,
@@ -219,9 +269,9 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
                   ),
                 ),
                 const Spacer(),
-                if (!_isLoading && _allPosts.isNotEmpty)
+                if (!_isLoading && (_allPosts.isNotEmpty || _hasMore))
                   TextButton.icon(
-                    onPressed: _loadSavedPosts,
+                    onPressed: () => _loadSavedPosts(reset: true),
                     icon: const Icon(Icons.refresh, size: 16),
                     label: const Text('Refresh'),
                   ),
@@ -263,15 +313,24 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: _allPosts.length,
+              itemCount: _allPosts.length + (_isLoadingMore ? 1 : 0),
               separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, i) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: PostCard(
-                  post: _allPosts[i],
-                  onPostDeleted: _loadSavedPosts,
-                ),
-              ),
+              itemBuilder: (context, i) {
+                if (i == _allPosts.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: PostCard(
+                    post: _allPosts[i],
+                    // We don't need a full reload on delete, the provider listener handles removal
+                    onPostDeleted: () {}, 
+                  ),
+                );
+              },
             ),
         ],
       ),

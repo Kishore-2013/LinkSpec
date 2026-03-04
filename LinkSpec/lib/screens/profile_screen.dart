@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/supabase_service.dart';
@@ -31,7 +32,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   int _connectionsCount = 0;
   String? _coverUrl; // separate so we can update it live
 
-  final _picker = ImagePicker();
 
   @override
   void initState() {
@@ -119,16 +119,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _pickAvatar() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 512);
-    if (picked == null) return;
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    if (result == null || result.files.single.bytes == null) return;
+    
     setState(() => _isUploadingAvatar = true);
     try {
-      final bytes = await picked.readAsBytes();
-      final url = await SupabaseService.uploadAvatar(bytes, 'avatar.jpg');
-      setState(() => _profile = _profile?.copyWith(avatarUrl: url));
+      final bytes = result.files.single.bytes!;
+      final url = await SupabaseService.uploadAvatar(bytes, result.files.single.name);
+      setState(() {
+        _profile = _profile?.copyWith(avatarUrl: url);
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Avatar updated!'), backgroundColor: Colors.blue[700]),
+          SnackBar(content: const Text('Avatar updated!'), backgroundColor: Colors.blue[700]),
         );
       }
     } catch (e) {
@@ -143,16 +149,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _pickCover() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80, maxWidth: 1200);
-    if (picked == null) return;
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    if (result == null || result.files.single.bytes == null) return;
+    
     setState(() => _isUploadingCover = true);
     try {
-      final bytes = await picked.readAsBytes();
-      final url = await SupabaseService.uploadCoverPhoto(bytes, 'cover.jpg');
+      final bytes = result.files.single.bytes!;
+      final url = await SupabaseService.uploadCoverPhoto(bytes, result.files.single.name);
       setState(() => _coverUrl = url);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Cover photo updated!'), backgroundColor: Colors.blue[700]),
+          SnackBar(content: const Text('Cover photo updated!'), backgroundColor: Colors.blue[700]),
         );
       }
     } catch (e) {
@@ -571,11 +581,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             color: Colors.grey[200],
                             image: DecorationImage(
                               image: _coverUrl != null
-                                  ? NetworkImage(_coverUrl!)
-                                  : const NetworkImage(
+                                  ? CachedNetworkImageProvider(_coverUrl!)
+                                  : const CachedNetworkImageProvider(
                                       'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2070&auto=format&fit=crop',
                                     ) as ImageProvider,
                               fit: BoxFit.cover,
+                              filterQuality: FilterQuality.high,
                             ),
                           ),
                           child: Stack(
@@ -729,8 +740,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             CircleAvatar(
                               radius: 55,
                               backgroundColor: Colors.blue[50],
-                              backgroundImage: _profile?.avatarUrl != null
-                                  ? NetworkImage(_profile!.avatarUrl!)
+                                backgroundImage: _profile?.avatarUrl != null
+                                  ? CachedNetworkImageProvider(_profile!.avatarUrl!)
                                   : null,
                               child: _profile?.avatarUrl == null
                                   ? Text(

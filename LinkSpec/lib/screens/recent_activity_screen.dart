@@ -68,37 +68,43 @@ class _RecentActivityScreenState extends State<RecentActivityScreen> {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      // 1. Fetch recent posts (limited to 15)
-      final postsData = await SupabaseService.getPosts(limit: 15, offset: 0);
-      final posts = postsData.map((d) => Post.fromJson(d)).toList();
-
-      // 2. Fetch recent groups
-      final groupsData = await SupabaseService.getGroups();
-      final groups = groupsData.map((d) => Group.fromJson(d)).toList();
-
-      // 3. Fetch recent events
-      final eventsData = await SupabaseService.getEvents();
-      final events = eventsData.map((d) => AppEvent.fromJson(d)).toList();
-
+      // 1. Fetch current user's private activity (likes, comments, own posts)
+      // This is strictly filtered by auth.uid() in the service.
+      final activityData = await SupabaseService.getMyRecentActivity(limit: 25);
+      
       final items = <_ActivityItem>[];
 
-      // Add posts
-      for (final p in posts) {
-        items.add(_ActivityItem.fromPost(p));
+      for (final raw in activityData) {
+        final type = raw['type'] as String;
+        final ts   = DateTime.tryParse(raw['created_at'] as String? ?? '') ?? DateTime.now();
+        
+        if (type == 'post') {
+          final p = Post(
+            id: raw['id'],
+            authorId: SupabaseService.getCurrentUserId() ?? '',
+            domainId: '', 
+            content: raw['summary'] ?? '',
+            createdAt: ts,
+            updatedAt: ts,
+            authorName: 'You',
+          );
+          items.add(_ActivityItem.fromPost(p));
+        } else if (type == 'comment' || type == 'like') {
+          final p = Post(
+            id: raw['id'],
+            authorId: SupabaseService.getCurrentUserId() ?? '',
+            domainId: type.toUpperCase(),
+            content: raw['summary'] ?? '',
+            createdAt: ts,
+            updatedAt: ts,
+            authorName: 'You',
+          );
+          items.add(_ActivityItem.fromPost(p));
+        }
       }
 
-      // Add groups (interleave them)
-      for (final g in groups) {
-        items.add(_ActivityItem.fromGroup(g, g.createdAt ?? DateTime.now()));
-      }
-
-      // Add events
-      for (final e in events) {
-        items.add(_ActivityItem.fromEvent(e));
-      }
-
-      // Sort everything newest-first
-      items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      // Note: Groups and events are now excluded from "My Activity" 
+      // as they are typically public browse items, keeping this view strictly personal.
 
       if (mounted) setState(() { _items = items; _isLoading = false; });
     } catch (e) {
