@@ -4,12 +4,14 @@ This guide documents the mandatory Environment Variables and Dashboard Settings 
 
 ## 🚀 Vercel Dashboard Settings
 
-| Field                | Value                             |
-| :------------------- | :-------------------------------- |
-| **Framework Preset** | Other                             |
-| **Build Command**    | `sh build.sh`                     |
-| **Output Directory** | `build/web`                       |
-| **Install Command**  | `sh build.sh` (Shared with build) |
+> **Note:** These settings are now defined in `vercel.json` and will override any Dashboard values.
+
+| Field                | Value                                          |
+| :------------------- | :--------------------------------------------- |
+| **Framework Preset** | Other                                          |
+| **Build Command**    | `sh build.sh` _(defined in `vercel.json`)_     |
+| **Output Directory** | `build/web` _(defined in `vercel.json`)_       |
+| **Install Command**  | Skipped _(handled by `build.sh` during build)_ |
 
 ---
 

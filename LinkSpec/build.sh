@@ -1,20 +1,24 @@
 #!/bin/bash
+set -e  # Exit immediately on any error
 
 # LinkSpec: Web Deployment Build Script
 # ─────────────────────────────────────
 
-# 1. Setup Flutter SDK (Linux)
+# 1. Setup Flutter SDK (Linux) — Vercel runs on Linux
 echo "--- Installing Flutter SDK (stable) ---"
 if [ ! -d "flutter" ]; then
   git clone https://github.com/flutter/flutter.git -b stable --depth 1
 fi
 export PATH="$PATH:$(pwd)/flutter/bin"
 
+# Pre-cache web SDK artifacts
+flutter precache --web
+
 # 2. Verify environment
 flutter doctor -v
 flutter --version
 
-# 3. Handle Web Dependencies
+# 3. Handle Dependencies
 echo "--- Cleaning & Getting Dependencies ---"
 flutter clean
 flutter pub get
@@ -24,9 +28,12 @@ flutter pub get
 echo "--- Building Flutter Web (Release) ---"
 flutter build web --release --web-renderer canvaskit
 
-# 5. Move output to root level for Vercel (Optional, but vercel.json assumes index.html is reachable)
-# Vercel typically serves from the root if not configured otherwise.
-# We will point Vercel's 'output' to 'build/web' in the dashboard or via config if needed.
-# For now, let's ensure the build succeeds.
+# 5. Verify build output exists
+if [ ! -f "build/web/index.html" ]; then
+  echo "ERROR: build/web/index.html not found! Build may have failed."
+  exit 1
+fi
 
 echo "--- Build Complete: LinkSpec is ready for Vercel deployment ---"
+echo "Build output directory contents:"
+ls -la build/web/

@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "installCommand": "echo 'Skipping install — handled by build.sh'",
+  "buildCommand": "sh build.sh",
+  "outputDirectory": "build/web",
   "cleanUrls": true,
   "trailingSlash": false,
   "framework": null,
