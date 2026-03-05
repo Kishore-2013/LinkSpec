@@ -1,3 +1,7 @@
+# -------------------------------------------------------------------
+# LinkSpec Project .gitignore
+# -------------------------------------------------------------------
+
 # Miscellaneous
 *.class
 *.log
@@ -18,10 +22,8 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# Visual Studio Code related
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -31,7 +33,15 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+
+# --- SPECIAL DEPLOYMENT RULES ---
+# Ignore build contents but allow exceptions (/* not / — see git docs)
+/build/*
+# Whitelist the compiled web folder for Vercel static deployment
+!/build/web/
+# But NEVER include .env files that Flutter copies into build assets
+build/web/assets/.env
+# --------------------------------
 
 # Symbolication related
 app.*.symbols
@@ -48,7 +58,7 @@ app.*.map.json
 **/node_modules/
 package-lock.json
 
-# Local Configuration & Secrets
+# Local Configuration & Secrets (STRICTLY PRIVATE)
 .env
 *.pem
 *.txt

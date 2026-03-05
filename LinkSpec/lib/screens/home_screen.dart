@@ -47,21 +47,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _isSearchMessageContext = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _scrollController = ScrollController();
-  // ── Feed: bidirectional virtual window ─────────────────────────
+
   late PostWindowManager _feedCtrl;
-  List<Post>  get _posts          => _feedCtrl.posts;
-  bool        get _isLoading      => _feedCtrl.isLoading;
-  bool        get _isLoadingMore  => _feedCtrl.isLoadingOlder;  // bottom spinner
-  bool        get _isLoadingNewer => _feedCtrl.isLoadingNewer;  // top spinner
-  bool        get _hasNextPage    => _feedCtrl.hasMoreOlder;
-  bool        get _hasPrevPage    => _feedCtrl.hasMoreNewer;
+  List<Post> get _posts => _feedCtrl.posts;
+  bool get _isLoading => _feedCtrl.isLoading;
+  bool get _isLoadingMore => _feedCtrl.isLoadingOlder;
+  bool get _isLoadingNewer => _feedCtrl.isLoadingNewer;
+  bool get _hasNextPage => _feedCtrl.hasMoreOlder;
+  bool get _hasPrevPage => _feedCtrl.hasMoreNewer;
 
   UserProfile? _currentUserProfile;
 
-  // Sidebar groups — loaded dynamically
   List<Group> _sidebarGroups = [];
 
-  // ── Sidebar: real-time live data/badge ─────────────────────────
   late SidebarDataService _sidebarSvc;
   StreamSubscription? _latestPostsSub;
   StreamSubscription? _jobsSub;
@@ -72,13 +70,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<Map<String, dynamic>> _upcomingEvents = [];
   List<Map<String, dynamic>> _myRecentActivity = [];
 
-  // Badge counts — loaded dynamically from Supabase
   int _unreadMessages = 0;
   int _unreadNotifications = 0;
   int _newJobsCount = 0;
   Timer? _badgeTimer;
 
-  // Domain options — must match the domain_id values stored in Supabase profiles
   static const _domains = [
     'Medical',
     'IT/Software',
@@ -89,77 +85,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ];
   bool _isSwitchingDomain = false;
 
-  // Track when we last cleared notifications / messages to prevent race conditions
   DateTime? _lastNotificationClear;
   DateTime? _lastMessageClear;
 
-  // Scroll-aware bottom nav
   bool _navVisible = true;
   double _lastScrollOffset = 0;
 
-  // Realtime channels — stored so they can be unsubscribed in dispose()
   RealtimeChannel? _messagesChannel;
   RealtimeChannel? _notificationsChannel;
 
   @override
   void initState() {
     super.initState();
-    
+
     _loadUserProfile();
-    
-    // Initialize Feed with the current domain from provider
+
     final initialDomain = ref.read(currentDomainProvider);
-    _feedCtrl  = PostWindowManager(domain: initialDomain);
+    _feedCtrl = PostWindowManager(domain: initialDomain);
     _sidebarSvc = SidebarDataService(domain: initialDomain);
-    
-    _feedCtrl.loadInitial(onUpdate: () { if (mounted) setState(() {}); });
+
+    _feedCtrl.loadInitial(onUpdate: () {
+      if (mounted) setState(() {});
+    });
     _loadGroups();
     _loadBadgeCounts();
-    _loadSyncBadgeCounts(); // Load jobs badge from cache
+    _loadSyncBadgeCounts();
     _loadSidebarData();
 
-    // ── Realtime sidebar subscription ────────────────────────────
-    // We delay wiring up the callback by 500ms so the very first Realtime
-    // channel READY event doesn't redundantly re-trigger _loadSidebarData
-    // right after the initState load above has already started.
     bool _sidebarStartupComplete = false;
     Future.delayed(const Duration(milliseconds: 500), () {
       _sidebarStartupComplete = true;
     });
     _sidebarSvc.subscribeRealtime(onUpdate: () {
-      if (!_sidebarStartupComplete) return; // drop startup echo
+      if (!_sidebarStartupComplete) return;
       unawaited(_loadSidebarData());
       unawaited(_loadBadgeCounts());
     });
 
-    // ── Jobs Real-time Badge (Disabled for regular users per requirement) ──
-    // _jobsSub = JobService.getLatestJobsStream(limit: 1).listen((newest) {
-    //   if (newest.isEmpty) return;
-    //   if (_currentIndex != 11) {
-    //     if (mounted) setState(() => _newJobsCount++);
-    //   }
-    // });
-
-    // ── HR Application Notifications ─────────────────────────────────────
     _initHRNotifications();
 
-    // ── Latest Posts Real-time Badge / Auto-refresh ───────────────────────
-    _latestPostsSub = SupabaseService.getLatestPostsStream(limit: 1).listen((newest) {
+    _latestPostsSub =
+        SupabaseService.getLatestPostsStream(limit: 1).listen((newest) {
       if (newest.isEmpty) return;
-      final newestAt = DateTime.tryParse(newest.first['created_at'] as String? ?? '') ?? DateTime(0);
-      
-      // If we haven't seen any posts yet, set the baseline
+      final newestAt =
+          DateTime.tryParse(newest.first['created_at'] as String? ?? '') ??
+              DateTime(0);
+
       if (_lastViewedPostAt == null) {
         _lastViewedPostAt = newestAt;
         return;
       }
 
-      // If a post is strictly newer than our baseline
       if (newestAt.isAfter(_lastViewedPostAt!)) {
         if (mounted) {
-          // If the user's view is "Latest Posts" and they are at the top, auto-refresh
-          if (_currentIndex == 0 && _feedCtrl.isChronological && (_scrollController.hasClients && _scrollController.offset < 300)) {
-            _feedCtrl.loadInitial(onUpdate: () { if (mounted) setState(() {}); });
+          if (_currentIndex == 0 &&
+              _feedCtrl.isChronological &&
+              (_scrollController.hasClients &&
+                  _scrollController.offset < 300)) {
+            _feedCtrl.loadInitial(onUpdate: () {
+              if (mounted) setState(() {});
+            });
             _lastViewedPostAt = newestAt;
             return;
           }
@@ -177,7 +162,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final userId = Supabase.instance.client.auth.currentUser?.id;
 
-    // ── Messages Realtime (badge update only) ────────────────────────────────
     _messagesChannel = Supabase.instance.client
         .channel('home:messages:$userId')
         .onPostgresChanges(
@@ -186,16 +170,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           table: 'messages',
           callback: (_) => _loadBadgeCounts(),
         )
-        .subscribe((RealtimeSubscribeStatus status, Object? error) {
-          // Silently handle WebSocket failures — badge counts still update via polling
-        });
+        .subscribe((RealtimeSubscribeStatus status, Object? error) {});
 
-    // ── Notifications Realtime (badge + overlay SnackBar) ────────────────────
     if (userId != null) {
       _notificationsChannel = Supabase.instance.client
           .channel('home:notifications:$userId')
           .onPostgresChanges(
-            event: PostgresChangeEvent.insert,   // only fire on new rows
+            event: PostgresChangeEvent.insert,
             schema: 'public',
             table: 'notifications',
             filter: PostgresChangeFilter(
@@ -205,27 +186,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             callback: (payload) => _onNewNotification(payload),
           )
-          .subscribe((RealtimeSubscribeStatus status, Object? error) {
-            // Silently handle WebSocket failures
-          });
+          .subscribe((RealtimeSubscribeStatus status, Object? error) {});
     }
 
-    // ── Bidirectional scroll listener ────────────────────────────
     _scrollController.addListener(() {
-      final offset    = _scrollController.offset;
+      final offset = _scrollController.offset;
       final maxScroll = _scrollController.position.maxScrollExtent;
 
-      // Scroll DOWN → load older posts at 90% of list
       if (maxScroll > 0 && offset >= maxScroll * 0.9) {
         _loadOlderPosts();
       }
-
-      // Scroll UP → restore cached page when within 300px of top
       if (offset <= 300 && _feedCtrl.hasMoreNewer) {
         _loadNewerPosts();
       }
 
-      // Nav-bar auto-hide
       if (offset > _lastScrollOffset + 10 && _navVisible) {
         setState(() => _navVisible = false);
       } else if (offset < _lastScrollOffset - 10 && !_navVisible) {
@@ -235,16 +209,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
-  /// Called by the Realtime channel whenever a new notification row is inserted.
   Future<void> _onNewNotification(PostgresChangePayload payload) async {
-    // 1. Update the badge count immediately
     if (mounted) {
       setState(() => _unreadNotifications++);
     }
 
-    // 2. Fetch actor name for the banner (the raw row has actor_id but no joined name)
     final newRow = payload.newRecord;
-    final type    = newRow['type'] as String? ?? 'notification';
+    final type = newRow['type'] as String? ?? 'notification';
     final actorId = newRow['actor_id'] as String?;
 
     String actorName = 'Someone';
@@ -256,33 +227,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     final message = switch (type) {
-      'like'         => '$actorName liked your post',
-      'comment'      => '$actorName commented on your post',
+      'like' => '$actorName liked your post',
+      'comment' => '$actorName commented on your post',
       'like_comment' => '$actorName liked your comment',
-      'connection'   => '$actorName united with you',
-      _              => '$actorName sent you a notification',
+      'connection' => '$actorName united with you',
+      _ => '$actorName sent you a notification',
     };
 
-    // 3. Show the overlay banner (safe even if on a different tab)
     if (mounted) {
       _showNotificationBanner(message, type);
     }
   }
 
-  /// Displays a rich SnackBar overlay visible from any tab.
   void _showNotificationBanner(String message, String type) {
     final iconData = switch (type) {
-      'like'         => Icons.favorite_rounded,
-      'comment'      => Icons.chat_bubble_rounded,
+      'like' => Icons.favorite_rounded,
+      'comment' => Icons.chat_bubble_rounded,
       'like_comment' => Icons.favorite_border_rounded,
-      'connection'   => Icons.people_rounded,
-      _              => Icons.notifications_rounded,
+      'connection' => Icons.people_rounded,
+      _ => Icons.notifications_rounded,
     };
     final iconColor = switch (type) {
-      'like'         => Colors.red,
+      'like' => Colors.red,
       'like_comment' => Colors.pink,
-      'connection'   => Colors.blue,
-      _              => const Color(0xFF0066CC),
+      'connection' => Colors.blue,
+      _ => const Color(0xFF0066CC),
     };
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -315,7 +284,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ),
-              // Tap to jump to notifications tab
               TextButton(
                 onPressed: () {
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -342,9 +310,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// Switch page and close the mobile drawer if it is open.
   void _navigateTo(int index) {
-    // Close the drawer first (safe to call even if drawer is not open)
     if (_scaffoldKey.currentState?.isDrawerOpen == true) {
       Navigator.of(context).pop();
     }
@@ -354,14 +320,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _isSearchMessageContext = false;
       }
       if (index == 3) {
-        _unreadMessages = 0; // Clear locally when entering messages tab
-        _lastMessageClear = DateTime.now(); // Race condition guard
-        SupabaseService.markAllMessagesAsRead(); // Mark them in the database too
+        _unreadMessages = 0;
+        _lastMessageClear = DateTime.now();
+        SupabaseService.markAllMessagesAsRead();
       }
       if (index == 11) {
         _newJobsCount = 0;
         WebCacheManager.resetJobsBadge();
-        // Mark the current latest application as seen so no snackbar shows for old data
         _markLatestApplicationAsSeen();
       }
     });
@@ -401,27 +366,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final notifCount = await SupabaseService.getUnreadNotificationCount();
       if (mounted) {
         setState(() {
-          // Guard: If we cleared messages in the last 3 seconds,
-          // suppress the old count to give the DB time to catch up.
-          // Keep the window short (3s) so any new message that arrives
-          // after that still updates the badge correctly.
           final isMessageRecentlyCleared = _lastMessageClear != null &&
               DateTime.now().difference(_lastMessageClear!).inSeconds < 3;
 
-          // Force 0 if on messages tab OR if we cleared recently.
           if (_currentIndex != 3 && !isMessageRecentlyCleared) {
             _unreadMessages = msgCount;
           } else {
             _unreadMessages = 0;
           }
-          
-          // Guard: If we cleared notifications in the last 5 seconds, 
-          // ignore any non-zero count from the server to prevent race conditions.
-          final isRecentlyCleared = _lastNotificationClear != null && 
-              DateTime.now().difference(_lastNotificationClear!).inSeconds < 5;
 
-          // Only update notification count if we're NOT currently viewing the notifications screen
-          // AND we didn't just clear them seconds ago.
+          final isRecentlyCleared = _lastNotificationClear != null &&
+              DateTime.now().difference(_lastNotificationClear!).inSeconds < 5;
           if (_currentIndex != 5 && !isRecentlyCleared) {
             _unreadNotifications = notifCount;
           } else {
@@ -440,10 +395,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (profileData != null && mounted) {
         setState(() {
           _currentUserProfile = UserProfile.fromJson(profileData);
-          // Sync domain pill with what the user's profile says
           final profileDomain = profileData['domain_id'] as String?;
           if (profileDomain != null && _domains.contains(profileDomain)) {
-            // Update the global provider to match the user's preferred domain
             ref.read(currentDomainProvider.notifier).state = profileDomain;
           }
         });
@@ -453,12 +406,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  // ── Sidebar data loader ───────────────────────────────────────────────
-
   Future<void> _loadSidebarData() async {
     await Future.wait([
-      _sidebarSvc.loadTrendingTags(onUpdate: () { if (mounted) setState(() {}); }),
-      _sidebarSvc.loadSuggestedDiscussions(onUpdate: () { if (mounted) setState(() {}); }),
+      _sidebarSvc.loadTrendingTags(onUpdate: () {
+        if (mounted) setState(() {});
+      }),
+      _sidebarSvc.loadSuggestedDiscussions(onUpdate: () {
+        if (mounted) setState(() {});
+      }),
       _loadUpcomingEvents(),
       _loadMyRecentActivity(),
     ]);
@@ -478,24 +433,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } catch (_) {}
   }
 
-  // ── Feed load helpers ───────────────────────────────────────────────
-
-  Future<void> _loadPosts({String? domain, FeedMode mode = FeedMode.popularity}) async {
+  Future<void> _loadPosts(
+      {String? domain, FeedMode mode = FeedMode.popularity}) async {
     final String d = domain ?? ref.read(currentDomainProvider);
-    
-    // If domain changes OR sort mode changes, we MUST rebuild the window controller
+
     if (_feedCtrl.domain != d || _feedCtrl.mode != mode) {
       SupabaseService.optimizeMemory();
       setState(() => _isSwitchingDomain = true);
-      _feedCtrl  = PostWindowManager(domain: d, mode: mode);
+      _feedCtrl = PostWindowManager(domain: d, mode: mode);
       _sidebarSvc = SidebarDataService(domain: d)
         ..subscribeRealtime(onUpdate: () {
-          if (mounted) { _loadSidebarData(); setState(() {}); }
+          if (mounted) {
+            _loadSidebarData();
+            setState(() {});
+          }
         });
       unawaited(_loadSidebarData());
     }
-    
-    await _feedCtrl.loadInitial(onUpdate: () { if (mounted) setState(() {}); });
+
+    await _feedCtrl.loadInitial(onUpdate: () {
+      if (mounted) setState(() {});
+    });
     if (mounted) setState(() => _isSwitchingDomain = false);
   }
 
@@ -512,16 +470,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onNewApplicationNotification(Map<String, dynamic> application) async {
-    if (_currentIndex == 11) return; // Don't notify if on Jobs page
+    if (_currentIndex == 11) return;
 
     final appId = application['id'] as String;
     final lastNotifiedId = await WebCacheManager.getLastNotifiedAppId();
-    if (appId == lastNotifiedId) return; // Already seen/notified
+    if (appId == lastNotifiedId) return;
 
-    // Mark as notified immediately
     await WebCacheManager.setLastNotifiedAppId(appId);
 
-    // Update badge count
     if (mounted) {
       setState(() => _newJobsCount++);
     }
@@ -533,7 +489,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Icon(Icons.person_add_alt_1, color: Colors.white),
             SizedBox(width: 12),
-            Expanded(child: Text('New application received for your job listing!')),
+            Expanded(
+                child: Text('New application received for your job listing!')),
           ],
         ),
         backgroundColor: Colors.blue[700],
@@ -547,25 +504,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// Append older posts (scroll down). Compensates scroll if top was evicted.
   Future<void> _loadOlderPosts() async {
     if (!_feedCtrl.hasMoreOlder || _feedCtrl.isLoadingOlder) return;
-    // Grab old scroll metrics BEFORE state changes
-    final oldOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-    final oldMax    = _scrollController.hasClients
+    final oldOffset =
+        _scrollController.hasClients ? _scrollController.offset : 0.0;
+    final oldMax = _scrollController.hasClients
         ? _scrollController.position.maxScrollExtent
         : 0.0;
 
-    final evicted = await _feedCtrl.loadOlder(
-        onUpdate: () { if (mounted) setState(() {}); });
+    final evicted = await _feedCtrl.loadOlder(onUpdate: () {
+      if (mounted) setState(() {});
+    });
 
-    // If items were evicted from the top, the list shrank above the viewport.
-    // Jump scroll position back to maintain visual stability.
     if (evicted > 0 && _scrollController.hasClients) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!_scrollController.hasClients) return;
         final newMax = _scrollController.position.maxScrollExtent;
-        final shrunk = oldMax - newMax; // how much the list shrank at top
+        final shrunk = oldMax - newMax;
         final target = (oldOffset - shrunk).clamp(
             _scrollController.position.minScrollExtent,
             _scrollController.position.maxScrollExtent);
@@ -574,24 +529,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  /// Prepend newer (cached) posts (user scrolled back to top).
-  /// Adjusts scroll position so the viewport doesn't jump.
   Future<void> _loadNewerPosts() async {
     if (!_feedCtrl.hasMoreNewer || _feedCtrl.isLoadingNewer) return;
-    final oldOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-    final oldMax    = _scrollController.hasClients
+    final oldOffset =
+        _scrollController.hasClients ? _scrollController.offset : 0.0;
+    final oldMax = _scrollController.hasClients
         ? _scrollController.position.maxScrollExtent
         : 0.0;
 
-    await _feedCtrl.loadNewer(
-        onUpdate: () { if (mounted) setState(() {}); });
+    await _feedCtrl.loadNewer(onUpdate: () {
+      if (mounted) setState(() {});
+    });
 
-    // Items were prepended → the list grew above the current position.
-    // Advance scroll offset by the same amount the list grew to stay in place.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
       final newMax = _scrollController.position.maxScrollExtent;
-      final grown  = newMax - oldMax;
+      final grown = newMax - oldMax;
       if (grown > 0) {
         _scrollController.jumpTo((oldOffset + grown).clamp(
             _scrollController.position.minScrollExtent,
@@ -601,7 +554,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _loadNextPage() async => _loadOlderPosts();
-  Future<void> _loadPrevPage() async {} // kept for compat
+  Future<void> _loadPrevPage() async {}
 
   Future<void> _loadGroups() async {
     try {
@@ -618,16 +571,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _refreshPosts() async {
     debugPrint('DEBUG: HomeScreen _refreshPosts called');
-    await _feedCtrl.refresh(onUpdate: () { if (mounted) setState(() {}); });
+    await _feedCtrl.refresh(onUpdate: () {
+      if (mounted) setState(() {});
+    });
     await _loadGroups();
   }
-
 
   @override
   Widget build(BuildContext context) {
     final String activeDomain = ref.watch(currentDomainProvider);
 
-    // Reactive Listener: Automatically refresh feed when domain changes via provider
     ref.listen(currentDomainProvider, (prev, next) {
       if (prev != next) {
         _loadPosts(domain: next);
@@ -638,9 +591,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (context, outerConstraints) {
         final double screenWidth = outerConstraints.maxWidth;
         // Responsive breakpoints
-        final bool isMobile     = screenWidth < 700;   // show bottom nav only
-        final bool isTablet     = screenWidth >= 700 && screenWidth < 1000; // center only
-        final bool isDesktop    = screenWidth >= 1000; // all three columns
+        final bool isMobile = screenWidth < 700; // show bottom nav only
+        final bool isTablet =
+            screenWidth >= 700 && screenWidth < 1000; // center only
+        final bool isDesktop = screenWidth >= 1000; // all three columns
 
         return Scaffold(
           key: _scaffoldKey,
@@ -687,55 +641,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: IndexedStack(
                               index: _currentIndex,
                               children: [
-                                _buildHomeFeed(),      // 0
-                                SearchScreen(          // 1
-                                  onBack: () => setState(() => _currentIndex = 0),
+                                _buildHomeFeed(), // 0
+                                SearchScreen(
+                                  // 1
+                                  onBack: () =>
+                                      setState(() => _currentIndex = 0),
                                   autofocusSearch: _currentIndex == 1,
-                                  searchOnlyConnections: _isSearchMessageContext,
+                                  searchOnlyConnections:
+                                      _isSearchMessageContext,
                                 ),
-                                NetworkScreen(         // 2
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                  onSearch: () => setState(() => _currentIndex = 1),
+                                NetworkScreen(
+                                  // 2
+                                  onBack: () =>
+                                      setState(() => _currentIndex = 0),
+                                  onSearch: () =>
+                                      setState(() => _currentIndex = 1),
                                 ),
                                 LazyLoadWrapper(
                                   isActive: _currentIndex == 3,
                                   loader: () => messaging.loadLibrary(),
-                                  builder: (context) => messaging.MessagesListScreen(
-                                    onBack: () => setState(() => _currentIndex = 0),
+                                  builder: (context) =>
+                                      messaging.MessagesListScreen(
+                                    onBack: () =>
+                                        setState(() => _currentIndex = 0),
                                     onSearch: () => setState(() {
                                       _currentIndex = 1;
                                       _isSearchMessageContext = true;
                                     }),
                                   ),
                                 ),
-                                ProfileScreen(         // 4
-                                  onBack: () => setState(() => _currentIndex = 0),
+                                ProfileScreen(
+                                  // 4
+                                  onBack: () =>
+                                      setState(() => _currentIndex = 0),
                                 ),
-                                NotificationsScreen(   // 5
-                                  onBack: () => setState(() => _currentIndex = 0),
+                                NotificationsScreen(
+                                  // 5
+                                  onBack: () =>
+                                      setState(() => _currentIndex = 0),
                                   onRefreshBadges: _loadBadgeCounts,
                                 ),
-                                RecentActivityScreen(  // 6
-                                  onBack: () => setState(() => _currentIndex = 0),
+                                RecentActivityScreen(
+                                  // 6
+                                  onBack: () =>
+                                      setState(() => _currentIndex = 0),
                                 ),
-                                SavedItemsScreen(      // 7
-                                  onBack: () => setState(() => _currentIndex = 0),
+                                SavedItemsScreen(
+                                  // 7
+                                  onBack: () =>
+                                      setState(() => _currentIndex = 0),
                                 ),
                                 LazyLoadWrapper(
                                   isActive: _currentIndex == 8,
                                   loader: () => settings.loadLibrary(),
                                   builder: (context) => settings.SettingsScreen(
-                                    onBack: () => setState(() => _currentIndex = 0),
+                                    onBack: () =>
+                                        setState(() => _currentIndex = 0),
                                   ),
                                 ),
-                                GroupsScreen(          // 9
-                                  onBack: () => setState(() => _currentIndex = 0),
+                                GroupsScreen(
+                                  // 9
+                                  onBack: () =>
+                                      setState(() => _currentIndex = 0),
                                 ),
-                                EventsScreen(          // 10
-                                  onBack: () => setState(() => _currentIndex = 0),
+                                EventsScreen(
+                                  // 10
+                                  onBack: () =>
+                                      setState(() => _currentIndex = 0),
                                 ),
-                                JobsPage(              // 11
-                                  onBack: () => setState(() => _currentIndex = 0),
+                                JobsPage(
+                                  // 11
+                                  onBack: () =>
+                                      setState(() => _currentIndex = 0),
                                 ),
                               ],
                             ),
@@ -776,7 +753,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        border: Border(right: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+        border: Border(
+            right:
+                BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
       ),
       child: Column(
         children: [
@@ -810,7 +789,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.5)),
+        border: Border(
+            bottom: BorderSide(
+                color: Theme.of(context).dividerColor.withOpacity(0.5),
+                width: 0.5)),
       ),
       padding: EdgeInsets.symmetric(
         horizontal: isMobile ? 12 : 24,
@@ -823,7 +805,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             if (isMobile)
               Builder(
                 builder: (context) => IconButton(
-                  icon: Icon(Icons.menu_rounded, color: Theme.of(context).iconTheme.color),
+                  icon: Icon(Icons.menu_rounded,
+                      color: Theme.of(context).iconTheme.color),
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
@@ -843,7 +826,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const Spacer(),
             // Domain Switch Pill
             GestureDetector(
-              onTap: _isSwitchingDomain ? null : () => _showDomainSwitcher(activeDomain),
+              onTap: _isSwitchingDomain
+                  ? null
+                  : () => _showDomainSwitcher(activeDomain),
               child: Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: isMobile ? 10 : 14,
@@ -858,11 +843,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     if (_isSwitchingDomain)
                       const SizedBox(
-                        width: 12, height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0066CC)),
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Color(0xFF0066CC)),
                       )
                     else
-                      const Icon(Icons.swap_horiz, size: 16, color: Color(0xFF0066CC)),
+                      const Icon(Icons.swap_horiz,
+                          size: 16, color: Color(0xFF0066CC)),
                     const SizedBox(width: 5),
                     Text(
                       activeDomain,
@@ -881,7 +869,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                _buildHeaderIcon(Icons.notifications_none_rounded, onTap: () async {
+                _buildHeaderIcon(Icons.notifications_none_rounded,
+                    onTap: () async {
                   setState(() {
                     _currentIndex = 5;
                     _unreadNotifications = 0;
@@ -899,8 +888,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     right: 2,
                     top: 2,
                     child: Container(
-                      width: 8, height: 8,
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                          color: Colors.red, shape: BoxShape.circle),
                     ),
                   ),
               ],
@@ -911,9 +902,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  title: const Text('Log out?', style: TextStyle(fontWeight: FontWeight.w700)),
-                  content: const Text('Are you sure you want to log out of LinkSpec?'),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  title: const Text('Log out?',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  content: const Text(
+                      'Are you sure you want to log out of LinkSpec?'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(false),
@@ -922,7 +916,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(true),
                       style: TextButton.styleFrom(foregroundColor: Colors.red),
-                      child: const Text('Log out', style: TextStyle(fontWeight: FontWeight.w700)),
+                      child: const Text('Log out',
+                          style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                   ],
                 ),
@@ -932,7 +927,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   SupabaseService.clearCache();
                   ref.read(savedPostsProvider.notifier).clear();
                   await Supabase.instance.client.auth.signOut();
-                  if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                  if (mounted)
+                    Navigator.of(context)
+                        .pushNamedAndRemoveUntil('/login', (route) => false);
                 } catch (e) {
                   debugPrint('Logout error: $e');
                 }
@@ -955,7 +952,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // Keep old name as alias so nothing breaks
-  Widget _buildRoundIcon(IconData icon, {VoidCallback? onTap}) => _buildHeaderIcon(icon, onTap: onTap);
+  Widget _buildRoundIcon(IconData icon, {VoidCallback? onTap}) =>
+      _buildHeaderIcon(icon, onTap: onTap);
 
   Widget _buildHomeFeed() {
     return RefreshIndicator(
@@ -1001,11 +999,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.article_outlined, size: 48, color: Theme.of(context).hintColor),
+                    Icon(Icons.article_outlined,
+                        size: 48, color: Theme.of(context).hintColor),
                     const SizedBox(height: 12),
                     Text(
                       _feedCtrl.emptyStateMessage,
-                      style: TextStyle(fontWeight: FontWeight.w500, color: Theme.of(context).hintColor),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).hintColor),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
@@ -1050,7 +1051,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: Center(
                               child: Text(
                                 "You're all caught up 🎉",
-                                style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                                style: TextStyle(
+                                    color: Colors.grey[500], fontSize: 13),
                               ),
                             ),
                           )
@@ -1062,7 +1064,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-
 
   Widget _buildStartPostBox() {
     final isMobile = MediaQuery.of(context).size.width < 480;
@@ -1085,8 +1086,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     : null,
                 child: _currentUserProfile?.avatarUrl == null
                     ? Text(
-                        (_currentUserProfile?.fullName ?? 'U').substring(0, 1).toUpperCase(),
-                        style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1C1C1E)),
+                        (_currentUserProfile?.fullName ?? 'U')
+                            .substring(0, 1)
+                            .toUpperCase(),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1C1C1E)),
                       )
                     : null,
               ),
@@ -1106,7 +1111,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     child: Text(
                       'Start a post...',
-                      style: TextStyle(color: Colors.grey[500], fontSize: isMobile ? 13 : 14),
+                      style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: isMobile ? 13 : 14),
                     ),
                   ),
                 ),
@@ -1119,9 +1126,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildPostTypeBtn(Icons.image_outlined, 'Media', const Color(0xFF0066CC)),
-              _buildPostTypeBtn(Icons.calendar_month_outlined, 'Event', const Color(0xFFFF9500)),
-              _buildPostTypeBtn(Icons.article_outlined, 'Article', const Color(0xFFFF6B00)),
+              _buildPostTypeBtn(
+                  Icons.image_outlined, 'Media', const Color(0xFF0066CC)),
+              _buildPostTypeBtn(Icons.calendar_month_outlined, 'Event',
+                  const Color(0xFFFF9500)),
+              _buildPostTypeBtn(
+                  Icons.article_outlined, 'Article', const Color(0xFFFF6B00)),
             ],
           ),
         ],
@@ -1181,7 +1191,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.8),
+              side: BorderSide(
+                  color: Theme.of(context).dividerColor.withOpacity(0.5),
+                  width: 0.8),
             ),
             child: Container(
               constraints: const BoxConstraints(minHeight: 100),
@@ -1205,7 +1217,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ? Image.network(
                                   _currentUserProfile!.coverUrl!,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => _buildCoverGradient(),
+                                  errorBuilder: (_, __, ___) =>
+                                      _buildCoverGradient(),
                                 )
                               : _buildCoverGradient(),
                         ),
@@ -1222,7 +1235,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w800,
-                                color: Theme.of(context).textTheme.titleLarge?.color,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.color,
                               ),
                               textAlign: TextAlign.center,
                               overflow: TextOverflow.ellipsis,
@@ -1230,7 +1246,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             const SizedBox(height: 4),
                             Text(
                               '@${(_currentUserProfile?.fullName ?? 'user').replaceAll(' ', '').toLowerCase()}',
-                              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                              style: TextStyle(
+                                  color: Colors.grey[500], fontSize: 12),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -1241,14 +1258,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                   // ── Avatar — Positioned to overlap the cover/body boundary ──
                   Positioned(
-                    top: 120 - 40, // cover height minus half the avatar radius = 80
+                    top: 120 -
+                        40, // cover height minus half the avatar radius = 80
                     left: 0,
                     right: 0,
                     child: Center(
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Theme.of(context).cardColor, width: 4),
+                          border: Border.all(
+                              color: Theme.of(context).cardColor, width: 4),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.1),
@@ -1260,12 +1279,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: CircleAvatar(
                           radius: 40,
                           backgroundColor: Colors.blue[50],
-                          backgroundImage: _currentUserProfile?.avatarUrl != null
+                          backgroundImage: _currentUserProfile?.avatarUrl !=
+                                  null
                               ? NetworkImage(_currentUserProfile!.avatarUrl!)
                               : null,
                           child: _currentUserProfile?.avatarUrl == null
                               ? Text(
-                                  (_currentUserProfile?.fullName ?? 'U')[0].toUpperCase(),
+                                  (_currentUserProfile?.fullName ?? 'U')[0]
+                                      .toUpperCase(),
                                   style: const TextStyle(
                                     fontSize: 30,
                                     fontWeight: FontWeight.bold,
@@ -1286,18 +1307,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Menu Groups
         _buildSidebarGroup([
           _buildSidebarItem(
-            Icons.bookmark, 'Saved items',
+            Icons.bookmark,
+            'Saved items',
             onTap: () => _navigateTo(7),
           ),
           _buildSidebarItem(
-            Icons.settings, 'Settings',
+            Icons.settings,
+            'Settings',
             onTap: () => _navigateTo(8),
           ),
         ]),
         const SizedBox(height: 12),
         _buildSidebarGroup([
           _buildSidebarItem(
-            Icons.trending_up, 'Recent activity',
+            Icons.trending_up,
+            'Recent activity',
             showPlus: true,
             onTap: () => _navigateTo(6),
             onPlusTap: () {
@@ -1311,7 +1335,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           // Mixed recent content
           _buildSidebarItem(
-            Icons.article_outlined, 'Latest posts',
+            Icons.article_outlined,
+            'Latest posts',
             showBadge: _latestPostsBadgeCount > 0,
             badgeValue: _latestPostsBadgeCount,
             onTap: () async {
@@ -1334,7 +1359,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
           ),
           _buildSidebarItem(
-            Icons.bar_chart_rounded, 'Top weekly',
+            Icons.bar_chart_rounded,
+            'Top weekly',
             onTap: () async {
               // Ranked View: Most liked in the last 7 days
               setState(() {
@@ -1343,7 +1369,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               });
 
               _navigateTo(0); // Jump to Home tab
-              
+
               // Load in Top Weekly mode
               await _loadPosts(mode: FeedMode.topWeekly);
 
@@ -1367,16 +1393,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Groups & Events — combined container
         _buildSidebarGroup([
           _buildSidebarItem(
-            Icons.group, 'Groups',
+            Icons.group,
+            'Groups',
             isAction: true,
             onTap: () => _navigateTo(9),
           ),
           _buildSidebarItem(
-            Icons.event, 'Events',
+            Icons.event,
+            'Events',
             isAction: true,
             onTap: () => _navigateTo(10),
           ),
-        ]),
         ]),
       ],
     );
@@ -1405,7 +1432,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       color: Theme.of(context).cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.8),
+        side: BorderSide(
+            color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.8),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1414,7 +1442,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildSidebarItem(IconData icon, String label, {
+  Widget _buildSidebarItem(
+    IconData icon,
+    String label, {
     bool showPlus = false,
     bool isAction = false,
     bool showArrow = false,
@@ -1437,7 +1467,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Icon(
                   icon,
                   size: 20,
-                  color: isAction ? Theme.of(context).primaryColor : Theme.of(context).iconTheme.color,
+                  color: isAction
+                      ? Theme.of(context).primaryColor
+                      : Theme.of(context).iconTheme.color,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -1445,7 +1477,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     label,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: isAction ? Theme.of(context).primaryColor : Theme.of(context).textTheme.bodyLarge?.color,
+                      color: isAction
+                          ? Theme.of(context).primaryColor
+                          : Theme.of(context).textTheme.bodyLarge?.color,
                       fontSize: 14,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -1453,7 +1487,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 if (showBadge && badgeValue > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     margin: const EdgeInsets.only(right: 8),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0066CC),
@@ -1461,7 +1496,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     child: Text(
                       badgeValue > 99 ? '99+' : badgeValue.toString(),
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                 if (showPlus)
@@ -1473,11 +1511,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         color: Theme.of(context).dividerColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Icon(Icons.add, size: 14, color: Theme.of(context).iconTheme.color),
+                      child: Icon(Icons.add,
+                          size: 14, color: Theme.of(context).iconTheme.color),
                     ),
                   ),
-                if (showArrow) 
-                  const Icon(Icons.chevron_right, size: 18, color: Color(0xFF8E8E93)),
+                if (showArrow)
+                  const Icon(Icons.chevron_right,
+                      size: 18, color: Color(0xFF8E8E93)),
               ],
             ),
           ),
@@ -1487,8 +1527,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildRightSideBar(String activeDomain) {
-    final tags         = _sidebarSvc.trendingTags;
-    final discussions  = _sidebarSvc.suggestedDiscussions;
+    final tags = _sidebarSvc.trendingTags;
+    final discussions = _sidebarSvc.suggestedDiscussions;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1500,7 +1540,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           margin: const EdgeInsets.fromLTRB(4, 8, 4, 0),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.8),
+            side: BorderSide(
+                color: Theme.of(context).dividerColor.withOpacity(0.5),
+                width: 0.8),
           ),
           child: Container(
             constraints: const BoxConstraints(minHeight: 100),
@@ -1521,7 +1563,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     if (_sidebarSvc.isLoadingTags)
                       const SizedBox(
-                        width: 14, height: 14,
+                        width: 14,
+                        height: 14,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                   ],
@@ -1539,9 +1582,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     : Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: tags
-                            .map((tag) => _buildClickableTag(tag))
-                            .toList(),
+                        children:
+                            tags.map((tag) => _buildClickableTag(tag)).toList(),
                       ),
               ],
             ),
@@ -1557,7 +1599,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           margin: const EdgeInsets.fromLTRB(4, 0, 4, 8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.8),
+            side: BorderSide(
+                color: Theme.of(context).dividerColor.withOpacity(0.5),
+                width: 0.8),
           ),
           child: Container(
             constraints: const BoxConstraints(minHeight: 100),
@@ -1573,10 +1617,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
-                            color: Theme.of(context).textTheme.titleLarge?.color)),
+                            color:
+                                Theme.of(context).textTheme.titleLarge?.color)),
                     if (_sidebarSvc.isLoadingDiscussions)
                       const SizedBox(
-                        width: 14, height: 14,
+                        width: 14,
+                        height: 14,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                   ],
@@ -1587,7 +1633,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       style: TextStyle(color: Colors.grey[400], fontSize: 12))
                 else
                   ...discussions.asMap().entries.map((e) {
-                    final idx  = e.key;
+                    final idx = e.key;
                     final disc = e.value;
                     final content = (disc['content'] as String? ?? '');
                     final title = content.length > 90
@@ -1615,9 +1661,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).dividerColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1), width: 0.5),
+        border: Border.all(
+            color: Theme.of(context).dividerColor.withOpacity(0.1), width: 0.5),
       ),
-      child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: Theme.of(context).textTheme.bodySmall?.color)),
+      child: Text(label,
+          style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+              color: Theme.of(context).textTheme.bodySmall?.color)),
     );
   }
 
@@ -1642,7 +1693,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           decoration: BoxDecoration(
             color: Theme.of(context).primaryColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.25), width: 0.5),
+            border: Border.all(
+                color: Theme.of(context).primaryColor.withOpacity(0.25),
+                width: 0.5),
           ),
           child: Text(
             label,
@@ -1657,13 +1710,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-
   Widget _buildDiscussionItem(String title, String stats) {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).dividerColor.withOpacity(0.03),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1), width: 0.5),
+        border: Border.all(
+            color: Theme.of(context).dividerColor.withOpacity(0.1), width: 0.5),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1686,9 +1739,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.chat_bubble_outline, size: 12, color: Colors.grey[400]),
+                      Icon(Icons.chat_bubble_outline,
+                          size: 12, color: Colors.grey[400]),
                       const SizedBox(width: 4),
-                      Text(stats, style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                      Text(stats,
+                          style:
+                              TextStyle(color: Colors.grey[500], fontSize: 11)),
                     ],
                   ),
                 ],
@@ -1718,7 +1774,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               Center(
                 child: Container(
-                  width: 36, height: 4,
+                  width: 36,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: Colors.grey[300],
                     borderRadius: BorderRadius.circular(4),
@@ -1728,12 +1785,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 20),
               Text(
                 'Switch Domain',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Theme.of(context).textTheme.titleLarge?.color),
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).textTheme.titleLarge?.color),
               ),
               const SizedBox(height: 4),
               Text(
                 'See posts from a different professional domain',
-                style: TextStyle(color: Theme.of(context).hintColor, fontSize: 13),
+                style:
+                    TextStyle(color: Theme.of(context).hintColor, fontSize: 13),
               ),
               const SizedBox(height: 20),
               Wrap(
@@ -1750,10 +1811,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       }
                       // Close sheet first
                       Navigator.pop(ctx);
-                      
+
                       // Update Provider (this triggers the ref.listen in build)
                       ref.read(currentDomainProvider.notifier).state = d;
-                      
+
                       try {
                         // Update Supabase profile domain
                         await Future.wait([
@@ -1761,35 +1822,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           WebCacheManager.clearDomainCache(),
                         ]);
                       } catch (_) {}
-                      
+
                       await _loadGroups();
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isSelected ? 
-                        Theme.of(context).primaryColor : Theme.of(context).dividerColor.withOpacity(0.05),
+                        color: isSelected
+                            ? Theme.of(context).primaryColor
+                            : Theme.of(context).dividerColor.withOpacity(0.05),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).dividerColor.withOpacity(0.1),
+                          color: isSelected
+                              ? Theme.of(context).primaryColor
+                              : Theme.of(context).dividerColor.withOpacity(0.1),
                           width: 1,
                         ),
                         boxShadow: isSelected
-                            ? [BoxShadow(color: const Color(0xFF0066CC).withOpacity(0.2), blurRadius: 6, offset: const Offset(0, 2))]
+                            ? [
+                                BoxShadow(
+                                    color: const Color(0xFF0066CC)
+                                        .withOpacity(0.2),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2))
+                              ]
                             : [],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (isSelected) ...[  
-                            const Icon(Icons.check_circle, size: 16, color: Colors.white),
+                          if (isSelected) ...[
+                            const Icon(Icons.check_circle,
+                                size: 16, color: Colors.white),
                             const SizedBox(width: 6),
                           ],
                           Text(
                             d,
                             style: TextStyle(
-                              color: isSelected ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+                              color: isSelected
+                                  ? Colors.white
+                                  : Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.color,
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                             ),
@@ -1813,10 +1890,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.2), width: 0.5),
+        border: Border.all(
+            color: Theme.of(context).dividerColor.withOpacity(0.2), width: 0.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.08),
+            color: Colors.black.withOpacity(
+                Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.08),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -1850,20 +1929,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       size: isMobile ? 22 : 26,
                     ),
                     if (!isMobile)
-                      Text('Post', style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.w600)),
+                      Text('Post',
+                          style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
             ),
-            _buildNavIcon(Icons.mail_outline, 3, badge: _unreadMessages, label: 'Messages'),
-            _buildNavIcon(Icons.work_outline, 11, badge: _newJobsCount, label: 'Jobs'),
+            _buildNavIcon(Icons.mail_outline, 3,
+                badge: _unreadMessages, label: 'Messages'),
+            _buildNavIcon(Icons.work_outline, 11,
+                badge: _newJobsCount, label: 'Jobs'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNavIcon(IconData? icon, int index, {int badge = 0, String? assetPath, String? label}) {
+  Widget _buildNavIcon(IconData? icon, int index,
+      {int badge = 0, String? assetPath, String? label}) {
     final bool isSelected = _currentIndex == index;
     final bool isMobile = MediaQuery.of(context).size.width <= 900;
     return GestureDetector(
@@ -1891,7 +1977,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isSelected ? const Color(0xFF0066CC) : Colors.transparent,
+                            color: isSelected
+                                ? const Color(0xFF0066CC)
+                                : Colors.transparent,
                             width: 1.5,
                           ),
                         ),
@@ -1903,7 +1991,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       )
                     : Icon(
                         icon,
-                        color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).hintColor,
+                        color: isSelected
+                            ? Theme.of(context).primaryColor
+                            : Theme.of(context).hintColor,
                         size: isMobile ? 22 : 26,
                       ),
                 if (badge > 0)
@@ -1911,11 +2001,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     right: -4,
                     top: -4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
+                      decoration: const BoxDecoration(
+                          color: Colors.red, shape: BoxShape.circle),
                       child: Text(
                         badge > 9 ? '9+' : badge.toString(),
-                        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -1926,7 +2021,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).hintColor,
+                  color: isSelected
+                      ? Theme.of(context).primaryColor
+                      : Theme.of(context).hintColor,
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                 ),
@@ -1982,8 +2079,8 @@ class _LazyLoadWrapperState extends State<LazyLoadWrapper> {
   @override
   Widget build(BuildContext context) {
     if (!_isLoaded) {
-      return widget.isActive 
-          ? const Center(child: CircularProgressIndicator()) 
+      return widget.isActive
+          ? const Center(child: CircularProgressIndicator())
           : const SizedBox.shrink();
     }
     return widget.builder(context);

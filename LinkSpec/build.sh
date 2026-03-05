@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e  # Exit immediately on any error
 
+# 0. Opt-out of analytics for CI/Root behavior
+flutter config --no-analytics
+
 # LinkSpec: Web Deployment Build Script
 # ─────────────────────────────────────
 
@@ -24,9 +27,9 @@ flutter clean
 flutter pub get
 
 # 4. Perform Release Build
-# Renderer: CanvasKit (Required for high-performance infographics)
+# Updated for Flutter 3.41+ (web-renderer is handled automatically)
 echo "--- Building Flutter Web (Release) ---"
-flutter build web --release --web-renderer canvaskit
+flutter build web --release
 
 # 5. Verify build output exists
 if [ ! -f "build/web/index.html" ]; then
@@ -35,5 +38,6 @@ if [ ! -f "build/web/index.html" ]; then
 fi
 
 echo "--- Build Complete: LinkSpec is ready for Vercel deployment ---"
-echo "Build output directory contents:"
-ls -la build/web/
+echo "Build output directory contents (Recursive):"
+ls -R build/web/
+
