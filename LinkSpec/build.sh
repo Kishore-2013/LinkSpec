@@ -1,18 +1,16 @@
 #!/bin/bash
 set -e  # Exit immediately on any error
 
-# 0. Opt-out of analytics for CI/Root behavior
-flutter config --no-analytics
-
-# LinkSpec: Web Deployment Build Script
-# ─────────────────────────────────────
-
 # 1. Setup Flutter SDK (Linux) — Vercel runs on Linux
 echo "--- Installing Flutter SDK (stable) ---"
 if [ ! -d "flutter" ]; then
   git clone https://github.com/flutter/flutter.git -b stable --depth 1
 fi
 export PATH="$PATH:$(pwd)/flutter/bin"
+
+# 0. Opt-out of analytics for CI/Root behavior
+flutter config --no-analytics
+
 
 # Pre-cache web SDK artifacts
 flutter precache --web
