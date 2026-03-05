@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../api/web_cache_manager.dart';
 import '../models/job.dart';
 import '../services/supabase_service.dart';
 import 'job_detail_screen.dart';
@@ -26,13 +27,27 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
     _loadUserDomainAndJobs();
   }
 
-  Future<void> _loadUserDomainAndJobs() async {
+  Future<void> _loadUserDomainAndJobs({bool forceRefresh = false}) async {
     setState(() => _isLoading = true);
     try {
       final profile = await SupabaseService.getCurrentUserProfile();
       _userDomain = profile?['domain_id'] as String?;
       
+      final sessionJobs = WebCacheManager.getSessionJobs();
+      if (!forceRefresh && sessionJobs != null && sessionJobs.isNotEmpty) {
+        // Use session cache - no DB hit
+        setState(() {
+          _allJobs = sessionJobs.map((data) => Job.fromJson(data)).toList();
+          _applyAllFilters();
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Hit DB
       final jobsData = await SupabaseService.getJobs();
+      WebCacheManager.setSessionJobs(jobsData);
+      
       setState(() {
         _allJobs = jobsData.map((data) => Job.fromJson(data)).toList();
         _applyAllFilters();
@@ -121,7 +136,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
             child: Container(
               height: 50,
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
+                color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(25),
                 border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.2)),
               ),
@@ -144,7 +159,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
-                    onRefresh: _loadUserDomainAndJobs,
+                    onRefresh: () => _loadUserDomainAndJobs(forceRefresh: true),
                   child: _filteredJobs.isEmpty
                         ? Center(
                             child: Column(
@@ -233,17 +248,17 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
                   _applyAllFilters();
                 });
               },
-              backgroundColor: Colors.grey[50],
-              selectedColor: Colors.blue[50],
+              backgroundColor: Theme.of(context).dividerColor.withOpacity(0.05),
+              selectedColor: Theme.of(context).primaryColor.withOpacity(0.12),
               labelStyle: TextStyle(
-                color: isSelected ? Colors.blue : Colors.grey[600],
+                color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).hintColor,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 13,
               ),
               checkmarkColor: Colors.blue,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: isSelected ? Colors.blue : Colors.grey[200]!),
+                side: BorderSide(color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).dividerColor.withOpacity(0.2)),
               ),
             ),
           );
@@ -303,7 +318,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.blue[900]?.withOpacity(0.3) : Colors.blue.withOpacity(0.1),
+                color: Colors.blue.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -323,7 +338,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
                   ),
                   Text(
                     job.company,
-                    style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                    style: TextStyle(color: Theme.of(context).hintColor, fontSize: 14),
                   ),
                 ],
               ),
@@ -331,7 +346,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
             IconButton(
               icon: Icon(
                 job.isSaved ? Icons.bookmark : Icons.bookmark_border,
-                color: job.isSaved ? Colors.blue[800] : Colors.grey[700],
+                color: job.isSaved ? Theme.of(context).primaryColor : Theme.of(context).hintColor,
               ),
               onPressed: () => _toggleSaveJob(job),
             ),
@@ -352,14 +367,14 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
             Text(
               job.salary,
               style: TextStyle(
-                color: Colors.blue[900],
+                color: Theme.of(context).primaryColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
             ),
             Text(
               timeago.format(job.postedAt),
-              style: TextStyle(color: Colors.grey[700], fontSize: 12),
+              style: TextStyle(color: Theme.of(context).hintColor, fontSize: 12),
             ),
           ],
         ),
@@ -388,7 +403,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[50],
+        color: Theme.of(context).dividerColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
       ),
@@ -399,7 +414,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            style: TextStyle(color: Theme.of(context).hintColor, fontSize: 12),
           ),
         ],
       ),

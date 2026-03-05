@@ -9,7 +9,6 @@ import 'clay_container.dart';
 import '../screens/member_profile_screen.dart';
 import 'comments_bottom_sheet.dart';
 import 'share_post_dialog.dart';
-import '../screens/saved_items_screen.dart';
 import '../services/supabase_service.dart';
 import '../screens/search_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -20,6 +19,10 @@ import '../api/job_service.dart';
 
 import '../providers/follow_provider.dart';
 import '../providers/saved_posts_provider.dart';
+import '../api/web_cache_manager.dart';
+import '../utils/performance_utils.dart';
+import 'dart:typed_data';
+import 'package:http/http.dart' as http;
 
 /// Session-level tracker so each post is counted as an impression only ONCE
 /// per app session, no matter how many times the user scrolls past it.
@@ -57,6 +60,7 @@ class _PostCardState extends ConsumerState<PostCard> {
   bool _isLikeProcessing = false;
   bool _isExpanded = false; // For Read More
   double? _imageAspectRatio; // Loaded from actual image dimensions
+  Uint8List? _cachedImageBytes;
 
   @override
   void initState() {
@@ -72,9 +76,17 @@ class _PostCardState extends ConsumerState<PostCard> {
         _recordImpression();
       }
     });
-    // Pre-load image to get real aspect ratio
+    // Pre-load image to get real aspect ratio and check byte cache
     if (widget.post.imageUrl != null && widget.post.imageUrl!.trim().isNotEmpty) {
       _resolveImageAspectRatio(widget.post.imageUrl!);
+      _loadCachedImageBytes(widget.post.imageUrl!);
+    }
+  }
+
+  Future<void> _loadCachedImageBytes(String url) async {
+    final bytes = await WebCacheManager.getCachedImage(url);
+    if (bytes != null && mounted) {
+      setState(() => _cachedImageBytes = bytes);
     }
   }
 
@@ -111,28 +123,42 @@ class _PostCardState extends ConsumerState<PostCard> {
     // Watch saved status
     final isSaved = ref.watch(savedPostsProvider).contains(widget.post.id);
 
-    return Container(
+    // Use memoized engagement calculation
+    final engagement = PerformanceUtils.calculatePostEngagement(_likeCount, _commentCount);
+    
+    return GestureDetector(
+      onTap: widget.post.isAutomated && widget.post.linkedJobId != null
+          ? () => _handleViewJob(widget.post.linkedJobId!)
+          : null,
+      child: Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
-        color: widget.backgroundColor ?? Colors.white,
+        color: widget.backgroundColor ?? Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E5EA), width: 0.8),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withOpacity(0.1), 
+          width: 0.6
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: ClayContainer(
-        color: widget.backgroundColor ?? Colors.white,
-        borderRadius: 16,
-        depth: 2,
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-        children: [
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: ClayContainer(
+          color: widget.backgroundColor ?? Theme.of(context).cardColor,
+          borderRadius: 16,
+          depth: 1,
+          spread: true,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
           // Header: Avatar, Name, Unite
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -161,7 +187,7 @@ class _PostCardState extends ConsumerState<PostCard> {
                         : null,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,35 +197,36 @@ class _PostCardState extends ConsumerState<PostCard> {
                           Flexible(
                             child: Text(
                               widget.post.authorName ?? 'Unknown',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w900, 
-                                fontSize: 16,
-                                color: Colors.black,
+                                fontSize: 14.5,
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                                letterSpacing: -0.1,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          const Text('• 1st', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                          const SizedBox(width: 5),
+                          const Text('• 1st', style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)),
                           if (widget.post.isTrending) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                               decoration: BoxDecoration(
-                                color: Colors.orange.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(4),
+                                color: Colors.orange.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(3),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: const [
-                                  Icon(Icons.local_fire_department, color: Colors.orange, size: 12),
-                                  SizedBox(width: 2),
+                                  Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 9),
+                                  SizedBox(width: 1),
                                   Text(
                                     'Trending',
                                     style: TextStyle(
                                       color: Colors.orange, 
-                                      fontSize: 10, 
-                                      fontWeight: FontWeight.w700
+                                      fontSize: 8, 
+                                      fontWeight: FontWeight.w900
                                     ),
                                   ),
                                 ],
@@ -211,9 +238,9 @@ class _PostCardState extends ConsumerState<PostCard> {
                       Text(
                         timeago.format(widget.post.createdAt),
                         style: TextStyle(
-                          color: Colors.grey[500],
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).hintColor,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
@@ -237,9 +264,11 @@ class _PostCardState extends ConsumerState<PostCard> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isFollowing ? Colors.grey[100] : const Color(0xFF0066CC),
+                        color: isFollowing 
+                            ? Theme.of(context).dividerColor.withOpacity(0.1) 
+                            : Theme.of(context).primaryColor,
                         borderRadius: BorderRadius.circular(20),
-                        border: isFollowing ? Border.all(color: const Color(0xFF0066CC)) : null,
+                        border: isFollowing ? Border.all(color: Theme.of(context).primaryColor) : null,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -271,79 +300,61 @@ class _PostCardState extends ConsumerState<PostCard> {
 
           // Post Image
           if (widget.post.imageUrl != null && widget.post.imageUrl!.trim().isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: _imageAspectRatio != null
-                  ? AspectRatio(
-                      aspectRatio: _imageAspectRatio!,
-                      child: CachedNetworkImage(
-                        imageUrl: widget.post.imageUrl!,
-                        alignment: Alignment.topCenter,
-                        fit: BoxFit.contain,
-                        width: double.infinity,
-                        filterQuality: FilterQuality.high,
-                        placeholder: (context, url) => Shimmer.fromColors(
-                          baseColor: Colors.grey[300]!,
-                          highlightColor: Colors.grey[100]!,
-                          child: Container(
-                            color: Colors.white,
-                            width: double.infinity,
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: Colors.grey[100],
-                          child: const Center(
-                            child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
-                          ),
-                        ),
-                      ),
-                    )
-                  // While aspect ratio hasn't loaded yet, show shimmer at 16:9
-                  : AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: CachedNetworkImage(
-                        imageUrl: widget.post.imageUrl!,
-                        alignment: Alignment.topCenter,
-                        fit: BoxFit.contain,
-                        width: double.infinity,
-                        filterQuality: FilterQuality.high,
-                        placeholder: (context, url) => Shimmer.fromColors(
-                          baseColor: Colors.grey[300]!,
-                          highlightColor: Colors.grey[100]!,
-                          child: Container(color: Colors.white),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: Colors.grey[100],
-                          child: const Center(
-                            child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
-                          ),
-                        ),
+              child: _cachedImageBytes != null 
+                ? Image.memory(
+                    _cachedImageBytes!,
+                    fit: BoxFit.contain,
+                    width: double.infinity,
+                  )
+                : CachedNetworkImage(
+                    imageUrl: widget.post.imageUrl!,
+                    alignment: Alignment.center,
+                    fit: BoxFit.contain, 
+                    width: double.infinity,
+                    placeholder: (context, url) => Shimmer.fromColors(
+                      baseColor: Colors.grey[200]!,
+                      highlightColor: Colors.grey[100]!,
+                      child: AspectRatio(
+                        aspectRatio: _imageAspectRatio ?? 16/9,
+                        child: Container(color: Colors.white)
                       ),
                     ),
+                    imageBuilder: (context, imageProvider) {
+                      // Once loaded, try to cache bytes if not already done
+                      // (Practical implementation would use a specialized manager)
+                      return Image(image: imageProvider, fit: BoxFit.contain);
+                    },
+                    errorWidget: (context, url, error) => const SizedBox.shrink(),
+                  ),
             ),
           ],
           
           // View Job Button (for automated job posts)
           if (widget.post.linkedJobId != null) ...[
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => _handleViewJob(widget.post.linkedJobId!),
-              icon: const Icon(Icons.work_outline, size: 18),
-              label: const Text('View Job Details', style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0066CC),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _handleViewJob(widget.post.linkedJobId!),
+                icon: const Icon(Icons.launch_rounded, size: 16),
+                label: const Text('View Full Job Details', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                ),
               ),
             ),
           ],
           
           const SizedBox(height: 20),
           // Divider
-          Divider(height: 0.5, thickness: 0.5, color: Colors.grey[200]),
+          Divider(height: 0.5, thickness: 0.5, color: Theme.of(context).dividerColor),
           const SizedBox(height: 6),
           // Actions: Like, Comment, Share, Save
           Padding(
@@ -387,11 +398,13 @@ class _PostCardState extends ConsumerState<PostCard> {
               ],
             ),
           ),
-        ],
-      ),
-    ),
-  );
-}
+            ],          // Column children
+          ),            // Column
+          ),            // ClayContainer
+        ),              // ClipRRect
+      ),                // Container
+    );                  // GestureDetector
+  }
 
   // ─── Handlers ────────────────────────────────────────────────
 
@@ -477,7 +490,6 @@ class _PostCardState extends ConsumerState<PostCard> {
   }
 
   void _handleSave() {
-    final isCurrentlySaved = ref.read(savedPostsProvider).contains(widget.post.id);
     ref.read(savedPostsProvider.notifier).toggle(widget.post.id);
     // After toggle, check the new state from the provider
     final nowSaved = ref.read(savedPostsProvider).contains(widget.post.id);
@@ -488,7 +500,7 @@ class _PostCardState extends ConsumerState<PostCard> {
         content: Text(
           nowSaved ? '✓ Post saved to your collection' : 'Post removed from saved',
         ),
-        backgroundColor: nowSaved ? const Color(0xFF1565C0) : Colors.grey[700],
+        backgroundColor: nowSaved ? Theme.of(context).primaryColor : Theme.of(context).hintColor,
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -536,11 +548,11 @@ class _PostCardState extends ConsumerState<PostCard> {
   Widget _buildPostContent(String content) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const textStyle = TextStyle(
+        final textStyle = TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
           height: 1.5,
-          color: Colors.black,
+          color: Theme.of(context).textTheme.bodyLarge?.color,
         );
 
         // ── Overflow detection (same as before) ────────────────
@@ -573,7 +585,7 @@ class _PostCardState extends ConsumerState<PostCard> {
                 child: Text(
                   tag,
                   style: textStyle.copyWith(
-                    color: const Color(0xFF0066CC),
+                    color: Theme.of(context).primaryColor,
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -592,7 +604,10 @@ class _PostCardState extends ConsumerState<PostCard> {
             RichText(
               maxLines: _isExpanded ? null : 4,
               overflow: _isExpanded ? TextOverflow.visible : TextOverflow.fade,
-              text: TextSpan(children: spans),
+              text: TextSpan(
+                style: textStyle.copyWith(fontFamily: 'SF Pro Display'),
+                children: spans,
+              ),
             ),
             if (isOverflowing)
               Align(
@@ -603,8 +618,8 @@ class _PostCardState extends ConsumerState<PostCard> {
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       _isExpanded ? 'Show less' : 'Read more...',
-                      style: const TextStyle(
-                        color: Color(0xFF0066CC),
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),

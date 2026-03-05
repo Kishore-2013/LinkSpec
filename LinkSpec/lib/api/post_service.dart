@@ -171,7 +171,27 @@ class PostService {
     return url;
   }
 
+  /// Create a new post
+  /// [targetDomainId] — if provided, the post appears in THAT domain's feed
+  /// instead of the author's own domain.
+  static Future<Map<String, dynamic>> createPost({
+    required String content,
+    String? imageUrl,
+    String? targetDomainId,
+    bool isAutomated = false,
+    String? linkedJobId,
+  }) async {
+    return SupabaseService.createPost(
+      content: content,
+      imageUrl: imageUrl,
+      targetDomainId: targetDomainId,
+      isAutomated: isAutomated,
+      linkedJobId: linkedJobId,
+    );
+  }
+
   static String _getMimeType(String ext) {
+
     switch (ext.toLowerCase()) {
       case 'png': return 'image/png';
       case 'webp': return 'image/webp';

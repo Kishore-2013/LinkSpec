@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
+import 'post_service.dart';
+
 
 /// Service to handle Job-related API calls.
 class JobService {
@@ -138,13 +140,13 @@ class JobService {
     // 3. Automatically create a social feed post for this job
     try {
       final String postContent = 
-          "📢 NEW OPPORTUNITY: $title at $company\n"
-          "📍 Location: $location\n"
-          "💰 Salary: $salary\n\n"
-          "We are looking for talented professionals to join our team! Check out the details and apply now. "
-          "#Hiring #$finalDomain #LinkSpec";
+          "📢 New Job Alert: $title\n"
+          "🏢 Company: $company\n"
+          "💰 Salary: $salary\n"
+          "📍 Location: $location\n\n"
+          "We are looking for talent! View the full details in the Jobs Board. #Hiring #$finalDomain #LinkSpec";
 
-      await SupabaseService.createPost(
+      await PostService.createPost(
         content: postContent,
         targetDomainId: finalDomain,
         isAutomated: true,

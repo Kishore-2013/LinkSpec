@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'persistence_layer.dart';
 
 /// Specialist cache manager for Web/Session storage logic.
@@ -8,6 +9,11 @@ class WebCacheManager {
   static const _keySavedPosts = 'saved_post_ids';
   static const _keyJobsBadge = 'unread_jobs_count';
   static const _keyLastNotifiedAppId = 'last_notified_app_id';
+  static const _keyJobsCache = 'session_jobs_cache';
+  static const _keyImagesPrefix = 'img_cache_';
+  
+  // In-memory fallback for mobile or session-only data
+  static final Map<String, dynamic> _memoryCache = {};
 
   /// Saves verification data to persistent storage.
   static Future<void> saveToCache({
@@ -98,8 +104,69 @@ class WebCacheManager {
 
   /// Specialist hook for domain-switching: clears any domain-bound transient data.
   static Future<void> clearDomainCache() async {
-    // Currently placeholders, but ensures old domain states don't leak.
     await PersistenceLayer.delete('current_feed_cache');
+    _memoryCache.remove('jobs_fetched'); 
+  }
+
+  // ============================================================================
+  // SWR & JSON CACHING
+  // ============================================================================
+
+  /// Saves a JSON string to cache with an optional namespace.
+  static Future<void> cacheJson(String key, String json) async {
+    await PersistenceLayer.save(key, json);
+    _memoryCache[key] = json;
+  }
+
+  /// Retrieves cached JSON. Returns null if not found.
+  static Future<String?> getCachedJson(String key) async {
+    if (_memoryCache.containsKey(key)) return _memoryCache[key];
+    final cached = await PersistenceLayer.read(key);
+    if (cached != null) _memoryCache[key] = cached;
+    return cached;
+  }
+
+  // ============================================================================
+  // IMAGE BYTE CACHING (IndexedDB / LocalStorage fallback)
+  // ============================================================================
+
+  /// Caches image bytes to prevent flickering.
+  /// On Web, this uses base64 string in LocalStorage (fallback).
+  static Future<void> cacheImage(String url, Uint8List bytes) async {
+    final key = '$_keyImagesPrefix${url.hashCode}';
+    // We store as base64 to persist across refreshes
+    try {
+      final base64String = Uri.encodeComponent(String.fromCharCodes(bytes)); 
+      // Note: For large images, this might hit LocalStorage limits. 
+      // In a real IndexedDB app we'd use idb_shim.
+      await PersistenceLayer.save(key, base64String);
+    } catch (_) {}
+  }
+
+  /// Retrieves cached image bytes.
+  static Future<Uint8List?> getCachedImage(String url) async {
+    final key = '$_keyImagesPrefix${url.hashCode}';
+    final cached = await PersistenceLayer.read(key);
+    if (cached == null) return null;
+    try {
+      return Uint8List.fromList(Uri.decodeComponent(cached).codeUnits);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ============================================================================
+  // JOBS SESSION CACHE
+  // ============================================================================
+  
+  static List<dynamic>? _sessionJobs;
+  
+  static void setSessionJobs(List<dynamic> jobs) {
+    _sessionJobs = jobs;
+  }
+
+  static List<dynamic>? getSessionJobs() {
+    return _sessionJobs;
   }
 
   /// Clears the cache.

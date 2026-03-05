@@ -124,9 +124,9 @@ class _RecentActivityScreenState extends State<RecentActivityScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
           onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
         ),
-        title: const Text(
+        title: Text(
           'Recent Activity',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A2740)),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.titleLarge?.color),
         ),
         actions: [
           IconButton(
@@ -176,7 +176,7 @@ class _RecentActivityScreenState extends State<RecentActivityScreen> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: Colors.blue[50],
+                backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
                 backgroundImage: post.authorAvatar != null
                     ? NetworkImage(post.authorAvatar!)
                     : null,
@@ -210,7 +210,7 @@ class _RecentActivityScreenState extends State<RecentActivityScreen> {
             post.content,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF1A2740)),
+            style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
           ),
           if (post.imageUrl != null) ...[
             const SizedBox(height: 10),
@@ -224,7 +224,7 @@ class _RecentActivityScreenState extends State<RecentActivityScreen> {
                 errorBuilder: (context, error, stackTrace) => Container(
                   height: 140,
                   width: double.infinity,
-                  color: Colors.blue[50],
+                  color: Theme.of(context).dividerColor.withOpacity(0.1),
                   child: const Icon(Icons.broken_image_rounded, color: Colors.blue, size: 30),
                 ),
               ),
@@ -407,7 +407,7 @@ class _RecentActivityScreenState extends State<RecentActivityScreen> {
         children: [
           Icon(Icons.history, size: 80, color: Colors.blue[100]),
           const SizedBox(height: 16),
-          const Text('Nothing recent yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A2740))),
+          Text('Nothing recent yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.titleLarge?.color)),
           const SizedBox(height: 8),
           const Text('Posts, groups, and events you interact with will appear here', style: TextStyle(color: Colors.grey)),
         ],
@@ -436,9 +436,9 @@ class _ActivityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE8EAED), width: 0.5),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.5),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),

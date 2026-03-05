@@ -229,7 +229,7 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
             Icon(
               icon,
               size: 18,
-              color: selected ? Colors.blue : Colors.grey[700],
+              color: selected ? Colors.blue : Theme.of(context).hintColor,
             ),
             const SizedBox(width: 10),
             Text(
@@ -237,7 +237,7 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
-                color: selected ? Colors.blue : const Color(0xFF1A2740),
+                color: selected ? Colors.blue : Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
           ],
@@ -249,9 +249,9 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
   Widget _buildMyItems() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,13 +347,13 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
             width: 160,
             height: 160,
             decoration: BoxDecoration(
-              color: const Color(0xFFF4F2EE),
+              color: Theme.of(context).dividerColor.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.bookmark_border_rounded,
               size: 80,
-              color: Color(0xFFB0BEC5),
+              color: Theme.of(context).hintColor.withOpacity(0.5),
             ),
           ),
           const SizedBox(height: 24),
@@ -399,9 +399,9 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
   Widget _buildJobTracker() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.15)),
       ),
       padding: const EdgeInsets.all(24),
       child: Column(

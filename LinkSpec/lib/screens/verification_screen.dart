@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../api/mailer_service.dart';
 import '../api/route_handler.dart';
 import '../api/web_cache_manager.dart';
 import '../utils/web_utils.dart';
@@ -48,61 +49,38 @@ class _VerificationScreenState extends State<VerificationScreen> {
       _errorMessage = null;
     });
 
-    final result = await WebCacheManager.verifyOtp(entry);
+    try {
+      // Standalone Verification: Checks local cache (device only)
+      // If successful, MailerService updates the 'is_verified' flag in Supabase DB.
+      final result = await MailerService.verifyOTP(widget.email, entry);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (result['success'] == true) {
-      try {
-        if (widget.isSignUp && widget.password != null) {
-          // Perform actual Supabase Sign Up
-          final response = await Supabase.instance.client.auth.signUp(
-            email: widget.email,
-            password: widget.password!,
-            data: {'full_name': widget.fullName},
-          );
-          
-          if (!mounted) return;
-          
-          if (response.session != null) {
-            Navigator.of(context).pushNamedAndRemoveUntil('/domain-selection', (route) => false, arguments: {'fullName': widget.fullName});
-          } else {
-             Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-          }
-        } else if (widget.password != null) {
-          // Perform actual Supabase Sign In
-          await Supabase.instance.client.auth.signInWithPassword(
-            email: widget.email,
-            password: widget.password!,
-          );
-          
-          if (!mounted) return;
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      if (result['success'] == true) {
+        // Verification was successful against the local cache.
+        if (widget.isSignUp) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+              '/domain-selection', (route) => false,
+              arguments: {'fullName': widget.fullName});
         } else {
-          // Fallback if no password (e.g. from a direct link)
+          // Regular login - proceed to Home
           Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
         }
-      } on AuthException catch (e) {
+      } else {
         setState(() {
           _isLoading = false;
-          _errorMessage = e.message;
-        });
-      } catch (e) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Auth failed: $e';
+          _errorMessage = result['message'] ?? 'Invalid code. Please try again.';
+          if (result['canResend'] == true) _showResend = true;
         });
       }
-    } else {
+    } on Object catch (_) {
       setState(() {
         _isLoading = false;
-        _errorMessage = result['message'];
-        if (result['canResend'] == true) {
-          _showResend = true;
-        }
+        _errorMessage = 'Verification failed. Please try again.';
       });
     }
   }
+
 
   Future<void> _handleResend() async {
     setState(() {

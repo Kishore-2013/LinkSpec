@@ -20,7 +20,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     {'key': 'sign_security', 'icon': Icons.lock_outlined},
   ];
 
-  bool _darkMode = false;
   bool _twoFactor = false;
 
   // Real user data loaded from Supabase
@@ -38,7 +37,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _darkMode = ref.read(themeProvider);
     _loadInitialProfileData();
   }
 
@@ -327,19 +325,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _buildSettingTile(_t('full_name'), onTap: () => _navigateToDetail(_t('full_name'), _buildProfileEditForm())),
           _buildSettingTile('Personal demographic information', onTap: () => _navigateToDetail('Demographics', _buildDemographicsForm())),
           _buildSettingTile('Verifications', onTap: () => _navigateToDetail('Verifications', _buildVerificationsList())),
-        ]),
-        _buildSection(_t('display'), [
-          _buildSettingTile(
-            _t('dark_mode'),
-            trailingWidget: Switch(
-              value: ref.watch(themeProvider),
-              onChanged: (val) {
-                setState(() => _darkMode = val);
-                ref.read(themeProvider.notifier).state = val;
-              },
-              activeColor: Colors.blue[700],
-            ),
-          ),
         ]),
         const SizedBox(height: 20),
         Padding(

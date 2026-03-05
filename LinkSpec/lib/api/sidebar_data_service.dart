@@ -68,7 +68,12 @@ class SidebarDataService {
             onUpdate();
           },
         )
-        .subscribe();
+        .subscribe((RealtimeSubscribeStatus status, Object? error) {
+          if (error != null) {
+            // Silently ignore WebSocket connection errors (Realtime is non-critical)
+            // The sidebar will still show data from the initial REST load
+          }
+        });
   }
 
   void dispose() {

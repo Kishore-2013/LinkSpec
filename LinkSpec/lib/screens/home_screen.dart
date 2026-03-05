@@ -7,7 +7,7 @@ import '../models/user_profile.dart';
 import '../models/group.dart';
 import '../widgets/post_card.dart';
 import '../widgets/create_post_dialog.dart';
-import 'messages_list_screen.dart';
+import 'messages_list_screen.dart' deferred as messaging;
 import 'network_screen.dart';
 import 'member_profile_screen.dart';
 import '../widgets/clay_container.dart';
@@ -21,7 +21,7 @@ import 'search_screen.dart';
 import 'group_detail_screen.dart';
 import 'recent_activity_screen.dart';
 import 'saved_items_screen.dart';
-import 'settings_screen.dart';
+import 'settings_screen.dart' deferred as settings;
 import 'groups_screen.dart';
 import 'events_screen.dart';
 import '../widgets/aw_logo.dart';
@@ -186,7 +186,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           table: 'messages',
           callback: (_) => _loadBadgeCounts(),
         )
-        .subscribe();
+        .subscribe((RealtimeSubscribeStatus status, Object? error) {
+          // Silently handle WebSocket failures — badge counts still update via polling
+        });
 
     // ── Notifications Realtime (badge + overlay SnackBar) ────────────────────
     if (userId != null) {
@@ -203,7 +205,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             callback: (payload) => _onNewNotification(payload),
           )
-          .subscribe();
+          .subscribe((RealtimeSubscribeStatus status, Object? error) {
+            // Silently handle WebSocket failures
+          });
     }
 
     // ── Bidirectional scroll listener ────────────────────────────
@@ -287,9 +291,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF2C2C2E)
-            : Colors.white,
         elevation: 6,
         content: IntrinsicHeight(
           child: Row(
@@ -307,10 +308,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Expanded(
                 child: Text(
                   message,
-                  style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : const Color(0xFF1C1C1E),
+                  style: const TextStyle(
+                    color: Color(0xFF1C1C1E),
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -645,10 +644,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         return Scaffold(
           key: _scaffoldKey,
-          backgroundColor: const Color(0xFFF5F5F7),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           drawer: isMobile
               ? Drawer(
-                  backgroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).cardColor,
                   child: SafeArea(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
@@ -698,12 +697,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   onBack: () => setState(() => _currentIndex = 0),
                                   onSearch: () => setState(() => _currentIndex = 1),
                                 ),
-                                MessagesListScreen(    // 3
-                                  onBack: () => setState(() => _currentIndex = 0),
-                                  onSearch: () => setState(() {
-                                    _currentIndex = 1;
-                                    _isSearchMessageContext = true;
-                                  }),
+                                LazyLoadWrapper(
+                                  isActive: _currentIndex == 3,
+                                  loader: () => messaging.loadLibrary(),
+                                  builder: (context) => messaging.MessagesListScreen(
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                    onSearch: () => setState(() {
+                                      _currentIndex = 1;
+                                      _isSearchMessageContext = true;
+                                    }),
+                                  ),
                                 ),
                                 ProfileScreen(         // 4
                                   onBack: () => setState(() => _currentIndex = 0),
@@ -718,8 +721,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 SavedItemsScreen(      // 7
                                   onBack: () => setState(() => _currentIndex = 0),
                                 ),
-                                SettingsScreen(        // 8
-                                  onBack: () => setState(() => _currentIndex = 0),
+                                LazyLoadWrapper(
+                                  isActive: _currentIndex == 8,
+                                  loader: () => settings.loadLibrary(),
+                                  builder: (context) => settings.SettingsScreen(
+                                    onBack: () => setState(() => _currentIndex = 0),
+                                  ),
                                 ),
                                 GroupsScreen(          // 9
                                   onBack: () => setState(() => _currentIndex = 0),
@@ -767,9 +774,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Left column for desktop: wraps profile card + nav in a scrollable sticky panel.
   Widget _buildStickyLeftColumn() {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(right: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
       ),
       child: Column(
         children: [
@@ -801,9 +808,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildHeader(bool isMobile, String activeDomain) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E5EA), width: 0.5)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.5)),
       ),
       padding: EdgeInsets.symmetric(
         horizontal: isMobile ? 12 : 24,
@@ -816,19 +823,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             if (isMobile)
               Builder(
                 builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu_rounded, color: Color(0xFF1C1C1E)),
+                  icon: Icon(Icons.menu_rounded, color: Theme.of(context).iconTheme.color),
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),
             const AWLogo(size: 30),
             if (!isMobile) ...[
               const SizedBox(width: 10),
-              const Text(
+              Text(
                 'LinkSpec',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF1C1C1E),
+                  color: Theme.of(context).textTheme.titleLarge?.color,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -843,7 +850,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0F0F5),
+                  color: Theme.of(context).dividerColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -942,7 +949,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(8),
-        child: Icon(icon, color: const Color(0xFF1C1C1E), size: 22),
+        child: Icon(icon, color: Theme.of(context).iconTheme.color, size: 22),
       ),
     );
   }
@@ -994,11 +1001,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.article_outlined, size: 48, color: Colors.grey[400]),
+                    Icon(Icons.article_outlined, size: 48, color: Theme.of(context).hintColor),
                     const SizedBox(height: 12),
                     Text(
                       _feedCtrl.emptyStateMessage,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
+                      style: TextStyle(fontWeight: FontWeight.w500, color: Theme.of(context).hintColor),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
@@ -1061,9 +1068,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isMobile = MediaQuery.of(context).size.width < 480;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E5EA)),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       padding: EdgeInsets.all(isMobile ? 14 : 16),
       child: Column(
@@ -1093,9 +1100,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       vertical: isMobile ? 10 : 11,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF5F5F7),
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFE5E5EA)),
+                      border: Border.all(color: Theme.of(context).dividerColor),
                     ),
                     child: Text(
                       'Start a post...',
@@ -1153,7 +1160,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               style: TextStyle(
                 fontWeight: FontWeight.w500,
                 fontSize: isMobile ? 12 : 13,
-                color: const Color(0xFF1C1C1E),
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
           ],
@@ -1170,11 +1177,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onTap: () => _navigateTo(4),
           child: Card(
             elevation: 0.5,
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: Colors.grey.shade300, width: 0.8),
+              side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.8),
             ),
             child: Container(
               constraints: const BoxConstraints(minHeight: 100),
@@ -1212,10 +1219,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           children: [
                             Text(
                               _currentUserProfile?.fullName ?? 'You',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF1A2740),
+                                color: Theme.of(context).textTheme.titleLarge?.color,
                               ),
                               textAlign: TextAlign.center,
                               overflow: TextOverflow.ellipsis,
@@ -1241,10 +1248,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
+                          border: Border.all(color: Theme.of(context).cardColor, width: 4),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF1A2740).withOpacity(0.1),
+                              color: Colors.black.withOpacity(0.1),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -1394,10 +1401,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0.5,
-      color: Colors.white,
+      color: Theme.of(context).cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300, width: 0.8),
+        side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.8),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1429,7 +1436,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Icon(
                   icon,
                   size: 20,
-                  color: isAction ? const Color(0xFF0066CC) : const Color(0xFF1C1C1E),
+                  color: isAction ? Theme.of(context).primaryColor : Theme.of(context).iconTheme.color,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -1437,7 +1444,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     label,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: isAction ? const Color(0xFF0066CC) : const Color(0xFF1C1C1E),
+                      color: isAction ? Theme.of(context).primaryColor : Theme.of(context).textTheme.bodyLarge?.color,
                       fontSize: 14,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -1462,10 +1469,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0F0F5),
+                        color: Theme.of(context).dividerColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Icon(Icons.add, size: 14, color: Color(0xFF1C1C1E)),
+                      child: Icon(Icons.add, size: 14, color: Theme.of(context).iconTheme.color),
                     ),
                   ),
                 if (showArrow) 
@@ -1488,11 +1495,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // ── Trending Tags ──────────────────────────────────────────
         Card(
           elevation: 0.5,
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           margin: const EdgeInsets.fromLTRB(4, 8, 4, 0),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: Colors.grey.shade300, width: 0.8),
+            side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.8),
           ),
           child: Container(
             constraints: const BoxConstraints(minHeight: 100),
@@ -1506,10 +1513,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Text(
                       activeDomain,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
-                          color: Color(0xFF1C1C1E)),
+                          color: Theme.of(context).textTheme.titleLarge?.color),
                     ),
                     if (_sidebarSvc.isLoadingTags)
                       const SizedBox(
@@ -1545,11 +1552,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // ── Suggested Discussions ──────────────────────────────────
         Card(
           elevation: 0.5,
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           margin: const EdgeInsets.fromLTRB(4, 0, 4, 8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: Colors.grey.shade300, width: 0.8),
+            side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5), width: 0.8),
           ),
           child: Container(
             constraints: const BoxConstraints(minHeight: 100),
@@ -1561,11 +1568,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Suggested Discussions',
+                    Text('Suggested Discussions',
                         style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
-                            color: Color(0xFF1C1C1E))),
+                            color: Theme.of(context).textTheme.titleLarge?.color)),
                     if (_sidebarSvc.isLoadingDiscussions)
                       const SizedBox(
                         width: 14, height: 14,
@@ -1605,11 +1612,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F7),
+        color: Theme.of(context).dividerColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8EAED), width: 0.5),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1), width: 0.5),
       ),
-      child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: Colors.grey[700])),
+      child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: Theme.of(context).textTheme.bodySmall?.color)),
     );
   }
 
@@ -1632,16 +1639,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: const Color(0xFFEAF2FF),
+            color: Theme.of(context).primaryColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF0066CC).withOpacity(0.25), width: 0.5),
+            border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.25), width: 0.5),
           ),
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 11,
-              color: Color(0xFF0066CC),
+              color: Theme.of(context).primaryColor,
             ),
           ),
         ),
@@ -1653,9 +1660,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildDiscussionItem(String title, String stats) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FB),
+        color: Theme.of(context).dividerColor.withOpacity(0.03),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE8EAED), width: 0.5),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1), width: 0.5),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1668,10 +1675,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
-                      color: Color(0xFF1C1C1E),
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                     softWrap: true,
                   ),
@@ -1700,7 +1707,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).cardColor,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
@@ -1718,14 +1725,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'Switch Domain',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1C1C1E)),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Theme.of(context).textTheme.titleLarge?.color),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'See posts from a different professional domain',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+                style: TextStyle(color: Theme.of(context).hintColor, fontSize: 13),
               ),
               const SizedBox(height: 20),
               Wrap(
@@ -1761,10 +1768,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       decoration: BoxDecoration(
                         color: isSelected ? 
-                        const Color(0xFF0066CC) : const Color(0xFFF5F5F7),
+                        Theme.of(context).primaryColor : Theme.of(context).dividerColor.withOpacity(0.05),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? const Color(0xFF0066CC) : const Color(0xFFE5E5EA),
+                          color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).dividerColor.withOpacity(0.1),
                           width: 1,
                         ),
                         boxShadow: isSelected
@@ -1781,7 +1788,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Text(
                             d,
                             style: TextStyle(
-                              color: isSelected ? Colors.white : const Color(0xFF1C1C1E),
+                              color: isSelected ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                             ),
@@ -1803,12 +1810,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final bool isMobile = MediaQuery.of(context).size.width < 700;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: const Color(0xFFE8EAED), width: 0.5),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.2), width: 0.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withOpacity(Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.08),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -1895,7 +1902,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       )
                     : Icon(
                         icon,
-                        color: isSelected ? const Color(0xFF0066CC) : Colors.grey[400],
+                        color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).hintColor,
                         size: isMobile ? 22 : 26,
                       ),
                 if (badge > 0)
@@ -1918,7 +1925,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? const Color(0xFF0066CC) : Colors.grey[400],
+                  color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).hintColor,
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                 ),
@@ -1928,5 +1935,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
     );
+  }
+}
+
+/// Helper widget to deferred load screen modules on-demand.
+class LazyLoadWrapper extends StatefulWidget {
+  final bool isActive;
+  final Future<void> Function() loader;
+  final WidgetBuilder builder;
+
+  const LazyLoadWrapper({
+    Key? key,
+    required this.isActive,
+    required this.loader,
+    required this.builder,
+  }) : super(key: key);
+
+  @override
+  State<LazyLoadWrapper> createState() => _LazyLoadWrapperState();
+}
+
+class _LazyLoadWrapperState extends State<LazyLoadWrapper> {
+  bool _isLoaded = false;
+  bool _isLoading = false;
+
+  @override
+  void didUpdateWidget(LazyLoadWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !_isLoaded && !_isLoading) {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    await widget.loader();
+    if (mounted) {
+      setState(() {
+        _isLoaded = true;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isLoaded) {
+      return widget.isActive 
+          ? const Center(child: CircularProgressIndicator()) 
+          : const SizedBox.shrink();
+    }
+    return widget.builder(context);
   }
 }

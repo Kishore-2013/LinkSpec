@@ -40,6 +40,8 @@ dependencies:
   flutter_secure_storage: ^10.0.0
   http: ^1.6.0
   flutter_dotenv: ^5.2.1
+  crypto: ^3.0.3
+  mailer: ^6.1.0 # Gmail SMTP (mobile only — dart:io required)
 
 dev_dependencies:
   flutter_test:

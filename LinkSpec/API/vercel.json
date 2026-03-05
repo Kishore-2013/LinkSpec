@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/v1/auth/otp/gmail",
+      "destination": "/api/auth/otp/gmail"
+    }
+  ]
+}

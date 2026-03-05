@@ -44,6 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Node.js
+**/node_modules/
+package-lock.json
+
 # Local Configuration & Secrets
 .env
 *.pem

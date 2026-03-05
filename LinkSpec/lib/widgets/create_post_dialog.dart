@@ -578,7 +578,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A2740).withOpacity(0.6),
+                            color: Theme.of(context).dividerColor.withOpacity(0.6),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -676,7 +676,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
           // Background SVG
           Positioned.fill(
             child: Container(
-              color: const Color(0xFFF8F9FB), // Subtle background color base
+              color: Theme.of(context).scaffoldBackgroundColor, // Replaces Color(0xFFF8F9FB)
               child: Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
@@ -699,7 +699,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.4),
+                color: Theme.of(context).cardColor.withOpacity(0.8),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
@@ -729,7 +729,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
             // Background SVG
             Positioned.fill(
               child: Container(
-                color: const Color(0xFFF8F9FB),
+                color: Theme.of(context).scaffoldBackgroundColor,
                 child: Align(
                   alignment: Alignment.center,
                   child: Opacity(
@@ -747,7 +747,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
             ),
             Container(
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.4),
+                color: Theme.of(context).cardColor.withOpacity(0.8),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: content,

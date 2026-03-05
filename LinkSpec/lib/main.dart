@@ -15,6 +15,7 @@ import 'screens/search_screen.dart';
 import 'screens/saved_items_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/verification_screen.dart';
+import 'screens/email_sender_screen.dart';
 import 'providers/theme_provider.dart';
 import 'api/session_cache.dart';
 // Conditional import: picks web_lifecycle.dart on Web, stub on mobile/desktop.
@@ -47,12 +48,10 @@ class LinkSpecApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDarkMode = ref.watch(themeProvider);
-
     return MaterialApp(
       title: 'LinkSpec',
       debugShowCheckedModeBanner: false,
-      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      themeMode: ThemeMode.light,
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Roboto',
@@ -83,35 +82,6 @@ class LinkSpecApp extends ConsumerWidget {
         ),
         dividerTheme: const DividerThemeData(color: Color(0xFFE5E5EA), thickness: 0.5),
       ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-        scaffoldBackgroundColor: const Color(0xFF000000),
-        colorScheme: ColorScheme.dark(
-          primary: const Color(0xFF0A84FF),
-          onPrimary: Colors.white,
-          secondary: const Color(0xFF0A84FF),
-          onSecondary: Colors.white,
-          surface: const Color(0xFF1C1C1E),
-          onSurface: Colors.white,
-          background: const Color(0xFF000000),
-          onBackground: Colors.white,
-        ),
-        appBarTheme: const AppBarTheme(
-          elevation: 0,
-          backgroundColor: Color(0xFF1C1C1E),
-          surfaceTintColor: Colors.transparent,
-          iconTheme: IconThemeData(color: Colors.white),
-          titleTextStyle: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3),
-        ),
-        cardTheme: CardTheme(
-          color: const Color(0xFF1C1C1E),
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          shadowColor: Colors.transparent,
-        ),
-        dividerTheme: const DividerThemeData(color: Color(0xFF38383A), thickness: 0.5),
-      ),
       home: const SplashScreen(),
       routes: {
         '/login': (context) => const LoginScreen(),
@@ -133,6 +103,7 @@ class LinkSpecApp extends ConsumerWidget {
             isSignUp: args?['isSignUp'] ?? false,
           );
         },
+        '/email-sender': (context) => const EmailSenderScreen(),
       },
     );
   }

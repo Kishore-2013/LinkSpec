@@ -38,16 +38,16 @@ class _JobApplicantsPageState extends State<JobApplicantsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Job Applicants', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            Text(widget.job.title, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          Text(widget.job.title, style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
           ],
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.blue),
       ),
@@ -157,9 +157,9 @@ class _JobApplicantsPageState extends State<JobApplicantsPage> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         ),
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -181,9 +181,9 @@ class _JobApplicantsPageState extends State<JobApplicantsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(e.key, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue[800])),
+                  Text(e.key, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
                   const SizedBox(height: 8),
-                  Text(e.value.toString(), style: const TextStyle(fontSize: 15, color: Color(0xFF1A2740), height: 1.5)),
+                  Text(e.value.toString(), style: TextStyle(fontSize: 15, color: Theme.of(context).textTheme.bodyLarge?.color, height: 1.5)),
                 ],
               ),
             )),

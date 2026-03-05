@@ -7,7 +7,7 @@ class ClayContainer extends StatelessWidget {
   final double borderRadius;
 
   /// Ignored — kept for API compatibility.
-  final Color color;
+  final Color? color;
 
   /// Depth controls the "thickness" of the 3D slab.
   final double depth;
@@ -30,7 +30,7 @@ class ClayContainer extends StatelessWidget {
     Key? key,
     required this.child,
     this.borderRadius = 10,
-    this.color = Colors.white,
+    this.color, // Nullable
     this.depth = 4,
     this.emboss = false,
     this.spread = true,
@@ -43,6 +43,9 @@ class ClayContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final baseColor = color ?? theme.cardColor;
+
     if (emboss) {
       return Container(
         width: width,
@@ -50,9 +53,12 @@ class ClayContainer extends StatelessWidget {
         padding: padding,
         margin: margin,
         decoration: BoxDecoration(
-          color: color,
+          color: baseColor,
           borderRadius: BorderRadius.circular(borderRadius),
-          border: Border.all(color: const Color(0xFFCFD9E5), width: 1.5),
+          border: Border.all(
+            color: const Color(0xFFCFD9E5), 
+            width: 1.5,
+          ),
         ),
         child: clipContent
             ? ClipRRect(
@@ -64,28 +70,28 @@ class ClayContainer extends StatelessWidget {
     }
 
     // ── Isometric 3D Slab Look ──────────────────────────────
-    // - Face: white
-    // - "Edge": a slightly darker hard shadow directly below
-    // - Shadow: soft shadow below the edge
     return Container(
       width: width,
       height: height,
       padding: padding,
       margin: margin,
       decoration: BoxDecoration(
-        color: color,
+        color: baseColor,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: const Color(0xFFEBEEF2), width: 1),
+        border: Border.all(
+          color: const Color(0xFFEBEEF2), 
+          width: 1,
+        ),
         boxShadow: [
           // The "3D thickness" edge
           BoxShadow(
-            color: const Color(0xFFD1D9E6).withOpacity(color.opacity),
+            color: const Color(0xFFD1D9E6).withOpacity(baseColor.opacity),
             offset: Offset(0, depth.clamp(0.0, 6.0)),
             blurRadius: 0,
           ),
           // The soft floating shadow
           BoxShadow(
-            color: Colors.black.withOpacity(0.06 * color.opacity),
+            color: Colors.black.withOpacity(0.06),
             offset: Offset(0, depth + 4),
             blurRadius: 10,
           ),

@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
 import '../models/post.dart';
 import '../services/supabase_service.dart';
 import 'post_service.dart';
 import 'session_cache.dart';
+import 'web_cache_manager.dart';
 
 /// Bidirectional virtual window over the post feed.
 ///
@@ -64,20 +66,48 @@ class PostWindowManager {
 
   // ── Public API ────────────────────────────────────────────────
 
-  /// Load page 0 and initialise the window.
+  /// Load initial page using SWR (Stale-While-Revalidate).
+  /// Immediately serves from WebCacheManager if available.
   Future<void> loadInitial({void Function()? onUpdate}) async {
     if (isLoading) return;
+    
+    final cacheKey = 'swr_feed_${mode.name}_${domain}_p0';
+    
+    // 1. STALE: Show what we have from persistent cache
+    final cachedJson = await WebCacheManager.getCachedJson(cacheKey);
+    if (cachedJson != null) {
+      try {
+        final List<dynamic> list = jsonDecode(cachedJson);
+        final cachedPosts = list.map((d) => Post.fromJson(d)).toList();
+        if (cachedPosts.isNotEmpty) {
+          _window.clear();
+          _window.addAll(cachedPosts);
+          _firstPage = 0;
+          _lastPage = 0;
+          onUpdate?.call();
+        }
+      } catch (_) {}
+    }
+
+    // 2. REVALIDATE: Fetch in background
     isLoading = true;
     onUpdate?.call();
     try {
       final page = await _fetchPage(0);
-      _window
-        ..clear()
-        ..addAll(page);
-      _pageCache.clear();
-      _firstPage     = 0;
-      _lastPage      = 0;
-      _hasMoreOlder  = page.length >= pageSize;
+      
+      // Compare to see if we ACTUALLY need a rebuild
+      final pageJson = jsonEncode(page.map((p) => p.toJson()).toList());
+      
+      if (pageJson != cachedJson || _window.isEmpty) {
+        _window.clear();
+        _window.addAll(page);
+        _firstPage     = 0;
+        _lastPage      = 0;
+        _hasMoreOlder  = page.length >= pageSize;
+        
+        // Update persistent cache
+        await WebCacheManager.cacheJson(cacheKey, pageJson);
+      }
     } finally {
       isLoading = false;
       onUpdate?.call();
