@@ -11,6 +11,7 @@ class WebCacheManager {
   static const _keyLastNotifiedAppId = 'last_notified_app_id';
   static const _keyJobsCache = 'session_jobs_cache';
   static const _keyImagesPrefix = 'img_cache_';
+  static const _keyImagesPrefix = 'img_cache_';
   
   // In-memory fallback for mobile or session-only data
   static final Map<String, dynamic> _memoryCache = {};
@@ -107,6 +108,8 @@ class WebCacheManager {
     await PersistenceLayer.delete('current_feed_cache');
     _memoryCache.remove('jobs_fetched'); 
   }
+
+
 
   // ============================================================================
   // SWR & JSON CACHING

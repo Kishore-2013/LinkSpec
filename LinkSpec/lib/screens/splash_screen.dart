@@ -68,7 +68,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     if (session == null) {
       // Not logged in → go to login immediately
-      Navigator.of(context).pushReplacementNamed('/login');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pushReplacementNamed('/login');
+      });
       return;
     }
 
@@ -85,16 +87,26 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       if (!mounted) return;
 
       if (profile == null) {
-        Navigator.of(context).pushReplacementNamed('/domain-selection');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) Navigator.of(context).pushReplacementNamed('/domain-selection');
+        });
       } else {
-        Navigator.of(context).pushReplacementNamed('/home');
+        // Respect deep links: don't force them back to /home if a specific path was provided.
+        final initialPath = Uri.base.path;
+        final targetRoute = (initialPath != '/' && initialPath.isNotEmpty && initialPath != '/login') 
+            ? initialPath 
+            : '/home';
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) Navigator.of(context).pushReplacementNamed(targetRoute);
+        });
       }
     } catch (e) {
       // Timeout, network error, or any Supabase error → send to login.
       debugPrint('SplashScreen redirect error: $e');
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/login');
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pushReplacementNamed('/login');
+      });
     }
   }
 

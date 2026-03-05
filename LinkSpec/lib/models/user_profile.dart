@@ -10,7 +10,8 @@ class UserProfile {
   final List<Map<String, dynamic>> projects;
   final List<String> skills;
   final String? motherDomain;
-  final String? tag; // 'HR', 'User', etc.
+  final String? tag; // Legacy support
+  final String? email;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -27,6 +28,7 @@ class UserProfile {
     this.projects = const [],
     this.skills = const [],
     this.tag = 'User',
+    this.email,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -45,6 +47,7 @@ class UserProfile {
       projects: List<Map<String, dynamic>>.from(json['projects'] ?? []),
       skills: List<String>.from(json['skills'] ?? []),
       tag: json['tag'] as String? ?? 'User',
+      email: json['email'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -64,6 +67,7 @@ class UserProfile {
       'skills': skills,
       'mother_domain': motherDomain,
       'tag': tag,
+      'email': email,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -82,6 +86,7 @@ class UserProfile {
     List<Map<String, dynamic>>? projects,
     List<String>? skills,
     String? tag,
+    String? email,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -98,6 +103,7 @@ class UserProfile {
       projects: projects ?? this.projects,
       skills: skills ?? this.skills,
       tag: tag ?? this.tag,
+      email: email ?? this.email,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

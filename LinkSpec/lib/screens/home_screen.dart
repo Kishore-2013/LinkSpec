@@ -1377,6 +1377,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onTap: () => _navigateTo(10),
           ),
         ]),
+        ]),
       ],
     );
   }

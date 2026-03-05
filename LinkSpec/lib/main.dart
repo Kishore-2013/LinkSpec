@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+// Use path URL strategy on web to remove the '#' from URLs.
+// Conditional import: picks url_strategy_web.dart on Web, stub on mobile/desktop.
+import 'utils/url_strategy_stub.dart'
+    if (dart.library.html) 'utils/url_strategy_web.dart';
 import 'config/supabase_config.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
@@ -24,6 +28,11 @@ import 'api/web_lifecycle_stub.dart'
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Remove the '#' from web URLs (path strategy).
+  // On mobile, this resolves to a no-op stub at compile time.
+  setPathUrlStrategy();
+
   await dotenv.load(fileName: ".env");
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
