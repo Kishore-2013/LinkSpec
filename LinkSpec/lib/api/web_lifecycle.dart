@@ -1,6 +1,8 @@
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'session_cache.dart';
+
 
 /// Web implementation — registers window.beforeunload to clear SessionCache.
 class WebLifecycleHelper {
