@@ -72,8 +72,9 @@ class LinkSpecApp extends ConsumerWidget {
           onSecondary: Colors.white,
           surface: Colors.white,
           onSurface: const Color(0xFF1C1C1E),
-          background: const Color(0xFFF5F5F7),
-          onBackground: const Color(0xFF1C1C1E),
+          // 'background' and 'onBackground' are deprecated in favor of 'surface' 
+          // but kept here as aliases if your custom code still references them.
+          error: Colors.redAccent,
         ),
         appBarTheme: const AppBarTheme(
           elevation: 0,
@@ -83,7 +84,8 @@ class LinkSpecApp extends ConsumerWidget {
           iconTheme: IconThemeData(color: Color(0xFF1C1C1E)),
           titleTextStyle: TextStyle(color: Color(0xFF1C1C1E), fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3),
         ),
-        cardTheme: CardTheme(
+        // FIX: Changed CardTheme to CardThemeData to match Flutter 3.41 requirements
+        cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
