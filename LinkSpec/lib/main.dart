@@ -42,8 +42,11 @@ void main() async {
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
-    localStorage: kIsWeb ? WebSessionStorage() : null,
+    authOptions: FlutterAuthClientOptions(
+      localStorage: kIsWeb ? WebSessionStorage() : const EmptyLocalStorage(),
+    ),
   );
+
 
 
 
