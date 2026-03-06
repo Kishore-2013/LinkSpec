@@ -42,13 +42,9 @@ void main() async {
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
+    localStorage: kIsWeb ? WebSessionStorage() : null,
   );
 
-  // For Web: If this is a new session (new tab/window), force sign out 
-  // so the user has to log in again. Refreshing the same tab keeps the session.
-  if (kIsWeb) {
-    await WebLifecycleHelper.checkSession();
-  }
 
 
   // Register the beforeunload / lifecycle hook.

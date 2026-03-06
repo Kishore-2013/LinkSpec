@@ -11,13 +11,36 @@ class WebLifecycleHelper {
       SessionCache.clearAll();
     });
   }
+}
 
-  static Future<void> checkSession() async {
-    if (html.window.sessionStorage['ls_session_active'] == null) {
-      // New tab/window! Force sign out to clear localStorage persistent session.
-      await Supabase.instance.client.auth.signOut();
-      html.window.sessionStorage['ls_session_active'] = 'true';
-    }
+/// A custom storage implementation for Supabase that uses browser sessionStorage.
+/// This fulfills the user requirement: Logout when opening in new window/tab,
+/// but keep login state on browser refresh.
+class WebSessionStorage extends LocalStorage {
+  static const _storageKey = 'supabase.auth.token';
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  Future<bool> hasAccessToken() async {
+    return html.window.sessionStorage.containsKey(_storageKey);
+  }
+
+  @override
+  Future<String?> accessToken() async {
+    return html.window.sessionStorage[_storageKey];
+  }
+
+  @override
+  Future<void> removePersistedSession() async {
+    html.window.sessionStorage.remove(_storageKey);
+  }
+
+  @override
+  Future<void> persistSession(String persistSessionString) async {
+    html.window.sessionStorage[_storageKey] = persistSessionString;
   }
 }
+
 

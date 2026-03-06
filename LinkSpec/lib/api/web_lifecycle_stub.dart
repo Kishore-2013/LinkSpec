@@ -6,9 +6,22 @@ class WebLifecycleHelper {
   static void register() {
     // No-op on mobile — process death clears in-memory state automatically.
   }
-
-  static Future<void> checkSession() async {
-    // No-op on mobile
-  }
 }
+
+/// Stub storage that does nothing or uses default.
+/// Supabase will ignore this if passed null or another default.
+class WebSessionStorage extends LocalStorage {
+  @override
+  Future<void> initialize() async {}
+  @override
+  Future<bool> hasAccessToken() async => false;
+  @override
+  Future<String?> accessToken() async => null;
+  @override
+  Future<void> removePersistedSession() async {}
+  @override
+  Future<void> persistSession(String persistSessionString) async {}
+}
+
+
 
