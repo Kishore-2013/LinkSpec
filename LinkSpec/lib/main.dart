@@ -36,7 +36,7 @@ void main() async {
   // On Web Release, we use dart-defines, so we don't need to fetch .env from assets.
   if (!(kIsWeb && kReleaseMode)) {
     try {
-      await dotenv.load(fileName: ".env");
+      await dotenv.load(fileName: "assets/.env");
     } catch (e) {
       debugPrint("Warning: .env file not found, using environment variables");
     }

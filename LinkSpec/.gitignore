@@ -60,6 +60,7 @@ package-lock.json
 
 # Local Configuration & Secrets (STRICTLY PRIVATE)
 .env
+assets/.env
 *.pem
 *.txt
 test_otp.json

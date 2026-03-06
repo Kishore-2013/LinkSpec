@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../api/mailer_service.dart';
 import '../api/route_handler.dart';
@@ -224,6 +225,33 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 ),
               ),
               
+              if (kDebugMode && kIsWeb && Uri.base.host == 'localhost') ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.bug_report_rounded, color: Colors.amber[800], size: 18),
+                          const SizedBox(width: 8),
+                          Text('Developer Tip', style: TextStyle(color: Colors.amber[900], fontWeight: FontWeight.bold, fontSize: 13)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'CORS may block the email relay on localhost. You can find the OTP in your browser\'s console or IDE terminal.',
+                        style: TextStyle(color: Colors.amber[900], fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               TextButton(
                 onPressed: () => Navigator.pop(context),

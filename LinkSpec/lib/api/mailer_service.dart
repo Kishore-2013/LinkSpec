@@ -71,19 +71,14 @@ class MailerService {
     final routeFromEnv = dotenv.env['GMAIL_OTP_ROUTE']?.trim() ?? '';
     var route = routeFromEnv.isNotEmpty ? routeFromEnv : SupabaseConfig.gmailOtpRoute;
     
-    // Safety: Handle shell-style placeholders or relative paths
-    if (route.contains('\${')) {
-
-      route = route.replaceAll(RegExp(r'\$\{.*?\}'), '');
-    }
-
     if (route.isEmpty) {
-      // If we are on web and at the same domain, try relative path
+      // If we are on web and no route is defined, try relative path
       route = '/api/auth/otp/gmail';
     }
 
-    // Ensure absolute URL for URI parsing
+    // Assembly the final URL
     String finalUrl = route;
+    // If it looks like a relative path, prefix with current origin
     if (route.startsWith('/')) {
       final base = Uri.base.origin;
       finalUrl = '$base$route';
@@ -101,10 +96,8 @@ class MailerService {
     try {
       final resp = await http.post(
         Uri.parse(finalUrl),
-
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
           'Authorization': 'Bearer $apiKey',
         },
         body: jsonEncode({
@@ -113,27 +106,22 @@ class MailerService {
           'config': {
             'gmail_app_password': dotenv.env['GMAIL_APP_PASSWORD'] ?? SupabaseConfig.gmailAppPassword,
             'sender_email': dotenv.env['GMAIL_SENDER_EMAIL'] ?? SupabaseConfig.gmailSenderEmail,
-
           }
         }),
       );
 
       if (resp.statusCode < 300) {
-        try {
-          final data = jsonDecode(resp.body);
-          if (data is Map && data.containsKey('success')) {
-            debugPrint('MailerService: Relay success!');
-            return true;
-          }
-          return _debugCallback(email, otp, 'Relay returned non-JSON content (likely index.html)');
-        } catch (_) {
-          return _debugCallback(email, otp, 'Relay returned non-JSON content (likely index.html)');
-        }
+        debugPrint('MailerService: Relay success!');
+        return true;
       }
 
       return _debugCallback(email, otp, 'Relay failed with status ${resp.statusCode}');
     } on Object catch (e) {
-      return _debugCallback(email, otp, 'Relay network error (likely CORS): $e');
+      String hint = '';
+      if (kIsWeb && e.toString().contains('Failed to fetch')) {
+        hint = '\nDEVELOPER TIP: This is likely a CORS error because your backend doesn\'t allow localhost. \nYOU CAN STILL PROCEED: Copy the OTP from this console into your app.';
+      }
+      return _debugCallback(email, otp, 'Relay network error: $e$hint');
     }
   }
 

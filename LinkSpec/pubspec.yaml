@@ -71,6 +71,7 @@ flutter:
   assets:
     - assets/images/
     - assets/svg/
+    - assets/.env
 
 flutter_launcher_icons:
   android: "ic_launcher"
