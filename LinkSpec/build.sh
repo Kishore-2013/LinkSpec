@@ -1,41 +1,32 @@
 #!/bin/bash
-set -e  # Exit immediately on any error
+set -e
 
-# 1. Setup Flutter SDK (Linux) — Vercel runs on Linux
-echo "--- Installing Flutter SDK (stable) ---"
+# 1. Setup Flutter SDK
+echo "--- Ensuring Flutter SDK is present ---"
 if [ ! -d "flutter" ]; then
   git clone https://github.com/flutter/flutter.git -b stable --depth 1
 fi
-export PATH="$PATH:$(pwd)/flutter/bin"
 
-# 0. Opt-out of analytics for CI/Root behavior
+# Use absolute path for the build session to avoid "command not found"
+export FLUTTER_HOME="$(pwd)/flutter"
+export PATH="$FLUTTER_HOME/bin:$PATH"
+
+# 2. Configuration
 flutter config --no-analytics
-
-
-# Pre-cache web SDK artifacts
 flutter precache --web
 
-# 2. Verify environment
+# 3. Environment Check
 flutter doctor -v
-flutter --version
 
-# 3. Handle Dependencies
-echo "--- Cleaning & Getting Dependencies ---"
-flutter clean
+# 4. Build
+echo "--- Starting Flutter Web Build ---"
 flutter pub get
-
-# 4. Perform Release Build
-# Updated for Flutter 3.41+ (web-renderer is handled automatically)
-echo "--- Building Flutter Web (Release) ---"
 flutter build web --release
 
-# 5. Verify build output exists
-if [ ! -f "build/web/index.html" ]; then
-  echo "ERROR: build/web/index.html not found! Build may have failed."
+# 5. Verification
+if [ -d "build/web" ]; then
+  echo "--- Build Success! ---"
+else
+  echo "--- Build Failed: Output directory missing ---"
   exit 1
 fi
-
-echo "--- Build Complete: LinkSpec is ready for Vercel deployment ---"
-echo "Build output directory contents (Recursive):"
-ls -R build/web/
-
