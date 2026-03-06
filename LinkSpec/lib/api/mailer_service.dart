@@ -99,9 +99,18 @@ class MailerService {
       );
 
       if (resp.statusCode < 300) {
-        debugPrint('MailerService: Relay success!');
-        return true;
+        try {
+          final data = jsonDecode(resp.body);
+          if (data is Map && data.containsKey('success')) {
+            debugPrint('MailerService: Relay success!');
+            return true;
+          }
+          return _debugCallback(email, otp, 'Relay returned non-JSON content (likely index.html)');
+        } catch (_) {
+          return _debugCallback(email, otp, 'Relay returned non-JSON content (likely index.html)');
+        }
       }
+
       return _debugCallback(email, otp, 'Relay failed with status ${resp.statusCode}');
     } on Object catch (e) {
       return _debugCallback(email, otp, 'Relay network error (likely CORS): $e');
