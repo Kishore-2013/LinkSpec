@@ -71,24 +71,36 @@ class MailerService {
     final routeFromEnv = dotenv.env['GMAIL_OTP_ROUTE']?.trim() ?? '';
     var route = routeFromEnv.isNotEmpty ? routeFromEnv : SupabaseConfig.gmailOtpRoute;
     
-    // Safety: Strip literal placeholders if they leaked through build.sh or .env
+    // Safety: Handle shell-style placeholders or relative paths
     if (route.contains('${')) {
-      route = route.replaceAll(RegExp(r'\$\{.*?\}'), '').replaceAll('//', '/');
-      if (!route.startsWith('http')) route = 'https:/$route'; 
+      route = route.replaceAll(RegExp(r'\$\{.*?\}'), '');
     }
 
+    if (route.isEmpty) {
+      // If we are on web and at the same domain, try relative path
+      route = '/api/auth/otp/gmail';
+    }
+
+    // Ensure absolute URL for URI parsing
+    String finalUrl = route;
+    if (route.startsWith('/')) {
+      final base = Uri.base.origin;
+      finalUrl = '$base$route';
+    }
+
+    debugPrint('MailerService: Attempting relay to: $finalUrl');
 
     final apiKeyFromEnv = dotenv.env['API_SECRET_KEY']?.trim() ?? '';
     final apiKey = apiKeyFromEnv.isNotEmpty ? apiKeyFromEnv : SupabaseConfig.apiSecretKey;
 
-
-    if (route == null || route.isEmpty) {
-      return _debugCallback(email, otp, 'No GMAIL_OTP_ROUTE in .env');
+    if (finalUrl.isEmpty || (!finalUrl.startsWith('http') && !kIsWeb)) {
+      return _debugCallback(email, otp, 'Invalid relay URL: $finalUrl');
     }
 
     try {
       final resp = await http.post(
-        Uri.parse(route),
+        Uri.parse(finalUrl),
+
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',

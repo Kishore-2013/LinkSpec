@@ -33,11 +33,15 @@ void main() async {
   // On mobile, this resolves to a no-op stub at compile time.
   setPathUrlStrategy();
 
-  try {
-    await dotenv.load(fileName: ".env");
-  } catch (e) {
-    debugPrint("Warning: .env file not found, using environment variables");
+  // On Web Release, we use dart-defines, so we don't need to fetch .env from assets.
+  if (!(kIsWeb && kReleaseMode)) {
+    try {
+      await dotenv.load(fileName: ".env");
+    } catch (e) {
+      debugPrint("Warning: .env file not found, using environment variables");
+    }
   }
+
 
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
