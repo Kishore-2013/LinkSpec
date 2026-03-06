@@ -10,6 +10,8 @@ fi
 # Use absolute path for the build session to avoid "command not found"
 export FLUTTER_HOME="$(pwd)/flutter"
 export PATH="$FLUTTER_HOME/bin:$PATH"
+export RUN_FLUTTER_AS_ROOT=true
+
 
 # 2. Configuration
 flutter config --no-analytics
