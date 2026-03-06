@@ -6,4 +6,9 @@ class WebLifecycleHelper {
   static void register() {
     // No-op on mobile — process death clears in-memory state automatically.
   }
+
+  static Future<void> checkSession() async {
+    // No-op on mobile
+  }
 }
+

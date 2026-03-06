@@ -42,13 +42,17 @@ void main() async {
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
-    authOptions: const FlutterAuthOptions(
-      authPersistence: AuthPersistence.session,
-    ),
   );
+
+  // For Web: If this is a new session (new tab/window), force sign out 
+  // so the user has to log in again. Refreshing the same tab keeps the session.
+  if (kIsWeb) {
+    await WebLifecycleHelper.checkSession();
+  }
 
 
   // Register the beforeunload / lifecycle hook.
+
   // WebLifecycleHelper is a no-op stub on mobile; uses dart:html on Web.
   _registerWebUnloadListener();
 
