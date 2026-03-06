@@ -1,4 +1,6 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'session_cache.dart';
+
 
 /// Stub for non-Web platforms.
 /// On mobile, closing the app clears the process — SessionCache dies automatically.
