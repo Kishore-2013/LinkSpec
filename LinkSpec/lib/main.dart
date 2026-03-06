@@ -33,7 +33,12 @@ void main() async {
   // On mobile, this resolves to a no-op stub at compile time.
   setPathUrlStrategy();
 
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint("Warning: .env file not found, using environment variables");
+  }
+
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,

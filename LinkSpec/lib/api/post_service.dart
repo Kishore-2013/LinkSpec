@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/supabase_service.dart';
 import 'session_cache.dart';
+import '../config/supabase_config.dart';
+
 
 /// Service for handling post-related database operations.
 enum FeedMode { popularity, chronological, topWeekly }
@@ -153,7 +155,8 @@ class PostService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
 
-    final bucket = dotenv.env['SUPABASE_POST_BUCKET'] ?? 'post-images';
+    final bucket = dotenv.env['SUPABASE_POST_BUCKET'] ?? SupabaseConfig.postBucket;
+
     final fileName = '${DateTime.now().millisecondsSinceEpoch}.$extension';
     final path = '$userId/$fileName';
     

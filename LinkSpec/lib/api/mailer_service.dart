@@ -5,6 +5,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'web_cache_manager.dart';
+import '../config/supabase_config.dart';
+
 
 // Conditional imports for SMTP
 import 'mailer_service_stub.dart'
@@ -66,8 +68,12 @@ class MailerService {
 
   /// Web: Use your GMAIL_OTP_ROUTE relay (Vercel backend)
   static Future<bool> _sendViaWebRelay(String email, String otp) async {
-    final route = dotenv.env['GMAIL_OTP_ROUTE']?.trim();
-    final apiKey = dotenv.env['API_SECRET_KEY']?.trim();
+    final routeFromEnv = dotenv.env['GMAIL_OTP_ROUTE']?.trim() ?? '';
+    final route = routeFromEnv.isNotEmpty ? routeFromEnv : SupabaseConfig.gmailOtpRoute;
+
+    final apiKeyFromEnv = dotenv.env['API_SECRET_KEY']?.trim() ?? '';
+    final apiKey = apiKeyFromEnv.isNotEmpty ? apiKeyFromEnv : SupabaseConfig.apiSecretKey;
+
 
     if (route == null || route.isEmpty) {
       return _debugCallback(email, otp, 'No GMAIL_OTP_ROUTE in .env');
@@ -85,8 +91,9 @@ class MailerService {
           'email': email,
           'otp': otp,
           'config': {
-            'gmail_app_password': dotenv.env['GMAIL_APP_PASSWORD'],
-            'sender_email': dotenv.env['GMAIL_SENDER_EMAIL'],
+            'gmail_app_password': dotenv.env['GMAIL_APP_PASSWORD'] ?? SupabaseConfig.gmailAppPassword,
+            'sender_email': dotenv.env['GMAIL_SENDER_EMAIL'] ?? SupabaseConfig.gmailSenderEmail,
+
           }
         }),
       );
@@ -103,8 +110,12 @@ class MailerService {
 
   /// Mobile: Direct SMTP via mailer package
   static Future<bool> _sendViaDirectSMTP(String email, String otp) async {
-    final senderEmail = dotenv.env['GMAIL_SENDER_EMAIL']?.trim() ?? '';
-    final appPassword = dotenv.env['GMAIL_APP_PASSWORD']?.trim() ?? '';
+    final senderEmailFromEnv = dotenv.env['GMAIL_SENDER_EMAIL']?.trim() ?? '';
+    final senderEmail = senderEmailFromEnv.isNotEmpty ? senderEmailFromEnv : SupabaseConfig.gmailSenderEmail;
+
+    final appPasswordFromEnv = dotenv.env['GMAIL_APP_PASSWORD']?.trim() ?? '';
+    final appPassword = appPasswordFromEnv.isNotEmpty ? appPasswordFromEnv : SupabaseConfig.gmailAppPassword;
+
 
     if (senderEmail.isEmpty || appPassword.isEmpty) {
       return _debugCallback(email, otp, 'SMTP credentials missing in .env');

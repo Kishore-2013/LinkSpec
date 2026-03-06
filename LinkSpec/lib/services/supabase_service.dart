@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/supabase_config.dart';
+
 
 // Diagnostic: Force filesystem update. Corrected unread counts.
 /// Supabase Service for LinkSpec
@@ -138,7 +140,8 @@ class SupabaseService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
     
-    final profileBucket = dotenv.env['SUPABASE_PROFILE_BUCKET'] ?? 'profiles';
+    final profileBucket = dotenv.env['SUPABASE_PROFILE_BUCKET'] ?? SupabaseConfig.profileBucket;
+
     final ext = fileName.split('.').last.toLowerCase();
     final path = 'avatars/$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
     
@@ -160,7 +163,8 @@ class SupabaseService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
     
-    final profileBucket = dotenv.env['SUPABASE_PROFILE_BUCKET'] ?? 'profiles';
+    final profileBucket = dotenv.env['SUPABASE_PROFILE_BUCKET'] ?? SupabaseConfig.profileBucket;
+
     final ext = fileName.split('.').last.toLowerCase();
     final path = 'covers/$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
     

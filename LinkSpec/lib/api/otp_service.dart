@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'cache_manager.dart';
+import '../config/supabase_config.dart';
+
 
 /// Service to handle OTP generation, sending via external routes, and verification.
 class OtpService {
@@ -17,9 +19,12 @@ class OtpService {
     required String email,
   }) async {
     final isGmail = email.toLowerCase().endsWith('@gmail.com');
+    final gmailRouteFromEnv = dotenv.env['GMAIL_OTP_ROUTE'] ?? '';
+    final msRouteFromEnv = dotenv.env['MICROSOFT_OTP_ROUTE'] ?? '';
     final route = isGmail 
-        ? dotenv.env['GMAIL_OTP_ROUTE'] 
-        : dotenv.env['MICROSOFT_OTP_ROUTE'];
+        ? (gmailRouteFromEnv.isNotEmpty ? gmailRouteFromEnv : SupabaseConfig.gmailOtpRoute)
+        : (msRouteFromEnv.isNotEmpty ? msRouteFromEnv : SupabaseConfig.microsoftOtpRoute);
+
     final otp = _generateOtp();
 
     try {
@@ -29,22 +34,24 @@ class OtpService {
         Uri.parse(route),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${dotenv.env['API_SECRET_KEY']}',
+          'Authorization': 'Bearer ${dotenv.env['API_SECRET_KEY'] ?? SupabaseConfig.apiSecretKey}',
+
         },
         body: jsonEncode({
           'email': email,
           'otp': otp,
           'config': isGmail 
             ? {
-                'gmail_app_password': dotenv.env['GMAIL_APP_PASSWORD'],
-                'sender_email': dotenv.env['GMAIL_SENDER_EMAIL'],
+                'gmail_app_password': dotenv.env['GMAIL_APP_PASSWORD'] ?? SupabaseConfig.gmailAppPassword,
+                'sender_email': dotenv.env['GMAIL_SENDER_EMAIL'] ?? SupabaseConfig.gmailSenderEmail,
               }
             : {
-                'ms365_tenant_id': dotenv.env['MS365_TENANT_ID'],
-                'ms365_client_id': dotenv.env['MS365_CLIENT_ID'],
-                'ms365_client_secret': dotenv.env['MS365_CLIENT_SECRET'],
-                'sender_email': dotenv.env['SENDER_EMAIL'],
+                'ms365_tenant_id': dotenv.env['MS365_TENANT_ID'] ?? SupabaseConfig.ms365TenantId,
+                'ms365_client_id': dotenv.env['MS365_CLIENT_ID'] ?? SupabaseConfig.ms365ClientId,
+                'ms365_client_secret': dotenv.env['MS365_CLIENT_SECRET'] ?? SupabaseConfig.ms365ClientSecret,
+                'sender_email': dotenv.env['SENDER_EMAIL'] ?? SupabaseConfig.senderEmail,
               },
+
         }),
       );
 

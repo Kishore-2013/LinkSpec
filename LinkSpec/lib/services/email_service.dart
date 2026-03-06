@@ -1,6 +1,7 @@
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server/gmail.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/supabase_config.dart';
 import 'dart:developer' as developer;
 
 /// A production-ready service for sending emails via Gmail SMTP.
@@ -13,10 +14,14 @@ class EmailService {
     required String subject,
     required String body,
   }) async {
-    final String gmailEmail = dotenv.env['GMAIL_SENDER_EMAIL'] ?? '';
-    final String appPassword = dotenv.env['GMAIL_APP_PASSWORD'] ?? '';
+    final String gmailEmailFromEnv = dotenv.env['GMAIL_SENDER_EMAIL'] ?? '';
+    final String appPasswordFromEnv = dotenv.env['GMAIL_APP_PASSWORD'] ?? '';
+    
+    final String gmailEmail = gmailEmailFromEnv.isNotEmpty ? gmailEmailFromEnv : SupabaseConfig.gmailSenderEmail;
+    final String appPassword = appPasswordFromEnv.isNotEmpty ? appPasswordFromEnv : SupabaseConfig.gmailAppPassword;
 
     if (gmailEmail.isEmpty || appPassword.isEmpty) {
+
       developer.log('EmailService: Missing Gmail credentials in .env file', name: 'EmailService');
       return false;
     }
