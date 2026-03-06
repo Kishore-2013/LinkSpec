@@ -69,7 +69,14 @@ class MailerService {
   /// Web: Use your GMAIL_OTP_ROUTE relay (Vercel backend)
   static Future<bool> _sendViaWebRelay(String email, String otp) async {
     final routeFromEnv = dotenv.env['GMAIL_OTP_ROUTE']?.trim() ?? '';
-    final route = routeFromEnv.isNotEmpty ? routeFromEnv : SupabaseConfig.gmailOtpRoute;
+    var route = routeFromEnv.isNotEmpty ? routeFromEnv : SupabaseConfig.gmailOtpRoute;
+    
+    // Safety: Strip literal placeholders if they leaked through build.sh or .env
+    if (route.contains('${')) {
+      route = route.replaceAll(RegExp(r'\$\{.*?\}'), '').replaceAll('//', '/');
+      if (!route.startsWith('http')) route = 'https:/$route'; 
+    }
+
 
     final apiKeyFromEnv = dotenv.env['API_SECRET_KEY']?.trim() ?? '';
     final apiKey = apiKeyFromEnv.isNotEmpty ? apiKeyFromEnv : SupabaseConfig.apiSecretKey;
