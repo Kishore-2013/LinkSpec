@@ -72,7 +72,8 @@ class MailerService {
     var route = routeFromEnv.isNotEmpty ? routeFromEnv : SupabaseConfig.gmailOtpRoute;
     
     // Safety: Handle shell-style placeholders or relative paths
-    if (route.contains('${')) {
+    if (route.contains('\${')) {
+
       route = route.replaceAll(RegExp(r'\$\{.*?\}'), '');
     }
 
