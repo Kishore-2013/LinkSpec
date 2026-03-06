@@ -42,7 +42,11 @@ void main() async {
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
+    authOptions: const FlutterAuthOptions(
+      authPersistence: AuthPersistence.session,
+    ),
   );
+
 
   // Register the beforeunload / lifecycle hook.
   // WebLifecycleHelper is a no-op stub on mobile; uses dart:html on Web.
