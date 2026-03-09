@@ -26,6 +26,7 @@ import 'api/session_cache.dart';
 import 'api/web_lifecycle_stub.dart'
     if (dart.library.html) 'api/web_lifecycle.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'widgets/auth_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -108,7 +109,7 @@ class LinkSpecApp extends ConsumerWidget {
         ),
         dividerTheme: const DividerThemeData(color: Color(0xFFE5E5EA), thickness: 0.5),
       ),
-      home: const SplashScreen(),
+      home: const AuthWrapper(),
       routes: {
         '/login': (context) => const LoginScreen(),
         '/domain-selection': (context) => const DomainSelectionScreen(),

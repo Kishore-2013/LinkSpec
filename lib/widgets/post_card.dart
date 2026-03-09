@@ -169,35 +169,36 @@ class _PostCardState extends ConsumerState<PostCard> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => MemberProfileScreen(userId: widget.post.authorId),
+                      SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MemberProfileScreen(userId: widget.post.authorId),
+                            ),
                           ),
-                        ),
-                        child: CircleAvatar(
-                          radius: 16,
-                          backgroundImage: widget.post.authorAvatar != null
-                              ? null
-                              : null,
-                          foregroundImage: widget.post.authorAvatar != null
-                              ? CachedNetworkImageProvider(widget.post.authorAvatar!)
-                              : null,
-
-                          child: widget.post.authorAvatar == null
-                              ? Text(
-                                  (widget.post.authorName ?? 'U').substring(0, 1).toUpperCase(),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                )
-                              : null,
+                          child: CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Theme.of(context).dividerColor.withOpacity(0.1),
+                            foregroundImage: widget.post.authorAvatar != null
+                                ? CachedNetworkImageProvider(widget.post.authorAvatar!)
+                                : null,
+                            child: widget.post.authorAvatar == null
+                                ? Text(
+                                    (widget.post.authorName ?? 'U').substring(0, 1).toUpperCase(),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  )
+                                : null,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min, // Ensure it doesn't take extra space
                           children: [
                             Row(
                               children: [

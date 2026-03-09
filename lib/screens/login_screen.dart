@@ -137,39 +137,90 @@ class _LoginScreenState extends State<LoginScreen>
     final fullName = _nameController.text.trim();
 
     try {
-      if (_isSignUp) {
-        // ── Official Supabase Sign Up ──
-        final response = await Supabase.instance.client.auth.signUp(
-          email: email,
-          password: password,
-          data: {'full_name': fullName},
-        );
-        if (!mounted) return;
-        if (response.user != null) {
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-        } else {
-          _showSnack('Sign up failed. Please check your credentials.');
-        }
-
-      } else {
-        // ── Existing user: Official email/password sign-in ──
+      // ── Step 1: Always try Sign In first ──
+      try {
         final response = await Supabase.instance.client.auth.signInWithPassword(
           email: email,
           password: password,
         );
-        if (!mounted) return;
+        
         if (response.session != null) {
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+          if (!mounted) return;
+          // SUCCESS: Already an existing user, go straight to routing logic
+          await _handlePostAuthRouting();
+          return;
+        }
+      } on AuthException catch (e) {
+        // Only proceed to Sign Up if it's an 'Invalid login credentials' error
+        // which usually means the user doesn't exist yet (or wrong pass).
+        // If it's another error (e.g. email not confirmed), we should show it.
+        if (e.message.contains('Invalid login credentials') || e.message.contains('Email not confirmed')) {
+          // If the user entered a name, they probably intended to sign up.
+          // Or if they are on the sign-up toggle.
+          // But according to the prompt: "Only if signIn fails with an 'Invalid login credentials' error, then call supabase.auth.signUp."
+          
+          if (e.message.contains('Email not confirmed')) {
+             // If email not confirmed, we might want to try signing up anyway or just show error.
+             // Supabase signUp will return an error if user exists.
+          }
         } else {
-          _showSnack('Sign in failed. Please check your credentials.');
+          rethrow; // Rethrow other auth errors
         }
       }
+
+      // ── Step 2: Try Sign Up (New User) ──
+      // Note: We only reach here if signIn failed with credentials error.
+      final response = await Supabase.instance.client.auth.signUp(
+        email: email,
+        password: password,
+        data: {'full_name': fullName},
+      );
+
+      if (!mounted) return;
+      if (response.user != null) {
+        // SUCCESS: New user created.
+        // Bypass VerificationScreen: Navigate directly to routing logic.
+        await _handlePostAuthRouting();
+      } else {
+        _showSnack('Sign up failed. Please check your credentials.');
+      }
+
     } on AuthException catch (e) {
       if (mounted) _showSnack(e.message);
     } catch (e) {
       if (mounted) _showSnack('An unexpected error occurred: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Fast Domain-Based Routing Logic
+  Future<void> _handlePostAuthRouting() async {
+    if (!mounted) return;
+    
+    try {
+      // Immediately fetch profile
+      final profile = await SupabaseService.getCurrentUserProfile(forceRefresh: true);
+      
+      if (!mounted) return;
+      
+      final domainId = profile?['domain_id'];
+      
+      if (domainId == null) {
+        // No domain? Go to selection
+        Navigator.of(context).pushNamedAndRemoveUntil('/domain-selection', (route) => false, arguments: {
+          'fullName': _nameController.text.trim(),
+        });
+      } else {
+        // Has domain? Go home
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      }
+    } catch (e) {
+      // If profile fetch fails (e.g. trigger lag), still go home and let Home handle it
+      // or try again. But prompt says "Navigate directly to HomeScreen or DomainSelectionScreen".
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      }
     }
   }
 

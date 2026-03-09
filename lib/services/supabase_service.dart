@@ -217,12 +217,25 @@ class SupabaseService {
       return _currentUserProfile;
     }
 
-    final profile = await getUserProfile(userId);
-    if (profile != null) {
-      _currentUserProfile = profile;
-      _myDomain = profile['domain_id'] as String?;
+    try {
+      var profile = await getUserProfile(userId);
+      
+      // If profile is missing, it might be due to database trigger lag.
+      // Retry once after a short delay.
+      if (profile == null) {
+        await Future.delayed(const Duration(milliseconds: 1500));
+        profile = await getUserProfile(userId);
+      }
+
+      if (profile != null) {
+        _currentUserProfile = profile;
+        _myDomain = profile['domain_id'] as String?;
+      }
+      return profile;
+    } catch (e) {
+      debugPrint('SupabaseService: Critical error in getCurrentUserProfile: $e');
+      return null; // Ensure no crash
     }
-    return profile;
   }
 
   /// Get a specific user's profile by ID
