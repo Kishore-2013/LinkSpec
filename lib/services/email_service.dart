@@ -27,6 +27,7 @@ class EmailService {
     }
   }
 
+  /* 
   /// Generic method to send an email (Stub for future SMTP integration).
   static Future<bool> sendEmail({
     required String to,
@@ -37,4 +38,5 @@ class EmailService {
     debugPrint('EmailService: sendEmail is currently disabled.');
     return false;
   }
+  */
 }

@@ -25,6 +25,7 @@ import 'api/session_cache.dart';
 // Conditional import: picks web_lifecycle.dart on Web, stub on mobile/desktop.
 import 'api/web_lifecycle_stub.dart'
     if (dart.library.html) 'api/web_lifecycle.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,7 +78,7 @@ class LinkSpecApp extends ConsumerWidget {
       themeMode: ThemeMode.light,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'Roboto',
+        textTheme: GoogleFonts.robotoTextTheme(Theme.of(context).textTheme),
         scaffoldBackgroundColor: const Color(0xFFF5F5F7),
         colorScheme: ColorScheme.light(
           primary: const Color(0xFF0066CC),
