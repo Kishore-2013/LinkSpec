@@ -1,6 +1,7 @@
 name: linkSpec
 description: "LinkSpec - Domain-Gated Professional Networking App"
 publish_to: "none"
+
 version: 1.0.0+1
 
 environment:
@@ -12,7 +13,7 @@ dependencies:
 
   # UI & Fonts
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.2.1  # ADDED: Fixes the "missing Noto fonts" error
+  google_fonts: ^6.2.1 # Reverted from 8.0.2 to match Dart 3.6.2 (Flutter 3.27.4)
 
   # Backend & Database
   supabase_flutter: ^2.8.4
@@ -25,15 +26,16 @@ dependencies:
   flutter_web_plugins:
     sdk: flutter
 
-  # Utilities
+  # Utilities (Restored)
   intl: ^0.19.0
   timeago: ^3.6.1
   cached_network_image: ^3.3.1
-  # file_picker: ^8.1.7 # REMOVED: High potential for web compatibility issues if not configured
+  file_picker: ^8.1.7 # Restored for document and image picking on Web
+  flutter_image_compress: ^2.3.0 # Restored for image optimization
 
   # UI Enhancements
   shimmer: ^3.0.0
-  # pull_to_refresh: ^2.0.0 # REMOVED: Often conflicts with web scroll behavior
+  pull_to_refresh: ^2.0.0
   share_plus: ^12.0.1
   flutter_svg: ^2.0.10+1
   shared_preferences: ^2.5.3
@@ -41,8 +43,10 @@ dependencies:
   flutter_secure_storage: ^10.0.0
   http: ^1.6.0
   flutter_dotenv: ^5.2.1
-  # crypto: ^3.0.3 # REMOVED: Standard http/supabase handles auth hashing
-  # mailer: ^6.1.0 # REMOVED: Strictly incompatible with Web (requires dart:io)
+  crypto: ^3.0.3
+
+  # NOTE: 'mailer' remains removed as it is strictly incompatible with Web (requires dart:io)
+  # Use Supabase Auth for all email flows
 
 dev_dependencies:
   flutter_test:
