@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 260" fill="none">
+
+  <!-- Blob BG left -->
+  <ellipse cx="50" cy="190" rx="80" ry="70" fill="#FBEDE9" opacity="0.9"/>
+  <!-- Blob BG right -->
+  <ellipse cx="320" cy="60" rx="65" ry="55" fill="#F5C9C0" opacity="0.7"/>
+  <!-- Small accent blob -->
+  <circle cx="290" cy="200" r="30" fill="#FBEDE9" opacity="0.8"/>
+
+  <!-- Desk surface -->
+  <rect x="60" y="190" width="250" height="12" rx="6" fill="#E8D0C8"/>
+  <!-- Desk leg left -->
+  <rect x="80" y="202" width="10" height="40" rx="5" fill="#D4B8B0"/>
+  <!-- Desk leg right -->
+  <rect x="278" y="202" width="10" height="40" rx="5" fill="#D4B8B0"/>
+
+  <!-- Laptop base -->
+  <rect x="110" y="160" width="140" height="32" rx="5" fill="#CF7E6B"/>
+  <!-- Laptop screen -->
+  <rect x="118" y="100" width="124" height="68" rx="6" fill="#F9EDE9"/>
+  <!-- Laptop screen inner -->
+  <rect x="124" y="106" width="112" height="56" rx="4" fill="#FFFFFF"/>
+  <!-- Screen content lines -->
+  <rect x="132" y="116" width="60" height="5" rx="2" fill="#E8B4A8"/>
+  <rect x="132" y="127" width="90" height="4" rx="2" fill="#EDE0D8"/>
+  <rect x="132" y="137" width="75" height="4" rx="2" fill="#EDE0D8"/>
+  <rect x="132" y="147" width="50" height="4" rx="2" fill="#EDE0D8"/>
+  <!-- Hinge -->
+  <rect x="113" y="158" width="134" height="5" rx="2" fill="#D0786A"/>
+
+  <!-- Chair back -->
+  <rect x="175" y="105" width="18" height="60" rx="9" fill="#CF7E6B" opacity="0.5"/>
+  <!-- Chair seat -->
+  <ellipse cx="184" cy="182" rx="28" ry="8" fill="#E8B4A8"/>
+
+  <!-- Person body -->
+  <!-- Torso -->
+  <rect x="162" y="140" width="44" height="44" rx="14" fill="#F5D0C5"/>
+  <!-- Shirt -->
+  <rect x="166" y="155" width="36" height="28" rx="8" fill="#CF7E6B"/>
+  <!-- Left arm -->
+  <path d="M162 162 Q140 168 134 178" stroke="#F5D0C5" stroke-width="10" stroke-linecap="round"/>
+  <!-- Right arm -->
+  <path d="M206 162 Q225 168 232 178" stroke="#F5D0C5" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Head -->
+  <circle cx="184" cy="125" r="22" fill="#F5D0C5"/>
+  <!-- Hair -->
+  <path d="M162 120 Q163 100 184 98 Q205 100 206 120 Q200 108 184 107 Q168 108 162 120Z" fill="#CF7E6B"/>
+  <!-- Eye left -->
+  <circle cx="177" cy="124" r="2.5" fill="#2D2525"/>
+  <!-- Eye right -->
+  <circle cx="191" cy="124" r="2.5" fill="#2D2525"/>
+  <!-- Smile -->
+  <path d="M178 131 Q184 136 190 131" stroke="#2D2525" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+
+  <!-- Floating star accents -->
+  <circle cx="88" cy="110" r="5" fill="#CF7E6B" opacity="0.6"/>
+  <circle cx="75" cy="130" r="3" fill="#E8B4A8" opacity="0.7"/>
+  <circle cx="272" cy="145" r="4" fill="#CF7E6B" opacity="0.5"/>
+  <circle cx="288" cy="168" r="6" fill="#FBEDE9" opacity="0.9"/>
+
+  <!-- Location pin above head -->
+  <circle cx="235" cy="85" r="10" fill="#CF7E6B" opacity="0.8"/>
+  <path d="M235 95 L235 108" stroke="#CF7E6B" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+  <circle cx="235" cy="85" r="4" fill="#FFFFFF"/>
+
+</svg>
