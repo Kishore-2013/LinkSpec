@@ -12,12 +12,16 @@ class AuthService {
   /// Synchronize the current user's email into their public profile.
   /// (Backup manual sync if the DB trigger is bypassed)
   static Future<void> syncEmailToProfile() async {
-    final user = _supabase.auth.currentUser;
-    if (user != null && user.email != null) {
-      await _supabase
-          .from('profiles')
-          .update({'email': user.email})
-          .eq('id', user.id);
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user != null && user.email != null) {
+        await _supabase
+            .from('profiles')
+            .update({'email': user.email})
+            .eq('id', user.id);
+      }
+    } catch (e) {
+      print('AuthService: Email sync failed: $e');
     }
   }
 
@@ -43,27 +47,39 @@ class AuthService {
 
     final hashedPw = hashPassword(rawPassword, user.id);
 
-    await _supabase
-        .from('profiles')
-        .update({'custom_password': hashedPw})
-        .eq('id', user.id);
+    try {
+      await _supabase
+          .from('profiles')
+          .update({'custom_password': hashedPw})
+          .eq('id', user.id);
+    } catch (e) {
+      print('AuthService: Failed to update secondary password: $e');
+      rethrow;
+    }
   }
 
   /// verifyCustomPassword: Checks if a raw string matches the stored hash.
   static Future<bool> verifyCustomPassword(String rawPassword) async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return false;
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return false;
 
-    final response = await _supabase
-        .from('profiles')
-        .select('custom_password')
-        .eq('id', user.id)
-        .single();
+      final response = await _supabase
+          .from('profiles')
+          .select('custom_password')
+          .eq('id', user.id)
+          .maybeSingle();
 
-    final storedHash = response['custom_password'] as String?;
-    if (storedHash == null) return false;
+      if (response == null) return false;
 
-    final inputHash = hashPassword(rawPassword, user.id);
-    return inputHash == storedHash;
+      final storedHash = response['custom_password'] as String?;
+      if (storedHash == null) return false;
+
+      final inputHash = hashPassword(rawPassword, user.id);
+      return inputHash == storedHash;
+    } catch (e) {
+      print('AuthService: Error verifying password: $e');
+      return false;
+    }
   }
 }

@@ -227,13 +227,18 @@ class SupabaseService {
 
   /// Get a specific user's profile by ID
   static Future<Map<String, dynamic>?> getUserProfile(String userId) async {
-    final response = await _client
-        .from('profiles')
-        .select()
-        .eq('id', userId)
-        .maybeSingle();
+    try {
+      final response = await _client
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
 
-    return response;
+      return response;
+    } catch (e) {
+      debugPrint('SupabaseService: Error fetching profile for $userId: $e');
+      return null;
+    }
   }
 
   /// Get total post count for a user
