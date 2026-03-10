@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
+import 'package:go_router/go_router.dart';
 import 'dart:async';
 import '../widgets/aw_logo.dart';
 import '../services/linkspec_notify.dart';
@@ -71,8 +72,11 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
         LinkSpecNotifyType.success
       );
       
+      // Sign out to force manual login as per sequential flow requirements
+      await sb.Supabase.instance.client.auth.signOut();
+      
       Future.delayed(const Duration(seconds: 4), () {
-        if (mounted) Navigator.pushReplacementNamed(context, '/login');
+        if (mounted) context.go('/auth');
       });
       
     } catch (e) {
