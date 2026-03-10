@@ -1,12 +1,12 @@
 class SupabaseConfig {
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://prghjnknjkrcbkbiydgi.supabase.co',
+    defaultValue: 'https://prghjnknjkrckbiqydgi.supabase.co',
   );
 
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: '',
+    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByZ2hqbmtuamtyY2tiaXF5ZGdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDA4MDksImV4cCI6MjA4NjkxNjgwOX0.xJLCs_dNbPX514vHcjQ_FU_CctS22BKTICzHvRoR4HM',
   );
 
   static const String apiBaseUrl = String.fromEnvironment(
