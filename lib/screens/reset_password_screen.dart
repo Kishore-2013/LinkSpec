@@ -6,7 +6,6 @@ import '../widgets/aw_logo.dart';
 enum AuthState { initial, loading, success }
 
 /// Unified Reset Screen for LinkSpec: Only handles New Password entry.
-/// Domain Identification is handled on the Login screen during the "Forgot Password" request.
 class LinkSpecAuthScreen extends StatefulWidget {
   const LinkSpecAuthScreen({Key? key}) : super(key: key);
 
@@ -19,6 +18,9 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
   final _p = TextEditingController(), _c = TextEditingController();
   final _key = GlobalKey<FormState>();
   
+  bool _obsP = true;
+  bool _obsC = true;
+  
   // Use sb alias to resolve type mismatch with local AuthState enum
   StreamSubscription<sb.AuthState>? _sub;
 
@@ -29,10 +31,9 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
   }
 
   void _listen() {
-    // Listen for incoming password recovery events from deep links
     _sub = sb.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == sb.AuthChangeEvent.passwordRecovery) {
-        if (mounted) setState(() => _s = AuthState.initial); // Ensure we are in the form state
+        if (mounted) setState(() => _s = AuthState.initial);
       }
     });
   }
@@ -48,7 +49,6 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
     if (!_key.currentState!.validate()) return;
     setState(() => _s = AuthState.loading);
     try {
-      // Direct update in session created by recovery token.
       await sb.Supabase.instance.client.auth.updateUser(sb.UserAttributes(password: _p.text.trim()));
       setState(() => _s = AuthState.success);
       Future.delayed(const Duration(seconds: 2), () {
@@ -76,19 +76,21 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
     child: Column(children: [
       const AWLogo(size: 60, showAppName: true), const SizedBox(height: 48),
       
-      // Reset Form State
       if (_s == AuthState.initial) ...[
         _view('Update Identity'),
         const Text('Enter your new secure details.', style: TextStyle(color: Colors.grey)),
         const SizedBox(height: 32),
         Form(key: _key, child: Column(children: [
-          _field(_p, 'New Password', Icons.key, obs: true), const SizedBox(height: 12),
-          _field(_c, 'Confirm Password', Icons.verified, obs: true, v: (x) => x != _p.text ? 'Mismatch' : null),
+          _field(_p, 'New Password', Icons.key, obs: _obsP, 
+            toggle: () => setState(() => _obsP = !_obsP)), 
+          const SizedBox(height: 12),
+          _field(_c, 'Confirm Password', Icons.verified, obs: _obsC, 
+            v: (x) => x != _p.text ? 'Mismatch' : null,
+            toggle: () => setState(() => _obsC = !_obsC)),
         ])),
         _btn('Save and Login', _reset)
       ],
 
-      // Success State
       if (_s == AuthState.success) ...[
         const Icon(Icons.check_circle, size: 80, color: Colors.green),
         const SizedBox(height: 24),
@@ -105,7 +107,8 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
       foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), 
       child: Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))));
 
-  Widget _field(TextEditingController c, String h, IconData i, {bool obs = false, String? Function(String?)? v}) =>
+  Widget _field(TextEditingController c, String h, IconData i, {required bool obs, VoidCallback? toggle, String? Function(String?)? v}) => 
     TextFormField(controller: c, obscureText: obs, validator: v, decoration: InputDecoration(hintText: h, prefixIcon: Icon(i, color: Colors.grey),
+      suffixIcon: toggle != null ? GestureDetector(onTap: toggle, child: Icon(obs ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey, size: 20)) : null,
       filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE5E5EA))), contentPadding: const EdgeInsets.all(18)));
 }
