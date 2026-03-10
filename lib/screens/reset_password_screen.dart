@@ -6,7 +6,8 @@ import '../services/notification_service.dart';
 
 enum AuthState { initial, loading, success }
 
-/// Unified Reset Screen for LinkSpec: Only handles New Password entry.
+/// Dedicated Reset Password Page for LinkSpec.
+/// Handles the access_token from the URL fragment automatically via Supabase.
 class LinkSpecAuthScreen extends StatefulWidget {
   const LinkSpecAuthScreen({Key? key}) : super(key: key);
 
@@ -41,21 +42,39 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
 
   @override
   void dispose() {
+    // Cleanup to prevent memory leaks and duplicate triggers
     _sub?.cancel();
-    _p.dispose(); _c.dispose();
+    _p.dispose(); 
+    _c.dispose();
     super.dispose();
   }
 
   Future<void> _reset() async {
     if (!_key.currentState!.validate()) return;
+    
+    // Check if passwords match
+    if (_p.text.trim() != _c.text.trim()) {
+      NotificationService.showWarning("The passwords don't seem to match. Could you please double-check them for us?");
+      return;
+    }
+
     setState(() => _s = AuthState.loading);
     try {
+      // Technical requirement: Use supabase.auth.updateUser for the password change
       await sb.Supabase.instance.client.auth.updateUser(sb.UserAttributes(password: _p.text.trim()));
+      
       setState(() => _s = AuthState.success);
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) Navigator.pushReplacementNamed(context, '/home');
-      });
+      
+      // Soothing Success Popup
+      NotificationService.showSuccess(
+        'Your password has been successfully updated. Could you please log in now using your new secure details? We’re ready for you!',
+        onDone: () {
+          if (mounted) Navigator.pushReplacementNamed(context, '/login');
+        },
+      );
+      
     } catch (e) {
+      // Error Handling: Automatic soothing transformation occurs in NotificationService
       NotificationService.showWarning(e);
       setState(() => _s = AuthState.initial);
     }
@@ -65,48 +84,129 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F7),
-      body: Center(child: _s == AuthState.loading ? const CircularProgressIndicator() : _body()),
+      body: Center(
+        child: _s == AuthState.loading 
+            ? const CircularProgressIndicator() 
+            : _body(),
+      ),
     );
   }
 
-  Widget _body() => SingleChildScrollView(padding: const EdgeInsets.all(24), child: ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: 400),
-    child: Column(children: [
-      const AWLogo(size: 60, showAppName: true), const SizedBox(height: 48),
-      
-      if (_s == AuthState.initial) ...[
-        _view('Update Identity'),
-        const Text('Enter your new secure details.', style: TextStyle(color: Colors.grey)),
-        const SizedBox(height: 32),
-        Form(key: _key, child: Column(children: [
-          _field(_p, 'New Password', Icons.key, obs: _obsP, 
-            toggle: () => setState(() => _obsP = !_obsP)), 
-          const SizedBox(height: 12),
-          _field(_c, 'Confirm Password', Icons.verified, obs: _obsC, 
-            v: (x) => x != _p.text ? 'Mismatch' : null,
-            toggle: () => setState(() => _obsC = !_obsC)),
-        ])),
-        _btn('Save and Login', _reset)
-      ],
+  Widget _body() => SingleChildScrollView(
+    padding: const EdgeInsets.all(24), 
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 400),
+      child: Column(children: [
+        const AWLogo(size: 60, showAppName: true), 
+        const SizedBox(height: 48),
+        
+        if (_s != AuthState.success) ...[
+          _view('Update Identity'),
+          const Text(
+            'Enter your new secure details.', 
+            style: TextStyle(color: Colors.grey, fontSize: 16),
+          ),
+          const SizedBox(height: 32),
+          Form(
+            key: _key, 
+            child: Column(children: [
+              _field(
+                _p, 
+                'New Password', 
+                Icons.key_outlined, 
+                obs: _obsP, 
+                toggle: () => setState(() => _obsP = !_obsP),
+              ), 
+              const SizedBox(height: 16),
+              _field(
+                _c, 
+                'Confirm Password', 
+                Icons.verified_user_outlined, 
+                obs: _obsC, 
+                toggle: () => setState(() => _obsC = !_obsC),
+                v: (x) => (x == null || x.isEmpty) ? 'Required' : null,
+              ),
+            ]),
+          ),
+          _btn('Save and Login', _reset),
+        ] else ...[
+          // Success View - Shown while the popup is visible
+          const Icon(Icons.check_circle, size: 80, color: Color(0xFF2E7D32)),
+          const SizedBox(height: 24),
+          _view('Verified'),
+          const Text(
+            'Identity updated. Redirecting to your workspace...', 
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+        ],
+      ]),
+    ),
+  );
 
-      if (_s == AuthState.success) ...[
-        const Icon(Icons.check_circle, size: 80, color: Colors.green),
-        const SizedBox(height: 24),
-        _view('Verified'),
-        const Text('Identity updated. Redirecting to your workspace...', textAlign: TextAlign.center),
-      ],
-    ]),
-  ));
+  Widget _view(String t) => Padding(
+    padding: const EdgeInsets.only(bottom: 12), 
+    child: Text(
+      t, 
+      style: const TextStyle(
+        fontSize: 28, 
+        fontWeight: FontWeight.w900, 
+        letterSpacing: -0.8,
+      ),
+    ),
+  );
 
-  Widget _view(String t) => Padding(padding: const EdgeInsets.only(bottom: 24), child: Text(t, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -0.8)));
+  Widget _btn(String t, VoidCallback o) => Padding(
+    padding: const EdgeInsets.only(top: 32), 
+    child: SizedBox(
+      width: double.infinity, 
+      height: 56,
+      child: ElevatedButton(
+        onPressed: o, 
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1C1C1E),
+          foregroundColor: Colors.white, 
+          elevation: 0, 
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ), 
+        child: Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      ),
+    ),
+  );
 
-  Widget _btn(String t, VoidCallback o) => Padding(padding: const EdgeInsets.only(top: 24), child: SizedBox(width: double.infinity, height: 54,
-    child: ElevatedButton(onPressed: o, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C1C1E),
-      foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), 
-      child: Text(t, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))));
-
-  Widget _field(TextEditingController c, String h, IconData i, {required bool obs, VoidCallback? toggle, String? Function(String?)? v}) => 
-    TextFormField(controller: c, obscureText: obs, validator: v, decoration: InputDecoration(hintText: h, prefixIcon: Icon(i, color: Colors.grey),
-      suffixIcon: toggle != null ? GestureDetector(onTap: toggle, child: Icon(obs ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey, size: 20)) : null,
-      filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE5E5EA))), contentPadding: const EdgeInsets.all(18)));
+  Widget _field(
+    TextEditingController c, 
+    String h, 
+    IconData i, 
+    {required bool obs, VoidCallback? toggle, String? Function(String?)? v}
+  ) => TextFormField(
+    controller: c, 
+    obscureText: obs, 
+    validator: v ?? (x) => (x == null || x.isEmpty) ? 'Required' : null, 
+    decoration: InputDecoration(
+      hintText: h, 
+      prefixIcon: Icon(i, color: Colors.grey.shade400, size: 22),
+      suffixIcon: toggle != null 
+          ? IconButton(
+              icon: Icon(
+                obs ? Icons.visibility_off_outlined : Icons.visibility_outlined, 
+                color: Colors.grey.shade400, 
+                size: 20,
+              ),
+              onPressed: toggle,
+            ) 
+          : null,
+      filled: true, 
+      fillColor: Colors.white, 
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16), 
+        borderSide: BorderSide(color: Colors.grey.shade200),
+      ), 
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16), 
+        borderSide: BorderSide(color: Colors.grey.shade200),
+      ),
+      contentPadding: const EdgeInsets.all(20),
+    ),
+  );
 }
