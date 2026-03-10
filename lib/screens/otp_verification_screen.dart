@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../widgets/aw_logo.dart';
 import '../services/linkspec_notify.dart';
 
@@ -16,36 +18,94 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   final _otpController = TextEditingController();
   bool _isLoading = false;
 
-  Future<void> _handleVerifyOTP() async {
-    final token = _otpController.text.trim();
-    if (token.length < 6) {
+  Future<void> _verifyWithServer() async {
+    final code = _otpController.text.trim();
+    if (code.length < 6) {
       LinkSpecNotify.show(context, 'Ohh! no, please enter the full 6-digit code!', LinkSpecNotifyType.warning);
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      await sb.Supabase.instance.client.auth.verifyOTP(
-        email: widget.email,
-        token: token,
-        type: sb.OtpType.signup,
+      final response = await http.post(
+        Uri.parse('https://api.linkspec.com/v1/auth/verify-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': widget.email,
+          'otp_code': code,
+        }),
       );
 
-      if (mounted) {
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
         LinkSpecNotify.show(
           context, 
-          'Perfect! Your email is verified. Let\'s set up your professional domain now!', 
+          'Perfect! Your identity is verified. Let’s get your professional profile ready!', 
           LinkSpecNotifyType.info
         );
         context.go('/domain-selection');
-      }
-    } on sb.AuthException catch (e) {
-      if (mounted) {
-        LinkSpecNotify.show(context, 'Ohh! no, that code doesn\'t seem right. Could you please double-check your inbox?', LinkSpecNotifyType.warning);
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        LinkSpecNotify.show(
+          context, 
+          'Ohh! no, that code doesn’t seem right. Could you please double-check your inbox?', 
+          LinkSpecNotifyType.warning
+        );
+      } else if (response.statusCode == 410) {
+        LinkSpecNotify.show(
+          context, 
+          'Ohh! no, it looks like that code has expired. Could you please request a new one?', 
+          LinkSpecNotifyType.warning
+        );
+      } else {
+        LinkSpecNotify.show(
+          context, 
+          'Ohh! no, we hit a bit of a snag on the server. Could you please try again?', 
+          LinkSpecNotifyType.warning
+        );
       }
     } catch (e) {
       if (mounted) {
-        LinkSpecNotify.show(context, 'Ohh! no, we hit a bit of a snag. Could you please try again?', LinkSpecNotifyType.warning);
+        LinkSpecNotify.show(
+          context, 
+          'Ohh! no, we couldn’t reach the server. Please check your connection and try again.', 
+          LinkSpecNotifyType.warning
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _resendFromServer() async {
+    if (_isLoading) return; // Prevent double-tap
+    
+    setState(() => _isLoading = true);
+    try {
+      final response = await http.post(
+        Uri.parse('https://api.linkspec.com/v1/auth/resend-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': widget.email}),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        LinkSpecNotify.show(
+          context, 
+          "Perfect! We've sent a fresh code to your inbox.", 
+          LinkSpecNotifyType.info
+        );
+      } else {
+        LinkSpecNotify.show(
+          context, 
+          "Ohh! no, we couldn't resend the code right now. Could you please try again in a moment?", 
+          LinkSpecNotifyType.warning
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        LinkSpecNotify.show(context, "Ohh! no, something went wrong with the connection.", LinkSpecNotifyType.warning);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -107,7 +167,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleVerifyOTP,
+                    onPressed: _isLoading ? null : _verifyWithServer,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1C1C1E),
                       foregroundColor: Colors.white,
@@ -121,10 +181,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                 ),
                 const SizedBox(height: 24),
                 TextButton(
-                  onPressed: () {
-                    // Logic for resending could go here
-                    LinkSpecNotify.show(context, "Resending code... please check your inbox in a moment!", LinkSpecNotifyType.info);
-                  },
+                  onPressed: _isLoading ? null : _resendFromServer,
                   child: const Text(
                     'Didn\'t receive a code? Resend',
                     style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
