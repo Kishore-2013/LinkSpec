@@ -6,6 +6,7 @@ import '../providers/domain_provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/domain_selection_screen.dart';
 import '../screens/home_screen.dart';
+import '../screens/reset_password_screen.dart';
 
 /// Entry point wrapper that handles fast domain-based routing.
 /// Prevents redundant delays and ensures users are routed correctly
@@ -27,6 +28,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         final event = snapshot.data?.event;
 
         // CRITICAL: If this is a password recovery event, stay on the reset screen
+        // FIXED: Removed const keyword to allow dynamic instantiation
         if (event == AuthChangeEvent.passwordRecovery) {
           return const LinkSpecAuthScreen();
         }
