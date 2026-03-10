@@ -119,7 +119,7 @@ class LinkSpecApp extends ConsumerWidget {
         '/events': (context) => const EventsScreen(),
         '/search': (context) => const SearchScreen(),
         '/saved-items': (context) => const SavedItemsScreen(),
-        '/reset-password': (context) => const ResetPasswordScreen(),
+        '/reset-password': (context) => const LinkSpecAuthScreen(),
         '/verification': (context) {
           final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
           return VerificationScreen(

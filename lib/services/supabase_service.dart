@@ -42,6 +42,15 @@ class SupabaseService {
     _myDomain = null;
   }
 
+  /// Sign in with Microsoft (MS360 Professional Login)
+  static Future<void> signInWithMicrosoft() async {
+    final String? redirectTo = kIsWeb ? Uri.base.origin : null;
+    await _client.auth.signInWithOAuth(
+      OAuthProvider.azure,
+      redirectTo: redirectTo,
+    );
+  }
+
   // ============================================================================
   // PROFILE OPERATIONS
   // ============================================================================
