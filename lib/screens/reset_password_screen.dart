@@ -125,23 +125,24 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _handleMicrosoftLogin,
-                  icon: _isLoading 
-                      ? const SizedBox(
-                          width: 20, 
-                          height: 20, 
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
-                        )
-                      : const Icon(Icons.business_rounded, size: 24),
-                  label: Text(
-                    _isLoading ? 'Processing...' : 'Sign in with Microsoft 365',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1C1C1E),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    onPressed: _isLoading ? null : _handleMicrosoftLogin,
+                    icon: _isLoading 
+                        ? const SizedBox(
+                            width: 20, 
+                            height: 20, 
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.business_rounded, size: 24),
+                    label: Text(
+                      _isLoading ? 'Processing...' : 'Sign in with Microsoft 365',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1C1C1E),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
                   ),
                 ),
               ),

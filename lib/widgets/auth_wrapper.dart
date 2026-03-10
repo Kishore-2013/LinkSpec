@@ -32,6 +32,9 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
           return const LoginScreen();
         }
 
+        final session = sb.Supabase.instance.client.auth.currentSession;
+        final event = snapshot.data?.event;
+
         // GUARD: STRICT PASSWORD RECOVERY LOCK
         // If the session is in passwordRecovery mode, we MUST lock the user
         // on the reset screen and prohibit Home access.
@@ -52,8 +55,10 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         
         // If moving to home but was previously in recovery without finishing
         if (event == sb.AuthChangeEvent.signedIn && hasRecoveryIntent) {
-           WidgetsBinding.instance.addPostFrameCallback((_) {
+           WidgetsBinding.instance.addPostFrameCallback((_) async {
              LinkSpecNotify.show(context, "Ohh! no, we still need you to set your new password before you can enter. Could you please finish that first?", LinkSpecNotifyType.warning);
+             // Safety: Clean out the bypass session
+             await sb.Supabase.instance.client.auth.signOut();
            });
            return const LinkSpecAuthScreen();
         }
