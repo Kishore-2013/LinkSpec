@@ -21,8 +21,6 @@ import 'screens/events_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/saved_items_screen.dart';
 import 'screens/reset_password_screen.dart';
-import 'screens/verification_screen.dart';
-import 'screens/email_sender_screen.dart';
 import 'providers/theme_provider.dart';
 import 'api/session_cache.dart';
 import 'api/web_lifecycle_stub.dart'
@@ -97,23 +95,7 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/reset-password',
-      builder: (context, state) => LinkSpecAuthScreen(),
-    ),
-    GoRoute(
-      path: '/verification',
-      builder: (context, state) {
-        final args = state.extra as Map<String, dynamic>?;
-        return VerificationScreen(
-          email: args?['email'] ?? '',
-          password: args?['password'],
-          fullName: args?['fullName'],
-          isSignUp: args?['isSignUp'] ?? false,
-        );
-      },
-    ),
-    GoRoute(
-      path: '/email-sender',
-      builder: (context, state) => const EmailSenderScreen(),
+      builder: (context, state) => const LinkSpecAuthScreen(),
     ),
   ],
 );

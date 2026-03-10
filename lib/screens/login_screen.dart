@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../services/linkspec_notify.dart';
 import 'dart:async';
 import '../widgets/aw_logo.dart';
 import '../services/supabase_service.dart';
-import '../utils/validators.dart';
 
-/// Login / Sign-Up Screen — Minimalistic design.
-/// Clean white surface, hairline input borders, single accent colour.
+/// Login Screen — Unified Microsoft 365 Authentication.
+/// Features a single, premium 'Sign in with Microsoft' entry point.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -17,36 +15,17 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
   // ─────────────────────────────────────────────────────────────────────────
   // Design tokens — Ultra-Minimalist
-  static const _bg         = Color(0xFFF8F9FB); // Very Light Grey / Concrete
-  static const _surface    = Color(0xFFFFFFFF); // Pure White (inputs)
-  static const _primary    = Color(0xFF1C1C1E); // Deep Charcoal / Black (CTA button)
-  static const _accent     = Color(0xFF2C2C2E); // Dark Grey (focus, links)
-  static const _accentSoft = Color(0xFFF2F2F7); // Lite Grey tint
-  static const _text       = Color(0xFF1C1C1E); // Black text
-  static const _textMid    = Color(0xFF8E8E93); // iOS style muted text
-  static const _border     = Color(0xFFE5E5EA); // Lite separator
-  static const _danger     = Color(0xFFFF3B30); // Apple Red
-  static const _success    = Color(0xFF34C759); // Apple Green
-  // alias so _textDark compile references still resolve
-  static const _textDark   = _text;
+  static const _bg         = Color(0xFFF8F9FB); 
+  static const _surface    = Color(0xFFFFFFFF);
+  static const _textDark   = Color(0xFF1C1C1E);
+  static const _textMid    = Color(0xFF8E8E93);
+  static const _border     = Color(0xFFE5E5EA);
 
   // ── state ────────────────────────────────────────────────────────────────
-  final _formKey = GlobalKey<FormState>();
-  final _nameFocus = FocusNode();
-  final _emailFocus = FocusNode();
-  final _passFocus = FocusNode();
-
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-
   bool _isLoading = false;
-  bool _isSignUp = false;
-  bool _obscurePassword = true;
 
   late final AnimationController _slideCtrl;
   late final Animation<Offset> _slideAnim;
@@ -54,9 +33,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   // blob float animations
   late final AnimationController _blobCtrl;
-  late final Animation<double> _blobFloat1; // coral — drifts up
-  late final Animation<double> _blobFloat2; // green — drifts down-right
-  late final Animation<double> _blobFloat3; // curve — drifts up-left
+  late final Animation<double> _blobFloat1; 
+  late final Animation<double> _blobFloat2; 
   late final StreamSubscription<sb.AuthState> _authSubscription;
 
   @override
@@ -66,55 +44,24 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     )..forward();
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.06),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut));
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut));
     _fadeAnim = CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut);
 
-    // blob float — slow looping breathe
-    _blobCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat(reverse: true);
-    _blobFloat1 = Tween<double>(begin: 0, end: -16).animate(
-      CurvedAnimation(parent: _blobCtrl, curve: Curves.easeInOut),
-    );
-    _blobFloat2 = Tween<double>(begin: 0, end: 14).animate(
-      CurvedAnimation(
-        parent: _blobCtrl,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeInOut),
-      ),
-    );
-    _blobFloat3 = Tween<double>(begin: 0, end: -12).animate(
-      CurvedAnimation(
-        parent: _blobCtrl,
-        curve: const Interval(0.4, 1.0, curve: Curves.easeInOut),
-      ),
-    );
+    _blobCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
+    _blobFloat1 = Tween<double>(begin: 0, end: -16).animate(CurvedAnimation(parent: _blobCtrl, curve: Curves.easeInOut));
+    _blobFloat2 = Tween<double>(begin: 0, end: 14).animate(CurvedAnimation(parent: _blobCtrl, curve: const Interval(0.2, 1.0, curve: Curves.easeInOut)));
 
     _authSubscription = sb.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.event == sb.AuthChangeEvent.passwordRecovery) {
-        if (mounted) {
-          // The Soothing Redirection: Notify user of the safe funneling
-          LinkSpecNotify.show(context, "Ohh! no, it looks like you're trying to reset your password. We're moving you to a secure, dedicated page for that right now!", LinkSpecNotifyType.info);
-          Navigator.of(context).pushReplacementNamed('/reset-password');
-        }
+      if (data.event == sb.AuthChangeEvent.signedIn || data.event == sb.AuthChangeEvent.tokenRefreshed) {
+        // Redirection handled by AuthWrapper, but localized logic can go here.
       }
     });
 
-    // INTERCEPT: Path Guard for Reset Password Flow
-    // This ensures that when a user clicks a recovery link, they are immediately
-    // moved to the dedicated screen, avoiding auth state conflicts on the Login page.
+    // INTERCEPT: If the URL contains recovery parameters, redirect to dedicated auth screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final uri = Uri.base;
-      final hasResetIntent = uri.queryParameters.containsKey('code') || 
-                             uri.fragment.contains('code=') ||
-                             uri.fragment.contains('type=recovery') ||
-                             uri.queryParameters['type'] == 'recovery';
-
-      if (hasResetIntent && mounted) {
-        LinkSpecNotify.show(context, "Ohh! no, it looks like you're trying to reset your password. We're moving you to a secure, dedicated page for that right now!", LinkSpecNotifyType.info);
+      if (uri.queryParameters.containsKey('code') || uri.fragment.contains('code=')) {
         Navigator.of(context).pushReplacementNamed('/reset-password');
       }
     });
@@ -122,114 +69,10 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
-    _nameFocus.dispose();
-    _emailFocus.dispose();
-    _passFocus.dispose();
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
     _slideCtrl.dispose();
     _blobCtrl.dispose();
     _authSubscription.cancel();
     super.dispose();
-  }
-
-  // ── auth ─────────────────────────────────────────────────────────────────
-  
-  /// Unified authentication handler following a "Sign In, then Sign Up" strategy.
-  /// 
-  /// Logic: 
-  /// 1. Validate form fields.
-  /// 2. Attempt to sign in with email/password.
-  /// 3. If sign-in fails with credentials error (meaning user might not exist), 
-  ///    attempt to sign up.
-  /// 4. On success, route to the appropriate screen based on profile status.
-  Future<void> _handleAuth() async {
-    if (!_formKey.currentState!.validate()) return;
-    
-    final email    = _emailController.text.trim();
-    final password = _passwordController.text;
-    final fullName = _nameController.text.trim();
-
-    setState(() => _isLoading = true);
-    
-    try {
-      // Step 1: Attempt Sign In
-      final signedIn = await _attemptSignIn(email, password);
-      
-      if (signedIn) {
-        await _handlePostAuthRouting();
-        return;
-      }
-
-      // Step 2: User likely doesn't exist, try Sign Up
-      final response = await sb.Supabase.instance.client.auth.signUp(
-        email: email,
-        password: password,
-        data: {'full_name': fullName},
-      );
-
-      if (response.user != null) {
-        await _handlePostAuthRouting();
-      } else {
-        _showSnack('Sign up failed. Please check your credentials.');
-      }
-
-    } on sb.AuthException catch (e) {
-      if (mounted) LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
-    } catch (e) {
-      if (mounted) LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  /// Attempts to sign in the user. 
-  /// Returns [true] if successful, [false] if it should fallback to sign-up.
-  Future<bool> _attemptSignIn(String email, String password) async {
-    try {
-      final response = await sb.Supabase.instance.client.auth.signInWithPassword(
-        email: email,
-        password: password,
-      );
-      return response.session != null;
-    } on sb.AuthException catch (e) {
-      // These specific errors imply the user should be created or has unconfirmed status
-      if (e.message.contains('Invalid login credentials') || 
-          e.message.contains('Email not confirmed')) {
-        return false;
-      }
-      rethrow; // Other errors like 'Rate limit' should stop the flow
-    }
-  }
-
-  /// Fast Domain-Based Routing Logic
-  Future<void> _handlePostAuthRouting() async {
-    if (!mounted) return;
-    
-    try {
-      // Immediately fetch profile
-      final profile = await SupabaseService.getCurrentUserProfile(forceRefresh: true);
-      
-      if (!mounted) return;
-      
-      final domainId = profile?['domain_id'];
-      
-      if (domainId == null) {
-        // No domain? Go to selection
-        Navigator.of(context).pushNamedAndRemoveUntil('/domain-selection', (route) => false, arguments: {
-          'fullName': _nameController.text.trim(),
-        });
-      } else {
-        // Has domain? Go home
-        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-      }
-    } catch (e) {
-      if (mounted) {
-        LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
-        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-      }
-    }
   }
 
   Future<void> _handleMicrosoftLogin() async {
@@ -243,35 +86,12 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  void _showSnack(String msg, {bool isError = true}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w500)),
-      backgroundColor: isError ? _danger : _success,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      margin: const EdgeInsets.all(16),
-    ));
-  }
-
-  void _toggleMode() {
-    setState(() {
-      _isSignUp = !_isSignUp;
-      _formKey.currentState?.reset();
-      _nameController.clear();
-      _emailController.clear();
-      _passwordController.clear();
-    });
-    _slideCtrl.forward(from: 0.3);
-  }
-
-  // ── build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
       body: Stack(
         children: [
-          // ── Background Layers (Mobile only or base) ──
           Positioned.fill(
             child: SvgPicture.asset(
               'assets/svg/marble_texture.svg',
@@ -280,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
           
-          // Decorative Blobs (Faint)
+          // Decorative Blobs
           IgnorePointer(
             child: Stack(
               children: [
@@ -288,45 +108,27 @@ class _LoginScreenState extends State<LoginScreen>
                   top: -20, left: -20,
                   child: AnimatedBuilder(
                     animation: _blobCtrl,
-                    builder: (_, child) => Transform.translate(
-                      offset: Offset(0, _blobFloat1.value),
-                      child: child,
-                    ),
-                    child: Opacity(
-                      opacity: 0.25,
-                      child: SvgPicture.asset('assets/svg/soft_coral.svg', width: 350, color: Colors.grey[300]),
-                    ),
+                    builder: (_, child) => Transform.translate(offset: Offset(0, _blobFloat1.value), child: child),
+                    child: Opacity(opacity: 0.25, child: SvgPicture.asset('assets/svg/soft_coral.svg', width: 350, color: Colors.grey[300])),
                   ),
                 ),
                 Positioned(
                   bottom: -90, left: -130,
                   child: AnimatedBuilder(
                     animation: _blobCtrl,
-                    builder: (_, child) => Transform.translate(
-                      offset: Offset(_blobFloat2.value * 0.4, _blobFloat2.value),
-                      child: child,
-                    ),
-                    child: Opacity(
-                      opacity: 0.2,
-                      child: SvgPicture.asset('assets/svg/soft_green_blob.svg', width: 300, color: Colors.grey[300]),
-                    ),
+                    builder: (_, child) => Transform.translate(offset: Offset(_blobFloat2.value * 0.4, _blobFloat2.value), child: child),
+                    child: Opacity(opacity: 0.2, child: SvgPicture.asset('assets/svg/soft_green_blob.svg', width: 300, color: Colors.grey[300])),
                   ),
                 ),
               ],
             ),
           ),
           
-          // ── foreground ───────────────────────────────────────────────────
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final bool isDesktop = constraints.maxWidth > 900;
-                
-                if (isDesktop) {
-                  return _buildDesktopLayout();
-                } else {
-                  return _buildMobileLayout();
-                }
+                return isDesktop ? _buildDesktopLayout() : _buildMobileLayout();
               },
             ),
           ),
@@ -338,26 +140,17 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildDesktopLayout() {
     return Row(
       children: [
-        // Left Side: Branding & Image
         Expanded(
           flex: 5,
           child: Stack(
             children: [
-              // Clean solid background — no image, no gradient
-              Positioned.fill(
-                child: Container(color: const Color(0xFFF0F4FF)),
-              ),
-              // SVG illustration centered in the upper portion
+              Positioned.fill(child: Container(color: const Color(0xFFF0F4FF))),
               Positioned.fill(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(48, 48, 48, 180),
-                  child: SvgPicture.asset(
-                    'assets/svg/undraw_login_weas.svg',
-                    fit: BoxFit.contain,
-                  ),
+                  child: SvgPicture.asset('assets/svg/undraw_login_weas.svg', fit: BoxFit.contain),
                 ),
               ),
-              // Branding text at the bottom
               Padding(
                 padding: const EdgeInsets.all(60.0),
                 child: Column(
@@ -368,22 +161,12 @@ class _LoginScreenState extends State<LoginScreen>
                     const SizedBox(height: 24),
                     const Text(
                       'Unite with your\nprofessional domain.',
-                      style: TextStyle(
-                        color: Color(0xFF1C1C1E),
-                        fontSize: 48,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1.5,
-                        height: 1.1,
-                      ),
+                      style: TextStyle(color: _textDark, fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: -1.5, height: 1.1),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'LinkSpec is the domain-gated networking platform\nfor the modern professional.',
-                      style: TextStyle(
-                        color: const Color(0xFF1C1C1E).withOpacity(0.6),
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: TextStyle(color: _textDark.withOpacity(0.6), fontSize: 18, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -391,16 +174,12 @@ class _LoginScreenState extends State<LoginScreen>
             ],
           ),
         ),
-        // Right Side: Form
         Expanded(
           flex: 4,
           child: Container(
             color: Colors.white,
             child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(60),
-                child: _buildFormContent(),
-              ),
+              child: SingleChildScrollView(padding: const EdgeInsets.all(60), child: _buildFormContent()),
             ),
           ),
         ),
@@ -416,10 +195,7 @@ class _LoginScreenState extends State<LoginScreen>
           opacity: _fadeAnim,
           child: SlideTransition(
             position: _slideAnim,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: _buildFormContent(),
-            ),
+            child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: _buildFormContent()),
           ),
         ),
       ),
@@ -431,409 +207,57 @@ class _LoginScreenState extends State<LoginScreen>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-                          // ── Logo ───────────────────────────────────────
-                          Center(
-                            child: AWLogo(
-                              size: 52,
-                              showAppName: true,
-                              showTagline: false,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-
-                          // ── Heading ─────────────────────────────────────
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 250),
-                            child: Column(
-                              key: ValueKey(_isSignUp),
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _isSignUp ? 'Create account' : 'Welcome back',
-                                  style: const TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w700,
-                                    color: _textDark,
-                                    letterSpacing: -0.5,
-                                    height: 1.1,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _isSignUp
-                                      ? 'Join your professional community.'
-                                      : 'Sign in to your domain feed.',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: _textMid,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-
-                          // ── Form ───────────────────────────────────────
-                          Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // Name (sign-up only)
-                                AnimatedSize(
-                                  duration: const Duration(milliseconds: 280),
-                                  curve: Curves.easeInOut,
-                                  child: _isSignUp
-                                      ? Column(
-                                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                                          children: [
-                                            _buildLabel('Full Name'),
-                                            const SizedBox(height: 6),
-                                            _buildField(
-                                              controller: _nameController,
-                                              focusNode: _nameFocus,
-                                              hint: 'Jane Doe',
-                                              icon: Icons.person_outline_rounded,
-                                              textCapitalization: TextCapitalization.words,
-                                              textInputAction: TextInputAction.next,
-                                              onSubmitted: (_) => FocusScope.of(context).requestFocus(_emailFocus),
-                                              validator: (v) {
-                                                if (v == null || v.trim().isEmpty) return 'Name is required';
-                                                if (v.trim().length < 2) return 'At least 2 characters';
-                                                return null;
-                                              },
-                                              autofillHints: [AutofillHints.name],
-                                            ),
-                                            const SizedBox(height: 20),
-                                          ],
-                                        )
-                                      : const SizedBox.shrink(),
-                                ),
-
-                                // Email
-                                _buildLabel('Email'),
-                                const SizedBox(height: 6),
-                                _buildField(
-                                  controller: _emailController,
-                                  focusNode: _emailFocus,
-                                  hint: 'you@example.com',
-                                  icon: Icons.mail_outline_rounded,
-                                  keyboardType: TextInputType.emailAddress,
-                                  textInputAction: TextInputAction.next,
-                                  onSubmitted: (_) => FocusScope.of(context).requestFocus(_passFocus),
-                                  validator: Validators.validateEmail,
-                                  autofillHints: [AutofillHints.email],
-                                ),
-                                const SizedBox(height: 20),
-
-                                // Password
-                                _buildLabel('Password'),
-                                const SizedBox(height: 6),
-                                _buildField(
-                                  controller: _passwordController,
-                                  focusNode: _passFocus,
-                                  hint: '••••••••',
-                                  icon: Icons.lock_outline_rounded,
-                                  obscureText: _obscurePassword,
-                                  textInputAction: TextInputAction.done,
-                                  onSubmitted: (_) => _handleAuth(),
-                                  suffixIcon: GestureDetector(
-                                    onTap: () => setState(() => _obscurePassword = !_obscurePassword),
-                                    child: Icon(
-                                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                      size: 18,
-                                      color: _textMid,
-                                    ),
-                                  ),
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty) return 'Password is required';
-                                    if (_isSignUp && v.length < 6) return 'At least 6 characters';
-                                    return null;
-                                  },
-                                  autofillHints: [_isSignUp ? AutofillHints.newPassword : AutofillHints.password],
-                                ),
-
-                                // Hidden username field for accessibility (resolves Chrome warning)
-                                if (!_isSignUp)
-                                  const Offstage(
-                                    child: TextField(
-                                      autofillHints: [AutofillHints.username],
-                                    ),
-                                  ),
-
-                                if (!_isSignUp)
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton(
-                                      onPressed: _handleForgotPassword,
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(vertical: 8),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      child: const Text(
-                                        'Forgot password?',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: _accent,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                const SizedBox(height: 32),
-
-                                // ── CTA button ────────────────────────────
-                                _PrimaryButton(
-                                  isLoading: _isLoading,
-                                  label: _isSignUp ? 'Create account' : 'Sign in',
-                                  onTap: _isLoading ? null : _handleAuth,
-                                ),
-                                const SizedBox(height: 24),
-
-                                // ── Divider ───────────────────────────────
-                                Row(children: const [
-                                  Expanded(child: Divider(color: _border)),
-                                ]),
-                                const SizedBox(height: 24),
-
-                                // Microsoft Login Button
-                                OutlinedButton.icon(
-                                  onPressed: _isLoading ? null : _handleMicrosoftLogin,
-                                  icon: const Icon(Icons.business_rounded, size: 20),
-                                  label: const Text('Sign in with Microsoft 365'),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    side: const BorderSide(color: _border, width: 1.2),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    foregroundColor: _textDark,
-                                    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-
-                                const SizedBox(height: 20),
-
-                                // ── Toggle ────────────────────────────────
-                                Center(
-                                  child: GestureDetector(
-                                    onTap: _toggleMode,
-                                    child: AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 250),
-                                      child: RichText(
-                                        key: ValueKey(_isSignUp),
-                                        text: TextSpan(
-                                          style: const TextStyle(fontSize: 14, color: _textMid),
-                                          children: [
-                                            TextSpan(
-                                              text: _isSignUp ? 'Already have an account? ' : "Don't have an account? ",
-                                            ),
-                                            TextSpan(
-                                              text: _isSignUp ? 'Sign in' : 'Sign up',
-                                              style: const TextStyle(color: _accent, fontWeight: FontWeight.w600),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-  }
-
-  // ── Forgot Password Logic ────────────────────────────────────────────────
-  Future<void> _handleForgotPassword() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      _showError('Please enter your email address first.');
-      _emailFocus.requestFocus();
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      // Rule 1: Check Profiles Table First
-      final profile = await sb.Supabase.instance.client
-          .from('profiles')
-          .select()
-          .eq('email', email)
-          .maybeSingle();
-
-      if (profile == null) {
-        // Rule 2: Handle New Users (supportive tone)
-        if (mounted) {
-          _showError("Ohh! no, we couldn't find an account with that email. Would you mind signing up to join our professional community?");
-          setState(() => _isSignUp = true);
-        }
-        return;
-      }
-
-      // Rule 3: Handle Existing Users
-      // PERSISTENCE: Save the email locally so we can identify the user when they return from the link
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('recovery_email', email);
-
-      // Rule 4: Send the reset email via Service (Service handles path redirection)
-      await SupabaseService.sendPasswordResetEmail(email);
-      
-      if (mounted) {
-        _showSuccess('Perfect! Your recovery link is on its way. Please check your inbox!');
-      }
-    } catch (e) {
-      if (mounted) _showError('Error: ${e.toString()}');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  void _showError(String msg) {
-    LinkSpecNotify.show(context, msg, LinkSpecNotifyType.warning);
-  }
-
-  void _showSuccess(String msg) {
-    LinkSpecNotify.show(context, msg, LinkSpecNotifyType.success);
-  }
-
-
-
-  // ── helpers ───────────────────────────────────────────────────────────────
-  Widget _buildLabel(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: _textDark,
-          letterSpacing: 0.1,
+        const Center(child: AWLogo(size: 64, showAppName: true)),
+        const SizedBox(height: 48),
+        const Text(
+          'Join the community',
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: _textDark, letterSpacing: -0.5),
         ),
-      );
-
-  Widget _buildField({
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    required String hint,
-    required IconData icon,
-    required String? Function(String?) validator,
-    TextInputType? keyboardType,
-    TextInputAction? textInputAction,
-    TextCapitalization textCapitalization = TextCapitalization.none,
-    bool obscureText = false,
-    Widget? suffixIcon,
-    void Function(String)? onSubmitted,
-    Iterable<String>? autofillHints,
-  }) {
-    return TextFormField(
-      controller: controller,
-      focusNode: focusNode,
-      keyboardType: keyboardType,
-      textInputAction: textInputAction,
-      textCapitalization: textCapitalization,
-      obscureText: obscureText,
-      onFieldSubmitted: onSubmitted,
-      autofillHints: autofillHints,
-      validator: validator,
-      style: const TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w500,
-        color: _textDark,
-      ),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: _textMid.withOpacity(0.6), fontSize: 15),
-        prefixIcon: Icon(icon, size: 18, color: _textMid),
-        suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: _surface,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _border, width: 1.2),
+        const SizedBox(height: 8),
+        const Text(
+          'Sign in with your organization to access your domain feed.',
+          style: TextStyle(fontSize: 15, color: _textMid),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _accent, width: 1.8),
+        const SizedBox(height: 48),
+        
+        _MicrosoftButton(isLoading: _isLoading, onTap: _isLoading ? null : _handleMicrosoftLogin),
+        
+        const SizedBox(height: 32),
+        const Divider(color: _border),
+        const SizedBox(height: 24),
+        Center(
+          child: TextButton(
+            onPressed: () {
+              LinkSpecNotify.show(context, "LinkSpec uses Microsoft 365 for secure, domain-gated access. Please contact your administrator if you cannot sign in.", LinkSpecNotifyType.info);
+            },
+            child: const Text('Why Microsoft 365?', style: TextStyle(color: _textMid, fontWeight: FontWeight.w600)),
+          ),
         ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _danger, width: 1),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _danger, width: 1.5),
-        ),
-        errorStyle: TextStyle(fontSize: 12, height: 1.4, color: _danger),
-      ),
+      ],
     );
   }
 }
 
-// ── Primary button ─────────────────────────────────────────────────────────
-class _PrimaryButton extends StatefulWidget {
-  const _PrimaryButton({
-    required this.isLoading,
-    required this.label,
-    required this.onTap,
-  });
-
+class _MicrosoftButton extends StatelessWidget {
+  const _MicrosoftButton({required this.isLoading, required this.onTap});
   final bool isLoading;
-  final String label;
   final VoidCallback? onTap;
 
   @override
-  State<_PrimaryButton> createState() => _PrimaryButtonState();
-}
-
-class _PrimaryButtonState extends State<_PrimaryButton> {
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap?.call();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: 52,
-          decoration: BoxDecoration(
-            color: widget.onTap == null
-                ? const Color(0xFF1C1C1E).withOpacity(0.45) // disabled: dim black
-                : const Color(0xFF1C1C1E),                   // active: Deep Black
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(
-            child: widget.isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Text(
-                    widget.label,
-                    style: const TextStyle(
-                      color: Colors.white, // white on coral bg
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-          ),
-        ),
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: isLoading 
+          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+          : const Icon(Icons.business_rounded, size: 22),
+      label: Text(isLoading ? 'Signing in...' : 'Sign in with Microsoft 365'),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        backgroundColor: const Color(0xFF1C1C1E),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       ),
     );
   }
