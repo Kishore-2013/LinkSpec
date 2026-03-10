@@ -9,7 +9,11 @@ import 'dart:js_interop'; // Added for proper .toJS conversion if needed
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/aw_logo.dart';
+import '../services/linkspec_notify.dart';
 import '../services/supabase_service.dart';
+import '../config/supabase_config.dart';
+import '../utils/validators.dart';
+import 'package:web/web.dart' as web;
 
 /// Login Screen — Unified Microsoft 365 Authentication.
 /// Features a single, premium 'Sign in with Microsoft' entry point.
@@ -131,16 +135,14 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           if (response.statusCode == 200) {
             if (mounted) {
               LinkSpecNotify.show(context, "Perfect! We've sent a 6-digit verification code to your inbox!", LinkSpecNotifyType.info);
-              // Navigate to verify screen, passing data to complete signup later
+              // Navigate to verify screen using 'extra' to hide sensitive data from the URL
               context.go(
-                Uri(
-                  path: '/otp-verify',
-                  queryParameters: {
-                    'email': email,
-                    'name': name,
-                    'password': password,
-                  },
-                ).toString(),
+                '/otp-verify',
+                extra: {
+                  'email': email,
+                  'name': name,
+                  'password': password,
+                },
               );
             }
           } else {

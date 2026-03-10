@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/aw_logo.dart';
+import '../config/supabase_config.dart';
 import '../services/linkspec_notify.dart';
 
+class OTPVerificationScreen extends StatefulWidget {
   final String email;
   final String? name;
   final String? password;
