@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/aw_logo.dart';
 import '../widgets/clay_container.dart';
@@ -89,8 +90,8 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen>
 
       if (user == null) {
         if (mounted) {
-          LinkSpecNotify.show(context, 'Ohh! no, it looks like your session expired. Could you please try signing in again?', LinkSpecNotifyType.warning);
-          Navigator.of(context).pushReplacementNamed('/login');
+          LinkSpecNotify.show(context, 'Ohh! no, your session timed out. Could you please try the verification again?', LinkSpecNotifyType.warning);
+          context.go('/auth');
         }
         return;
       }

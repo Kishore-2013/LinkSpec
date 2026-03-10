@@ -21,6 +21,7 @@ import 'screens/events_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/saved_items_screen.dart';
 import 'screens/reset_password_screen.dart';
+import 'screens/otp_verification_screen.dart';
 import 'providers/theme_provider.dart';
 import 'api/session_cache.dart';
 import 'api/web_lifecycle_stub.dart'
@@ -64,6 +65,13 @@ final _router = GoRouter(
     GoRoute(
       path: '/login', // Alias for /auth to maintain compatibility if needed
       builder: (context, state) => LoginScreen(),
+    ),
+    GoRoute(
+      path: '/otp-verify',
+      builder: (context, state) {
+        final email = state.uri.queryParameters['email'] ?? (state.extra as String? ?? '');
+        return OTPVerificationScreen(email: email);
+      },
     ),
     GoRoute(
       path: '/domain-selection',

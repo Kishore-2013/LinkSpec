@@ -113,12 +113,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       
       if (_isSignUp) {
         // 2. SIGN UP WITH METADATA
+        final email = _emailCtrl.text.trim();
         await sb.Supabase.instance.client.auth.signUp(
-          email: _emailCtrl.text.trim(),
+          email: email,
           password: _passwordCtrl.text.trim(),
           data: {'full_name': _nameCtrl.text.trim()},
         );
-        if (mounted) LinkSpecNotify.show(context, "Perfect! Your verification link is on its way. Please check your inbox!", LinkSpecNotifyType.info);
+        if (mounted) {
+          LinkSpecNotify.show(context, "Perfect! We've sent a 6-digit verification code to your inbox!", LinkSpecNotifyType.info);
+          context.go('/otp-verify?email=$email');
+        }
       } else {
         // 3. SIGN IN
         await sb.Supabase.instance.client.auth.signInWithPassword(
@@ -130,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       if (mounted) {
         if (e.statusCode == '422' || e.message.toLowerCase().contains('already registered')) {
           // 422 Handle: User already exists
-          LinkSpecNotify.show(context, 'Ohh! no, it looks like you already have an account! Could you please try signing in instead?', LinkSpecNotifyType.warning);
+          LinkSpecNotify.show(context, 'Ohh! no, it looks like this email is already registered! Could you please try signing in or use a different email?', LinkSpecNotifyType.warning);
           setState(() {
             _isSignUp = false;
             _formKey.currentState?.reset();
