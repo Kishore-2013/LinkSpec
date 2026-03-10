@@ -27,7 +27,7 @@ class SupabaseService {
   /// Send a password reset email
   static Future<void> sendPasswordResetEmail(String email) async {
     // Redirect to the dedicated reset-password path on Web
-    final String? redirectTo = kIsWeb ? 'https://link-spec.vercel.app/reset-password' : null;
+    final String? redirectTo = kIsWeb ? '${Uri.base.origin}/reset-password' : null;
         
     await _client.auth.resetPasswordForEmail(
       email,
