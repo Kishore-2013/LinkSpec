@@ -16,7 +16,7 @@ class SupabaseConfig {
 
   static const String otpApiUrl = String.fromEnvironment(
     'OTP_API_URL',
-    defaultValue: 'http://localhost:8000',
+    defaultValue: 'https://otp-sender-seven.vercel.app',
   );
 
   static const String profileBucket = String.fromEnvironment(
