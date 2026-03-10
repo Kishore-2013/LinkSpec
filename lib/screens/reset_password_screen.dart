@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:go_router/go_router.dart';
 import 'dart:async';
+import 'dart:html' as html; // Used to clear the address bar
 import '../widgets/aw_logo.dart';
 import '../services/linkspec_notify.dart';
 import '../services/supabase_service.dart';
@@ -22,12 +23,52 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
   @override
   void initState() {
     super.initState();
-    // Resolve StreamSubscription<AuthState> type conflict by aliasing Supabase import.
+    
+    // 1. Clear URL parameters from address bar immediately to prevent re-validation on refresh
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (html.window.location.href.contains('code=') || html.window.location.href.contains('type=recovery')) {
+        // Clear the query & fragment without reloading the page
+        html.window.history.replaceState({}, '', html.window.location.pathname);
+      }
+    });
+
+    // 2. Resolve StreamSubscription<AuthState> type conflict
     _authSubscription = sb.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == sb.AuthChangeEvent.signedIn) {
+        // SECURITY CHECK: If session is present but it's from a recovery flow, 
+        // DO NOT allow navigation to home yet.
+        final uri = Uri.base;
+        final hasRecoveryIntent = uri.queryParameters.containsKey('code') || 
+                                 uri.fragment.contains('code=') ||
+                                 uri.fragment.contains('type=recovery');
+
+        if (hasRecoveryIntent) {
+          if (mounted) {
+            LinkSpecNotify.show(context, "Ohh! no, we still need you to set your new password before you can enter. Could you please finish that first?", LinkSpecNotifyType.warning);
+          }
+          return; // Lock movement
+        }
+
         if (mounted) context.go('/home');
       }
     });
+
+    // 3. FORCE LOGOUT ON BYPASS: If a user refreshes and is in a half-logged-in state,
+    // they should be kicked back to verification or logged out securely.
+    _validateRecoverySession();
+  }
+
+  Future<void> _validateRecoverySession() async {
+    final session = sb.Supabase.instance.client.auth.currentSession;
+    if (session != null) {
+      // If we land here but already have a session, we should check if they can actually go home
+      // or if they are stuck in a recovery loop.
+      // If it's a regular session that bypassed the reset, force sign out.
+      await sb.Supabase.instance.client.auth.signOut();
+      if (mounted) {
+         LinkSpecNotify.show(context, "Session expired or reset required. Please sign in again.", LinkSpecNotifyType.info);
+      }
+    }
   }
 
   @override

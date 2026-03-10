@@ -32,17 +32,30 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
           return const LoginScreen();
         }
 
-        final session = sb.Supabase.instance.client.auth.currentSession;
-        final event = snapshot.data?.event;
-
-        // GUARD: If this is a password recovery event, stay on the reset screen
-        // IMPORTANT: Do NOT fetch profile or current user during recovery until password is set.
+        // GUARD: STRICT PASSWORD RECOVERY LOCK
+        // If the session is in passwordRecovery mode, we MUST lock the user
+        // on the reset screen and prohibit Home access.
         if (event == sb.AuthChangeEvent.passwordRecovery) {
           return const LinkSpecAuthScreen();
         }
 
         if (session == null) {
           return const LoginScreen();
+        }
+
+        // SECURITY CHECK: If session is present but it's a 'half-logged-in' state
+        // from a bypassed recovery, force sign out.
+        final uri = Uri.base;
+        final hasRecoveryIntent = uri.queryParameters.containsKey('code') || 
+                                 uri.fragment.contains('code=') ||
+                                 uri.fragment.contains('type=recovery');
+        
+        // If moving to home but was previously in recovery without finishing
+        if (event == sb.AuthChangeEvent.signedIn && hasRecoveryIntent) {
+           WidgetsBinding.instance.addPostFrameCallback((_) {
+             LinkSpecNotify.show(context, "Ohh! no, we still need you to set your new password before you can enter. Could you please finish that first?", LinkSpecNotifyType.warning);
+           });
+           return const LinkSpecAuthScreen();
         }
 
         // FETCH PROFILE: With Timeout and Error Catch to prevent infinite loading.
