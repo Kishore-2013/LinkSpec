@@ -6,9 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../services/linkspec_notify.dart';
 import 'dart:async';
 import 'dart:js_interop'; // Added for proper .toJS conversion if needed
-import 'package:web/web.dart' as web;
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../widgets/aw_logo.dart';
 import '../services/supabase_service.dart';
+import '../config/supabase_config.dart';
+import '../utils/validators.dart';
 
 /// Login Screen — Unified Microsoft 365 Authentication.
 /// Features a single, premium 'Sign in with Microsoft' entry point.
@@ -114,25 +117,39 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       }
       
       if (_isSignUp) {
-        // 2. SIGN UP WITH METADATA
+        // 2. CUSTOM OTP FLOW: Call Python backend first to send branded OTP
         final email = _emailCtrl.text.trim();
-        await sb.Supabase.instance.client.auth.signUp(
-          email: email,
-          password: _passwordCtrl.text.trim(),
-          data: {'full_name': _nameCtrl.text.trim()},
-        );
-        if (mounted) {
-          LinkSpecNotify.show(context, "Perfect! We've sent a 6-digit verification code to your inbox!", LinkSpecNotifyType.info);
-          try {
-            // Enhanced with explicit Uri.encodeComponent for security
-            context.go('/otp-verify?email=${Uri.encodeComponent(email)}');
-          } catch (e) {
-            LinkSpecNotify.show(
-              context, 
-              "Ohh! no, we couldn't move you to the verification screen. Could you please try again?", 
-              LinkSpecNotifyType.warning
-            );
+        final name = _nameCtrl.text.trim();
+        final password = _passwordCtrl.text.trim();
+
+        try {
+          // We use http to call our local Python FastAPI/Flask server
+          final response = await http.post(
+            Uri.parse('${SupabaseConfig.otpApiUrl}/send-otp'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'email': email}),
+          );
+
+          if (response.statusCode == 200) {
+            if (mounted) {
+              LinkSpecNotify.show(context, "Perfect! We've sent a 6-digit verification code to your inbox!", LinkSpecNotifyType.info);
+              // Navigate to verify screen, passing data to complete signup later
+              context.go(
+                Uri(
+                  path: '/otp-verify',
+                  queryParameters: {
+                    'email': email,
+                    'name': name,
+                    'password': password,
+                  },
+                ).toString(),
+              );
+            }
+          } else {
+            if (mounted) LinkSpecNotify.show(context, "Ohh! no, we couldn't send the code. Please check your email and try again.", LinkSpecNotifyType.warning);
           }
+        } catch (e) {
+          if (mounted) LinkSpecNotify.show(context, "Ohh! no, we couldn't reach our mail server. Please try again later.", LinkSpecNotifyType.warning);
         }
       } else {
         // 3. SIGN IN
@@ -363,7 +380,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 controller: _emailCtrl,
                 icon: Icons.alternate_email_rounded,
                 keyboardType: TextInputType.emailAddress,
-                validator: (v) => (v == null || !v.contains('@')) ? 'Valid email required' : null,
+                validator: (v) => Validators.validateEmail(v),
               ),
               const SizedBox(height: 16),
               _buildTextField(

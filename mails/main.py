@@ -43,7 +43,9 @@ async def send_otp(request: OTPRequest, background_tasks: BackgroundTasks):
 
     # Use provider to send email in background
     try:
+        print(f"--- [DIAGNOSTIC] SENDING OTP TO: {email} ---")
         provider = get_email_provider(email)
+        print(f"--- [DIAGNOSTIC] SELECTED PROVIDER: {type(provider).__name__} ---")
         background_tasks.add_task(provider.send_otp, email, otp_code)
         return {"message": "OTP sent successfully"}
     except Exception as e:

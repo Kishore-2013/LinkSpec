@@ -21,39 +21,80 @@ class GmailProvider(EmailProvider):
         self.smtp_port = 587
 
     def send_otp(self, recipient_email: str, otp_code: str):
-        msg = MIMEMultipart()
-        msg['From'] = self.user
-        msg['To'] = recipient_email
-        msg['Subject'] = "Your LinkSpec Verification Code"
+        try:
+            print(f"--- [DEBUG] Attempting to send Gmail OTP to {recipient_email} ---")
+            msg = MIMEMultipart()
+            msg['From'] = self.user
+            msg['To'] = recipient_email
+            msg['Subject'] = "Your LinkSpec Verification Code"
 
-        body = f"Your verification code is: {otp_code}. It will expire in 5 minutes."
-        msg.attach(MIMEText(body, 'plain'))
+            body = f"Your verification code is: {otp_code}. It will expire in 5 minutes."
+            msg.attach(MIMEText(body, 'plain'))
 
-        with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-            server.starttls()
-            server.login(self.user, self.password)
-            server.send_message(msg)
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.set_debuglevel(1)  # Show SMTP traffic
+                server.starttls()
+                server.login(self.user, self.password)
+                server.send_message(msg)
+            print("--- [DEBUG] Gmail OTP sent successfully! ---")
+        except Exception as e:
+            print(f"--- [ERROR] Gmail SMTP failed: {str(e)} ---")
+            raise e
 
 class AzureMS365Provider(EmailProvider):
     def __init__(self):
-        self.connection_string = os.getenv("AZURE_CONNECTION_STRING")
-        self.sender_address = os.getenv("SENDER_ADDRESS")
-        self.client = EmailClient.from_connection_string(self.connection_string)
+        self.tenant_id = os.getenv("MS365_TENANT_ID")
+        self.client_id = os.getenv("MS365_CLIENT_ID")
+        self.client_secret = os.getenv("MS365_CLIENT_SECRET")
+        self.sender_email = os.getenv("SENDER_EMAIL")
+        self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
+        self.scope = ["https://graph.microsoft.com/.default"]
+
+    def _get_access_token(self):
+        import msal
+        app = msal.ConfidentialClientApplication(
+            self.client_id,
+            authority=self.authority,
+            client_credential=self.client_secret,
+        )
+        result = app.acquire_token_for_client(scopes=self.scope)
+        if "access_token" in result:
+            return result["access_token"]
+        else:
+            raise Exception(f"Failed to acquire token: {result.get('error_description')}")
 
     def send_otp(self, recipient_email: str, otp_code: str):
-        message = {
-            "content": {
-                "subject": "Your LinkSpec Verification Code",
-                "plainText": f"Your verification code is: {otp_code}. It will expire in 5 minutes.",
-            },
-            "recipients": {
-                "to": [{"address": recipient_email}],
-            },
-            "senderAddress": self.sender_address
+        import httpx
+        access_token = self._get_access_token()
+        
+        url = f"https://graph.microsoft.com/v1.0/users/{self.sender_email}/sendMail"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
         }
-
-        poller = self.client.begin_send(message)
-        return poller.result()
+        
+        email_body = {
+            "message": {
+                "subject": "Your LinkSpec Verification Code",
+                "body": {
+                    "contentType": "Text",
+                    "content": f"Your verification code is: {otp_code}. It will expire in 5 minutes."
+                },
+                "toRecipients": [
+                    {
+                        "emailAddress": {
+                            "address": recipient_email
+                        }
+                    }
+                ]
+            }
+        }
+        
+        with httpx.Client() as client:
+            response = client.post(url, headers=headers, json=email_body)
+            if response.status_code != 202:
+                raise Exception(f"Failed to send email via Graph API: {response.text}")
+            return response.json() if response.content else None
 
 def get_email_provider(recipient_email: str):
     email_lower = recipient_email.lower()

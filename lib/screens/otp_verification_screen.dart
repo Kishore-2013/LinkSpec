@@ -5,10 +5,19 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/aw_logo.dart';
 import '../services/linkspec_notify.dart';
+import '../config/supabase_config.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
   final String email;
-  const OTPVerificationScreen({Key? key, required this.email}) : super(key: key);
+  final String? name;
+  final String? password;
+
+  const OTPVerificationScreen({
+    Key? key, 
+    required this.email,
+    this.name,
+    this.password,
+  }) : super(key: key);
 
   @override
   State<OTPVerificationScreen> createState() => _OTPVerificationScreenState();
@@ -28,7 +37,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     setState(() => _isLoading = true);
     try {
       final response = await http.post(
-        Uri.parse('https://api.linkspec.com/v1/auth/verify-otp'),
+        Uri.parse('${SupabaseConfig.otpApiUrl}/verify-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': widget.email,
@@ -39,12 +48,33 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       if (!mounted) return;
 
       if (response.statusCode == 200) {
-        LinkSpecNotify.show(
-          context, 
-          'Perfect! Your identity is verified. Let’s get your professional profile ready!', 
-          LinkSpecNotifyType.info
-        );
-        context.go('/domain-selection');
+        // OTP VERIFIED BY PYTHON BACKEND. Now, proceed with Supabase signup if details provided.
+        if (widget.name != null && widget.password != null) {
+          try {
+            await sb.Supabase.instance.client.auth.signUp(
+              email: widget.email,
+              password: widget.password!,
+              data: {'full_name': widget.name!},
+            );
+            
+            if (!mounted) return;
+            LinkSpecNotify.show(
+              context, 
+              'Perfect! Your identity is verified. Your account has been created!', 
+              LinkSpecNotifyType.info
+            );
+            context.go('/domain-selection');
+          } catch (e) {
+            LinkSpecNotify.show(
+              context, 
+              'Ohh! no, identity verified, but account registration failed. Please try logging in.', 
+              LinkSpecNotifyType.warning
+            );
+          }
+        } else {
+           // Success for non-signup flows (like password reset etc)
+           context.go('/domain-selection');
+        }
       } else if (response.statusCode == 401 || response.statusCode == 403) {
         LinkSpecNotify.show(
           context, 
@@ -83,7 +113,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     setState(() => _isLoading = true);
     try {
       final response = await http.post(
-        Uri.parse('https://api.linkspec.com/v1/auth/resend-otp'),
+        Uri.parse('${SupabaseConfig.otpApiUrl}/send-otp'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': widget.email}),
       );
