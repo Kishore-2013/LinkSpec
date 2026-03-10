@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../services/supabase_service.dart';
 import '../providers/domain_provider.dart';
 import '../screens/login_screen.dart';
@@ -21,15 +21,14 @@ class AuthWrapper extends ConsumerStatefulWidget {
 class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<AuthState>(
-      stream: Supabase.instance.client.auth.onAuthStateChange,
+    return StreamBuilder<sb.AuthState>(
+      stream: sb.Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
-        final session = Supabase.instance.client.auth.currentSession;
+        final session = sb.Supabase.instance.client.auth.currentSession;
         final event = snapshot.data?.event;
 
         // CRITICAL: If this is a password recovery event, stay on the reset screen
-        // FIXED: Removed const keyword to allow dynamic instantiation
-        if (event == AuthChangeEvent.passwordRecovery) {
+        if (event == sb.AuthChangeEvent.passwordRecovery) {
           return const LinkSpecAuthScreen();
         }
 
