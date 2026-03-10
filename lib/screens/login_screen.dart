@@ -100,25 +100,49 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     
     setState(() => _isLoading = true);
     try {
-      // SECURITY: Clear any potential conflicting sessions or internal Supabase state
-      await sb.Supabase.instance.client.auth.signOut();
+      // 1. CLEAR GHOST SESSIONS: Ensure no stale session or recovery token interferes
+      final uri = Uri.base;
+      final hasGhostIntent = uri.queryParameters.containsKey('code') || 
+                             uri.fragment.contains('code=') ||
+                             uri.queryParameters['type'] == 'recovery' ||
+                             sb.Supabase.instance.client.auth.currentSession != null;
+      
+      if (hasGhostIntent) {
+        await sb.Supabase.instance.client.auth.signOut();
+      }
       
       if (_isSignUp) {
-        // Sign up logic via SupabaseService if available, or direct call
+        // 2. SIGN UP WITH METADATA
         await sb.Supabase.instance.client.auth.signUp(
           email: _emailCtrl.text.trim(),
           password: _passwordCtrl.text.trim(),
           data: {'full_name': _nameCtrl.text.trim()},
         );
-        if (mounted) LinkSpecNotify.show(context, "Welcome! Please check your email to verify your account.", LinkSpecNotifyType.info);
+        if (mounted) LinkSpecNotify.show(context, "Perfect! Your verification link is on its way. Please check your inbox!", LinkSpecNotifyType.info);
       } else {
+        // 3. SIGN IN
         await sb.Supabase.instance.client.auth.signInWithPassword(
           email: _emailCtrl.text.trim(),
           password: _passwordCtrl.text.trim(),
         );
       }
+    } on sb.AuthException catch (e) {
+      if (mounted) {
+        if (e.statusCode == '422' || e.message.toLowerCase().contains('already registered')) {
+          // 422 Handle: User already exists
+          LinkSpecNotify.show(context, 'Ohh! no, it looks like this email is already part of our community. Would you mind signing in instead?', LinkSpecNotifyType.warning);
+          setState(() => _isSignUp = false);
+        } else if (e.statusCode == '400') {
+          // 400 Handle: Bad Request/Stale Token
+          LinkSpecNotify.show(context, 'Ohh! no, something went a bit wrong with the request. Could you please double-check your details and try one more time?', LinkSpecNotifyType.warning);
+        } else {
+          LinkSpecNotify.show(context, 'Ohh! no, we hit a bit of a snag. Could you please check this: ${e.message}', LinkSpecNotifyType.warning);
+        }
+      }
     } catch (e) {
-      if (mounted) LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
+      if (mounted) {
+        LinkSpecNotify.show(context, 'Ohh! no, something unexpected happened. Could you please try again in a moment?', LinkSpecNotifyType.warning);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
