@@ -57,23 +57,23 @@ final _router = GoRouter(
   routes: [
     GoRoute(
       path: '/',
-      builder: (context, state) => const AuthWrapper(),
+      builder: (context, state) => AuthWrapper(),
     ),
     GoRoute(
       path: '/auth',
-      builder: (context, state) => const LoginScreen(),
+      builder: (context, state) => LoginScreen(),
     ),
     GoRoute(
       path: '/login', // Alias for /auth to maintain compatibility if needed
-      builder: (context, state) => const LoginScreen(),
+      builder: (context, state) => LoginScreen(),
     ),
     GoRoute(
       path: '/domain-selection',
-      builder: (context, state) => const DomainSelectionScreen(),
+      builder: (context, state) => DomainSelectionScreen(),
     ),
     GoRoute(
       path: '/home',
-      builder: (context, state) => const HomeScreen(),
+      builder: (context, state) => HomeScreen(),
     ),
     GoRoute(
       path: '/settings',
@@ -97,7 +97,7 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/reset-password',
-      builder: (context, state) => const LinkSpecAuthScreen(),
+      builder: (context, state) => LinkSpecAuthScreen(),
     ),
     GoRoute(
       path: '/verification',

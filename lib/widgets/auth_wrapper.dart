@@ -29,7 +29,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             LinkSpecNotify.show(context, LinkSpecNotify.mapError('session_timeout'), LinkSpecNotifyType.info);
           });
-          return const LoginScreen();
+          return LoginScreen();
         }
 
         final session = sb.Supabase.instance.client.auth.currentSession;
@@ -38,11 +38,11 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         // GUARD: If this is a password recovery event, stay on the reset screen
         // IMPORTANT: Do NOT fetch profile or current user during recovery until password is set.
         if (event == sb.AuthChangeEvent.passwordRecovery) {
-          return const LinkSpecAuthScreen();
+          return LinkSpecAuthScreen();
         }
 
         if (session == null) {
-          return const LoginScreen();
+          return LoginScreen();
         }
 
         // FETCH PROFILE: With Timeout and Error Catch to prevent infinite loading.
@@ -67,7 +67,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 LinkSpecNotify.show(context, LinkSpecNotify.mapError('session_timeout'), LinkSpecNotifyType.info);
               });
-              return const LoginScreen();
+              return LoginScreen();
             }
 
             final profile = profileSnapshot.data;
@@ -75,7 +75,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
             // If profile record doesn't exist yet or domain_id is null,
             // the user needs to complete domain selection.
             if (profile == null || profile['domain_id'] == null) {
-              return const DomainSelectionScreen();
+              return DomainSelectionScreen();
             }
 
             // Sync domain state immediately
@@ -88,7 +88,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
               });
             }
 
-            return const HomeScreen();
+            return HomeScreen();
           },
         );
       },

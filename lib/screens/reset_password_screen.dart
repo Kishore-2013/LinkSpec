@@ -69,7 +69,7 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
       if (mounted) {
         LinkSpecNotify.showDialog(
           context, 
-          'Perfect! Your password is updated. Could you please log in now to see your professional network?', 
+          'Perfect! Your password is updated. Could you please log in now using your new secure details?', 
           LinkSpecNotifyType.success,
           onConfirm: () async {
             // Sign out to force manual login as per sequential flow requirements
