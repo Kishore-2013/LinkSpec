@@ -82,8 +82,8 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
         const Text('Enter your new secure details.', style: TextStyle(color: Colors.grey)),
         const SizedBox(height: 32),
         Form(key: _key, child: Column(children: [
-          _field(_p, 'New Secret', Icons.key, obs: true), const SizedBox(height: 12),
-          _field(_c, 'Confirm Secret', Icons.verified, obs: true, v: (x) => x != _p.text ? 'Mismatch' : null),
+          _field(_p, 'New Password', Icons.key, obs: true), const SizedBox(height: 12),
+          _field(_c, 'Confirm Password', Icons.verified, obs: true, v: (x) => x != _p.text ? 'Mismatch' : null),
         ])),
         _btn('Save and Login', _reset)
       ],
