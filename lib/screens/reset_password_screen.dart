@@ -71,7 +71,7 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
     child: Column(children: [
       const AWLogo(size: 60, showAppName: true), const SizedBox(height: 48),
       if (_s == AuthState.initial) ...[_view('Authentication'), _field(_email, 'Corporate or Gmail Email', Icons.person), _btn('Identify Domain', _entry)],
-      if (_s == AuthState.mailSent) ...[_view('Check Inbox'), const Text('A secure link was sent. Check your mail.', textAlign: TextAlign.center), _btn('Back', () => setState(() => _s = AuthState.initial), o: true)],
+      if (_s == AuthState.mailSent) ...[_view('Check Inbox'), const Text('A secure link was sent. Check your mail.', textAlign: TextAlign.center), _btn('Back', () => setState(() => _s = AuthState.initial), o_: true)],
       if (_s == AuthState.resetting) ...[_view('Reset Identity'), Form(key: _key, child: Column(children: [
         _field(_p, 'New Secret', Icons.key, obs: true), const SizedBox(height: 12),
         _field(_c, 'Confirm Secret', Icons.verified, obs: true, v: (x) => x != _p.text ? 'Mismatch' : null),
