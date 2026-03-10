@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:go_router/go_router.dart';
 import 'dart:async';
+import 'dart:js_interop';
 import 'package:web/web.dart' as web; // Used to clear the address bar
 import '../widgets/aw_logo.dart';
 import '../services/linkspec_notify.dart';

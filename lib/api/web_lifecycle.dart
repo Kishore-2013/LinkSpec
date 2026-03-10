@@ -1,5 +1,6 @@
 // ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'session_cache.dart';
 
@@ -7,9 +8,12 @@ import 'session_cache.dart';
 /// Web implementation — registers window.beforeunload to clear SessionCache.
 class WebLifecycleHelper {
   static void register() {
-    html.window.onBeforeUnload.listen((_) {
-      SessionCache.clearAll();
-    });
+    // For Wasm compatibility, use package:web. 
+    // Note: window.onBeforeUnload is not directly available in the same way,
+    // we use addEventListener for broad compatibility.
+    web.window.addEventListener('beforeunload', (web.Event e) {
+       SessionCache.clearAll();
+    }.toJS);
   }
 }
 
@@ -24,22 +28,22 @@ class WebSessionStorage extends LocalStorage {
 
   @override
   Future<bool> hasAccessToken() async {
-    return html.window.sessionStorage.containsKey(_storageKey);
+    return web.window.sessionStorage.getItem(_storageKey) != null;
   }
 
   @override
   Future<String?> accessToken() async {
-    return html.window.sessionStorage[_storageKey];
+    return web.window.sessionStorage.getItem(_storageKey);
   }
 
   @override
   Future<void> removePersistedSession() async {
-    html.window.sessionStorage.remove(_storageKey);
+    web.window.sessionStorage.removeItem(_storageKey);
   }
 
   @override
   Future<void> persistSession(String persistSessionString) async {
-    html.window.sessionStorage[_storageKey] = persistSessionString;
+    web.window.sessionStorage.setItem(_storageKey, persistSessionString);
   }
 }
 

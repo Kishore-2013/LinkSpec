@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../services/linkspec_notify.dart';
 import 'dart:async';
+import 'dart:js_interop'; // Added for proper .toJS conversion if needed
 import 'package:web/web.dart' as web;
 import '../widgets/aw_logo.dart';
 import '../services/supabase_service.dart';
@@ -123,9 +124,14 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         if (mounted) {
           LinkSpecNotify.show(context, "Perfect! We've sent a 6-digit verification code to your inbox!", LinkSpecNotifyType.info);
           try {
+            // Enhanced with explicit Uri.encodeComponent for security
             context.go('/otp-verify?email=${Uri.encodeComponent(email)}');
           } catch (e) {
-            LinkSpecNotify.show(context, "Ohh! no, we couldn't move you to the verification screen. Could you please try again?", LinkSpecNotifyType.warning);
+            LinkSpecNotify.show(
+              context, 
+              "Ohh! no, we couldn't move you to the verification screen. Could you please try again?", 
+              LinkSpecNotifyType.warning
+            );
           }
         }
       } else {
