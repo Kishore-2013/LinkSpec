@@ -17,6 +17,14 @@ class OTPVerifyRequest(BaseModel):
     email: EmailStr
     otp_code: str
 
+@app.get("/")
+async def root():
+    return {
+        "status": "online",
+        "service": "LinkSpec OTP Service",
+        "endpoints": ["/send-otp", "/verify-otp"]
+    }
+
 def generate_otp() -> str:
     return str(random.randint(100000, 999999))
 
@@ -35,7 +43,7 @@ async def send_otp(request: OTPRequest, background_tasks: BackgroundTasks):
 
     # Use provider to send email in background
     try:
-        provider = get_email_provider()
+        provider = get_email_provider(email)
         background_tasks.add_task(provider.send_otp, email, otp_code)
         return {"message": "OTP sent successfully"}
     except Exception as e:

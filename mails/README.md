@@ -54,10 +54,27 @@ A secure FastAPI-based OTP verification service supporting multiple email provid
 }
 ```
 
-## Testing HTTPS
-If running with SSL, use the `-k` (insecure) flag with `curl` to skip certificate validation for the self-signed cert:
-```bash
-curl -k -X POST https://localhost:8000/send-otp -H "Content-Type: application/json" -d '{"email":"test@example.com"}'
+## Testing the Endpoints
+
+### Option A: Using PowerShell (Recommended for Windows)
+```powershell
+# Send OTP
+Invoke-RestMethod -Uri http://127.0.0.1:8000/send-otp -Method Post -ContentType "application/json" -Body '{"email":"your-email@example.com"}'
+
+# Verify OTP
+Invoke-RestMethod -Uri http://127.0.0.1:8000/verify-otp -Method Post -ContentType "application/json" -Body '{"email":"your-email@example.com", "otp_code":"123456"}'
+```
+
+### Option B: Using curl.exe (Windows 10+)
+If you use `curl.exe` directly, wrap the JSON in double quotes:
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/send-otp -H "Content-Type: application/json" -d '{\"email\":\"test@example.com\"}'
+```
+
+## Running Logic Tests (Stand-alone Validation)
+If you want to verify the OTP logic without sending real emails:
+```powershell
+python test_server.py
 ```
 
 ## Running with Gmail

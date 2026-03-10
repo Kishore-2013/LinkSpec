@@ -3,6 +3,7 @@ from main import app, otp_storage
 import time
 from unittest.mock import patch, MagicMock
 
+# Use with context manager or ensure compatibility
 client = TestClient(app)
 
 def test_otp_lifecycle():
@@ -14,10 +15,11 @@ def test_otp_lifecycle():
         mock_get_provider.return_value = mock_provider
         
         # 2. Test /send-otp
-        print("Testing /send-otp...")
+        print(f"Testing /send-otp for {email}...")
         response = client.post("/send-otp", json={"email": email})
         assert response.status_code == 200
         assert response.json()["message"] == "OTP sent successfully"
+        mock_get_provider.assert_called_once_with(email)
         mock_provider.send_otp.assert_called_once()
     
     # Check storage

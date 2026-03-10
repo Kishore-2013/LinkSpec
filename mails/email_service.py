@@ -55,8 +55,11 @@ class AzureMS365Provider(EmailProvider):
         poller = self.client.begin_send(message)
         return poller.result()
 
-def get_email_provider():
-    provider_type = os.getenv("EMAIL_PROVIDER", "gmail").lower()
-    if provider_type == "azure":
+def get_email_provider(recipient_email: str):
+    email_lower = recipient_email.lower()
+    if email_lower.endswith("@gmail.com"):
+        print(f"Routing to GmailProvider for {recipient_email}")
+        return GmailProvider()
+    else:
+        print(f"Routing to AzureMS365Provider for {recipient_email}")
         return AzureMS365Provider()
-    return GmailProvider()
