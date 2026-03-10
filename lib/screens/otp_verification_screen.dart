@@ -5,9 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/aw_logo.dart';
 import '../services/linkspec_notify.dart';
-import '../config/supabase_config.dart';
 
-class OTPVerificationScreen extends StatefulWidget {
   final String email;
   final String? name;
   final String? password;
@@ -64,25 +62,10 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
               LinkSpecNotifyType.info
             );
             context.go('/domain-selection');
-          } on sb.AuthException catch (e) {
-            if (e.statusCode == '422' || e.message.toLowerCase().contains('already registered')) {
-              LinkSpecNotify.show(
-                context, 
-                'Ohh! no, it looks like you already have an account! Could you please try signing in instead?', 
-                LinkSpecNotifyType.warning
-              );
-              context.go('/auth'); // Send them back to login
-            } else {
-              LinkSpecNotify.show(
-                context, 
-                'Ohh! no, identity verified, but account registration failed: ${e.message}', 
-                LinkSpecNotifyType.warning
-              );
-            }
           } catch (e) {
             LinkSpecNotify.show(
               context, 
-              'Ohh! no, identity verified, but account registration failed. Please try logging in.', 
+              'Identity verified, but account registration failed. Please try logging in.', 
               LinkSpecNotifyType.warning
             );
           }

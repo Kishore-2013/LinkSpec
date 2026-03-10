@@ -65,4 +65,3 @@ assets/.env
 *.txt
 test_otp.json
 supabase/.temp/
-mails/

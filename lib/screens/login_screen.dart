@@ -10,10 +10,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/aw_logo.dart';
 import '../services/supabase_service.dart';
-import '../config/supabase_config.dart';
-import '../utils/validators.dart';
-import 'package:web/web.dart' as web;
-
 
 /// Login Screen — Unified Microsoft 365 Authentication.
 /// Features a single, premium 'Sign in with Microsoft' entry point.
@@ -382,7 +378,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                 controller: _emailCtrl,
                 icon: Icons.alternate_email_rounded,
                 keyboardType: TextInputType.emailAddress,
-                validator: (v) => Validators.validateEmail(v),
+                validator: (v) => (v == null || !v.contains('@')) ? 'Valid email required' : null,
               ),
               const SizedBox(height: 16),
               _buildTextField(
