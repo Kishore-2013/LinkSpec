@@ -32,6 +32,10 @@ class NotificationService {
       return "To keep things running smoothly, we have to limit requests briefly. Would you mind waiting a few seconds and trying again?";
     }
     
+    if (raw.contains('session_timeout') || raw.contains('took a little too long')) {
+      return "It looks like the session took a little too long to load. Could you please try signing in again? We’ll be right here to help.";
+    }
+    
     // Default fallback in the same soothing tone
     return "We encountered a small unexpected step. Could you please try that again for us? We're here to help.";
   }
@@ -134,7 +138,7 @@ class _SoothingPopupWidgetState extends State<_SoothingPopupWidget> with SingleT
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        widget.isInfo ? Icons.info_outline : Icons.lightbulb_outline,
+                        Icons.lightbulb_outline,
                         color: widget.isInfo ? const Color(0xFF1E88E5) : const Color(0xFFFFA000),
                         size: 22,
                       ),

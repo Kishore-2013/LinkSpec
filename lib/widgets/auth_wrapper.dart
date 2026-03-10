@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../services/supabase_service.dart';
+import '../services/notification_service.dart';
 import '../providers/domain_provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/domain_selection_screen.dart';
@@ -9,8 +10,7 @@ import '../screens/home_screen.dart';
 import '../screens/reset_password_screen.dart';
 
 /// Entry point wrapper that handles fast domain-based routing.
-/// Prevents redundant delays and ensures users are routed correctly
-/// based on their authentication and profile state.
+/// Prevents redundant delays and ensures users are routed correctly.
 class AuthWrapper extends ConsumerStatefulWidget {
   const AuthWrapper({Key? key}) : super(key: key);
 
@@ -27,7 +27,8 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         final session = sb.Supabase.instance.client.auth.currentSession;
         final event = snapshot.data?.event;
 
-        // CRITICAL: If this is a password recovery event, stay on the reset screen
+        // GUARD: If this is a password recovery event, stay on the reset screen
+        // IMPORTANT: Do NOT fetch profile or current user during recovery until password is set.
         if (event == sb.AuthChangeEvent.passwordRecovery) {
           return const LinkSpecAuthScreen();
         }
@@ -36,9 +37,12 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
           return const LoginScreen();
         }
 
+        // FETCH PROFILE: With Timeout and Error Catch to prevent infinite loading.
         return FutureBuilder<Map<String, dynamic>?>(
-          future: SupabaseService.getCurrentUserProfile(),
+          future: SupabaseService.getCurrentUserProfile()
+              .timeout(const Duration(seconds: 8)),
           builder: (context, profileSnapshot) {
+            // Loading State
             if (profileSnapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
                 body: Center(
@@ -50,6 +54,14 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
               );
             }
 
+            // Error or Timeout State: Fallback to Login and show Soothing Popup
+            if (profileSnapshot.hasError) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                NotificationService.showWarning('session_timeout', isInfo: true);
+              });
+              return const LoginScreen();
+            }
+
             final profile = profileSnapshot.data;
             
             // If profile record doesn't exist yet or domain_id is null,
@@ -58,7 +70,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
               return const DomainSelectionScreen();
             }
 
-            // Sync domain state immediately if it exists
+            // Sync domain state immediately
             final profileDomain = profile['domain_id'] as String?;
             if (profileDomain != null) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
