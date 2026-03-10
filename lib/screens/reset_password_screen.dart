@@ -78,11 +78,12 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
               ),
               const SizedBox(height: 48),
 
-              SizedBox(
-                width: double.infinity,
-                maxWidth: 400,
-                height: 56,
-                child: ElevatedButton.icon(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton.icon(
                   onPressed: _isLoading ? null : _handleMicrosoftLogin,
                   icon: _isLoading 
                       ? const SizedBox(
