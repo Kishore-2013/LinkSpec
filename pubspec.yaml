@@ -5,11 +5,12 @@ publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.7.0
+  sdk: ^3.6.0
 
 dependencies:
   flutter:
     sdk: flutter
+  web: ^1.0.0
 
   # UI & Fonts
   cupertino_icons: ^1.0.8

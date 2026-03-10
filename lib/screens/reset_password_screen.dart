@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:go_router/go_router.dart';
 import 'dart:async';
-import 'dart:html' as html; // Used to clear the address bar
+import 'package:web/web.dart' as web; // Used to clear the address bar
 import '../widgets/aw_logo.dart';
 import '../services/linkspec_notify.dart';
 import '../services/supabase_service.dart';
@@ -26,9 +26,10 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
     
     // 1. Clear URL parameters from address bar immediately to prevent re-validation on refresh
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (html.window.location.href.contains('code=') || html.window.location.href.contains('type=recovery')) {
+      final location = web.window.location;
+      if (location.href.contains('code=') || location.href.contains('type=recovery')) {
         // Clear the query & fragment without reloading the page
-        html.window.history.replaceState({}, '', html.window.location.pathname);
+        web.window.history.replaceState(null, '', location.pathname);
       }
     });
 

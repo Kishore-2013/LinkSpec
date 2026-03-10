@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../services/linkspec_notify.dart';
 import 'dart:async';
-import 'dart:html' as html;
+import 'package:web/web.dart' as web;
 import '../widgets/aw_logo.dart';
 import '../services/supabase_service.dart';
 
@@ -78,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         Navigator.of(context).pushReplacementNamed('/reset-password');
       } else if (isRecoveryMode) {
         // GHOST SESSION: Clear URL to prevent 400 errors and notify user
-        html.window.history.replaceState({}, '', html.window.location.pathname);
+        web.window.history.replaceState(null, '', web.window.location.pathname);
         LinkSpecNotify.show(context, 'Ohh! no, it looks like we need to get you back to the right screen. Could you please try logging in again?', LinkSpecNotifyType.warning);
       }
     });
@@ -121,7 +122,11 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         );
         if (mounted) {
           LinkSpecNotify.show(context, "Perfect! We've sent a 6-digit verification code to your inbox!", LinkSpecNotifyType.info);
-          context.go('/otp-verify?email=$email');
+          try {
+            context.go('/otp-verify?email=${Uri.encodeComponent(email)}');
+          } catch (e) {
+            LinkSpecNotify.show(context, "Ohh! no, we couldn't move you to the verification screen. Could you please try again?", LinkSpecNotifyType.warning);
+          }
         }
       } else {
         // 3. SIGN IN
