@@ -5,7 +5,7 @@ publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.6.2
+  sdk: ^3.7.0
 
 dependencies:
   flutter:
@@ -13,7 +13,7 @@ dependencies:
 
   # UI & Fonts
   cupertino_icons: ^1.0.8
-  google_fonts: ^7.2.1
+  google_fonts: ^8.0.2 # Critical for Flutter 3.41+ compatibility
 
   # Backend & Database
   supabase_flutter: ^2.8.4
