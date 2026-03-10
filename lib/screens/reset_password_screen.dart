@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'dart:async';
 import '../widgets/aw_logo.dart';
+import '../services/notification_service.dart';
 
 enum AuthState { initial, loading, success }
 
@@ -55,13 +56,10 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
         if (mounted) Navigator.pushReplacementNamed(context, '/home');
       });
     } catch (e) {
-      _msg(e.toString(), e: true);
+      NotificationService.showWarning(e);
       setState(() => _s = AuthState.initial);
     }
   }
-
-  void _msg(String m, {bool e = false}) => ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(m), backgroundColor: e ? Colors.red : Colors.green, behavior: SnackBarBehavior.floating));
 
   @override
   Widget build(BuildContext context) {

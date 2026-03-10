@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'services/notification_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -68,6 +69,8 @@ void _registerWebUnloadListener() {
   WebLifecycleHelper.register();
 }
 
+
+
 class LinkSpecApp extends ConsumerWidget {
   const LinkSpecApp({Key? key}) : super(key: key);
 
@@ -75,6 +78,7 @@ class LinkSpecApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       title: 'LinkSpec',
+      navigatorKey: NotificationService.navigatorKey, // Registered GlobalKey
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.light,
       theme: ThemeData(

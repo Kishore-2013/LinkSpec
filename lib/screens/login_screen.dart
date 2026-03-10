@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/notification_service.dart';
 import 'dart:async';
 import '../widgets/aw_logo.dart';
 import '../services/email_service.dart';
@@ -169,9 +170,9 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
     } on AuthException catch (e) {
-      if (mounted) _showSnack(e.message);
+      if (mounted) NotificationService.showWarning(e);
     } catch (e) {
-      if (mounted) _showSnack('Unexpected error: $e');
+      if (mounted) NotificationService.showWarning(e);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -218,11 +219,21 @@ class _LoginScreenState extends State<LoginScreen>
         Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
       }
     } catch (e) {
-      // If profile fetch fails (e.g. trigger lag), still go home and let Home handle it
-      // or try again. But prompt says "Navigate directly to HomeScreen or DomainSelectionScreen".
       if (mounted) {
+        NotificationService.showWarning(e);
         Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
       }
+    }
+  }
+
+  Future<void> _handleMicrosoftLogin() async {
+    setState(() => _isLoading = true);
+    try {
+      await SupabaseService.signInWithMicrosoft();
+    } catch (e) {
+      if (mounted) NotificationService.showWarning(e);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -579,12 +590,23 @@ class _LoginScreenState extends State<LoginScreen>
                                 // ── Divider ───────────────────────────────
                                 Row(children: const [
                                   Expanded(child: Divider(color: _border)),
-                                  Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 12),
-                                    child: Text('or', style: TextStyle(color: _textMid, fontSize: 13)),
-                                  ),
-                                  Expanded(child: Divider(color: _border)),
                                 ]),
+                                const SizedBox(height: 24),
+
+                                // Microsoft Login Button
+                                OutlinedButton.icon(
+                                  onPressed: _isLoading ? null : _handleMicrosoftLogin,
+                                  icon: const Icon(Icons.business_rounded, size: 20),
+                                  label: const Text('Sign in with Microsoft 365'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    side: const BorderSide(color: _border, width: 1.2),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    foregroundColor: _textDark,
+                                    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+
                                 const SizedBox(height: 20),
 
                                 // ── Toggle ────────────────────────────────
