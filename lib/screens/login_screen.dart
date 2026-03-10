@@ -130,8 +130,11 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       if (mounted) {
         if (e.statusCode == '422' || e.message.toLowerCase().contains('already registered')) {
           // 422 Handle: User already exists
-          LinkSpecNotify.show(context, 'Ohh! no, it looks like this email is already part of our community. Would you mind signing in instead?', LinkSpecNotifyType.warning);
-          setState(() => _isSignUp = false);
+          LinkSpecNotify.show(context, 'Ohh! no, it looks like you already have an account! Could you please try signing in instead?', LinkSpecNotifyType.warning);
+          setState(() {
+            _isSignUp = false;
+            _formKey.currentState?.reset();
+          });
         } else if (e.statusCode == '400') {
           // 400 Handle: Bad Request/Stale Token
           LinkSpecNotify.show(context, 'Ohh! no, something went a bit wrong with the request. Could you please double-check your details and try one more time?', LinkSpecNotifyType.warning);

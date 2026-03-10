@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/aw_logo.dart';
 import '../widgets/clay_container.dart';
+import '../services/linkspec_notify.dart';
 
 /// Domain Selection Screen — Claymorphism design.
 /// Receives optional route argument `{'fullName': String}` from the sign-up flow
@@ -66,28 +67,39 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen>
   Future<void> _saveDomainSelection() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedDomain == null) {
-      _showSnack('Please select your professional domain');
+      LinkSpecNotify.show(context, 'Ohh! no, we still need you to pick a professional domain before you can enter!', LinkSpecNotifyType.warning);
       return;
     }
     setState(() => _isLoading = true);
 
     try {
-      // Ensure session is valid
-      var user = Supabase.instance.client.auth.currentUser;
+      // 1. NULL SAFETY GUARD: Ensure we have a valid user session
+      final client = Supabase.instance.client;
+      var user = client.auth.currentUser;
+      
       if (user == null) {
-        await Supabase.instance.client.auth.refreshSession();
-        user = Supabase.instance.client.auth.currentUser;
+        // Attempt one-time refresh if session is just stale
+        try {
+          await client.auth.refreshSession();
+          user = client.auth.currentUser;
+        } catch (_) {
+          // Refresh failed
+        }
       }
-      if (user == null) throw Exception('Not authenticated. Please sign in again.');
 
-      await Supabase.instance.client.from('profiles').upsert({
+      if (user == null) {
+        if (mounted) {
+          LinkSpecNotify.show(context, 'Ohh! no, it looks like your session expired. Could you please try signing in again?', LinkSpecNotifyType.warning);
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
+        return;
+      }
+
+      // 2. SAVE PROFILE with professional sync
+      await client.from('profiles').upsert({
         'id': user.id,
         'full_name': _fullNameController.text.trim(),
-        // mother_domain: the domain chosen at registration — permanent home domain
-        // used by RLS policies to gate messaging between users
         'mother_domain': _selectedDomain,
-        // domain_id: the user's current active domain (same as mother_domain at
-        // registration, but may change later via switchDomain)
         'domain_id': _selectedDomain,
         'bio': _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
       });
@@ -95,11 +107,11 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen>
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/home');
     } on PostgrestException catch (e) {
-      _showSnack('Database error: ${e.message}');
+      if (mounted) LinkSpecNotify.show(context, 'Ohh! no, we hit a database snag: ${e.message}', LinkSpecNotifyType.warning);
     } on AuthException catch (e) {
-      _showSnack('Auth error: ${e.message}');
+      if (mounted) LinkSpecNotify.show(context, 'Ohh! no, there was an authentication hiccup: ${e.message}', LinkSpecNotifyType.warning);
     } catch (e) {
-      _showSnack('Error: $e');
+      if (mounted) LinkSpecNotify.show(context, 'Ohh! no, something unexpected happened. Could you please try again?', LinkSpecNotifyType.warning);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
