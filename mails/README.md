@@ -41,7 +41,7 @@ A secure FastAPI-based OTP verification service supporting multiple email provid
 **POST** `/send-otp`
 ```json
 {
-  "email": "user@example.com"
+  "email": "ch.kishoryadav.03@gmail.com"
 }
 ```
 
