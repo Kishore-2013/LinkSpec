@@ -26,9 +26,8 @@ class SupabaseService {
 
   /// Send a password reset email
   static Future<void> sendPasswordResetEmail(String email) async {
-    // Simplify redirectTo to the root origin on Web. 
-    // The SplashScreen master-interceptor will catch the code and move the user to Reset.
-    final String? redirectTo = kIsWeb ? Uri.base.origin : null;
+    // Redirect to the dedicated reset-password path on Web
+    final String? redirectTo = kIsWeb ? 'https://link-spec.vercel.app/reset-password' : null;
         
     await _client.auth.resetPasswordForEmail(
       email,

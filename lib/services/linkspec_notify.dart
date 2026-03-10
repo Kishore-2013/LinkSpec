@@ -25,6 +25,25 @@ class LinkSpecNotify {
     });
   }
 
+  /// Displays a modal dialog for important sequential steps.
+  static void showDialog(
+    BuildContext context, 
+    String message, 
+    LinkSpecNotifyType type, 
+    {required VoidCallback onConfirm}
+  ) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: '',
+      pageBuilder: (context, _, __) => _NotifyDialog(
+        message: message,
+        type: type,
+        onConfirm: onConfirm,
+      ),
+    );
+  }
+
   /// Maps technical errors to 'Supportive Assistant' strings.
   static String mapError(dynamic error) {
     final raw = error.toString().toLowerCase();
@@ -161,6 +180,102 @@ class _NotifyCardState extends State<_NotifyCard> with SingleTickerProviderState
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotifyDialog extends StatelessWidget {
+  final String message;
+  final LinkSpecNotifyType type;
+  final VoidCallback onConfirm;
+
+  const _NotifyDialog({
+    required this.message,
+    required this.type,
+    required this.onConfirm,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = {
+      LinkSpecNotifyType.warning: const Color(0xFF9A3412),
+      LinkSpecNotifyType.info: const Color(0xFF075985),
+      LinkSpecNotifyType.success: const Color(0xFF166534),
+    }[type];
+
+    final bgColor = {
+      LinkSpecNotifyType.warning: const Color(0xFFFFE4D6),
+      LinkSpecNotifyType.info: const Color(0xFFE0F2FE),
+      LinkSpecNotifyType.success: const Color(0xFFDCFCE7),
+    }[type];
+
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 30,
+              offset: const Offset(0, 15),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  type == LinkSpecNotifyType.success 
+                      ? Icons.celebration_outlined 
+                      : Icons.lightbulb_outline, 
+                  color: color, 
+                  size: 32
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF1C1C1E),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    onConfirm();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Okay', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -5,7 +5,7 @@ import 'dart:async';
 import '../widgets/aw_logo.dart';
 import '../services/linkspec_notify.dart';
 
-enum AuthState { initial, loading, success }
+enum ResetState { initial, loading, success }
 
 /// Dedicated Reset Password Page for LinkSpec.
 class LinkSpecAuthScreen extends StatefulWidget {
@@ -16,7 +16,7 @@ class LinkSpecAuthScreen extends StatefulWidget {
 }
 
 class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
-  AuthState _s = AuthState.initial;
+  ResetState _s = ResetState.initial;
   final _p = TextEditingController(), _c = TextEditingController();
   final _key = GlobalKey<FormState>();
   
@@ -34,7 +34,7 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
   void _listen() {
     _sub = sb.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == sb.AuthChangeEvent.passwordRecovery) {
-        if (mounted) setState(() => _s = AuthState.initial);
+        if (mounted) setState(() => _s = ResetState.initial);
       }
     });
   }
@@ -59,29 +59,29 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
       return;
     }
 
-    setState(() => _s = AuthState.loading);
+    setState(() => _s = ResetState.loading);
     try {
       await sb.Supabase.instance.client.auth.updateUser(sb.UserAttributes(password: _p.text.trim()));
       
-      setState(() => _s = AuthState.success);
+      setState(() => _s = ResetState.success);
       
-      // Success Notification
-      LinkSpecNotify.show(
-        context, 
-        'Perfect! Your password is updated. Could you please log in now to see your professional network?', 
-        LinkSpecNotifyType.success
-      );
-      
-      // Sign out to force manual login as per sequential flow requirements
-      await sb.Supabase.instance.client.auth.signOut();
-      
-      Future.delayed(const Duration(seconds: 4), () {
-        if (mounted) context.go('/auth');
-      });
+      // Sequential Flow: Show 'Perfect!' popup with Okay button
+      if (mounted) {
+        LinkSpecNotify.showDialog(
+          context, 
+          'Perfect! Your password is updated. Could you please log in now to see your professional network?', 
+          LinkSpecNotifyType.success,
+          onConfirm: () async {
+            // Sign out to force manual login as per sequential flow requirements
+            await sb.Supabase.instance.client.auth.signOut();
+            if (mounted) context.go('/auth');
+          },
+        );
+      }
       
     } catch (e) {
       LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
-      setState(() => _s = AuthState.initial);
+      setState(() => _s = ResetState.initial);
     }
   }
 
@@ -90,7 +90,7 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F7),
       body: Center(
-        child: _s == AuthState.loading 
+        child: _s == ResetState.loading 
             ? const CircularProgressIndicator() 
             : _body(),
       ),
@@ -105,7 +105,7 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
         const AWLogo(size: 60, showAppName: true), 
         const SizedBox(height: 48),
         
-        if (_s != AuthState.success) ...[
+        if (_s != ResetState.success) ...[
           _view('Update Identity'),
           const Text(
             'Enter your new secure details.', 
