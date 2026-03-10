@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 import '../services/supabase_service.dart';
 import '../widgets/aw_logo.dart';
 
 enum AuthState { initial, loading, mailSent, resetting, success }
 
-/// Final Unified LinkSpecAuthScreen: Gmail OTP vs MS360 Professional Login.
-/// Managed via state enums. Single file, under 200 lines.
+/// Unified Auth Screen for LinkSpec: Prevents auto-login and maintains Same-Page Reset.
 class LinkSpecAuthScreen extends StatefulWidget {
   const LinkSpecAuthScreen({Key? key}) : super(key: key);
   @override
@@ -17,15 +17,34 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
   AuthState _s = AuthState.initial;
   final _email = TextEditingController(), _p = TextEditingController(), _c = TextEditingController();
   final _key = GlobalKey<FormState>();
+  StreamSubscription<AuthState>? _sub;
 
   @override
-  void initState() { super.initState(); _check(); }
+  void initState() { 
+    super.initState(); 
+    _listen();
+  }
 
-  void _check() {
+  void _listen() {
+    // Listen for incoming password recovery events from deep links
+    _sub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        if (mounted) setState(() => _s = AuthState.resetting);
+      }
+    });
+
+    // Check existing URL parameters as a fallback (Web)
     final u = Uri.base;
-    if (u.query.contains('code=') || u.fragment.contains('code=') || u.fragment.contains('type=recovery')) {
+    if (u.toString().contains('type=recovery') || u.fragment.contains('type=recovery')) {
       setState(() => _s = AuthState.resetting);
     }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _email.dispose(); _p.dispose(); _c.dispose();
+    super.dispose();
   }
 
   Future<void> _entry() async {
@@ -34,21 +53,27 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
     setState(() => _s = AuthState.loading);
     try {
       if (m.endsWith('@gmail.com')) {
-        // Trigger Gmail OTP/Reset flow
         await SupabaseService.sendPasswordResetEmail(m);
         setState(() => _s = AuthState.mailSent);
       } else {
-        // Corporate Domain -> MS360 OAuth Login
         await SupabaseService.signInWithMicrosoft();
         setState(() => _s = AuthState.initial);
       }
-    } catch (e) { _msg(e.toString(), e: true); setState(() => _s = AuthState.initial); }
+    } catch (e) { 
+      if (e.toString().contains('429')) {
+        _msg('Rate limited. Showing reset view...', e: true);
+        setState(() => _s = AuthState.resetting);
+      } else {
+        _msg(e.toString(), e: true); setState(() => _s = AuthState.initial); 
+      }
+    }
   }
 
   Future<void> _reset() async {
     if (!_key.currentState!.validate()) return;
     setState(() => _s = AuthState.loading);
     try {
+      // Direct update in session created by recovery token. No redirect until success.
       await Supabase.instance.client.auth.updateUser(UserAttributes(password: _p.text.trim()));
       setState(() => _s = AuthState.success);
       Future.delayed(const Duration(seconds: 2), () => Navigator.pushReplacementNamed(context, '/home'));
@@ -70,13 +95,35 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
     constraints: const BoxConstraints(maxWidth: 400),
     child: Column(children: [
       const AWLogo(size: 60, showAppName: true), const SizedBox(height: 48),
-      if (_s == AuthState.initial) ...[_view('Authentication'), _field(_email, 'Corporate or Gmail Email', Icons.person), _btn('Identify Domain', _entry)],
-      if (_s == AuthState.mailSent) ...[_view('Check Inbox'), const Text('A secure link was sent. Check your mail.', textAlign: TextAlign.center), _btn('Back', () => setState(() => _s = AuthState.initial), o_: true)],
-      if (_s == AuthState.resetting) ...[_view('Reset Identity'), Form(key: _key, child: Column(children: [
-        _field(_p, 'New Secret', Icons.key, obs: true), const SizedBox(height: 12),
-        _field(_c, 'Confirm Secret', Icons.verified, obs: true, v: (x) => x != _p.text ? 'Mismatch' : null),
-      ])), _btn('Update Account', _reset)],
-      if (_s == AuthState.success) ...[const Icon(Icons.check_circle, size: 80, color: Colors.green), _view('Verified'), const Text('Login successful. Redirecting...')],
+      // 1. Initial State: Identify Domain (Gmail vs MS360)
+      if (_s == AuthState.initial) ...[
+        _view('Authentication'), 
+        _field(_email, 'Corporate or Gmail Email', Icons.person), 
+        _btn('Identify Domain', _entry)
+      ],
+      // 2. Mail Sent State: Confirmation
+      if (_s == AuthState.mailSent) ...[
+        _view('Check Inbox'), 
+        const Text('A secure link was sent. Check your mail.', textAlign: TextAlign.center), 
+        _btn('Back', () => setState(() => _s = AuthState.initial), o_: true)
+      ],
+      // 3. Resetting State: Only New Password Fields (Bypasses Domain Check)
+      if (_s == AuthState.resetting) ...[
+        _view('Update Identity'), 
+        const Text('Enter your new secure details.', style: TextStyle(color: Colors.grey)),
+        const SizedBox(height: 32),
+        Form(key: _key, child: Column(children: [
+          _field(_p, 'New Secret', Icons.key, obs: true), const SizedBox(height: 12),
+          _field(_c, 'Confirm Secret', Icons.verified, obs: true, v: (x) => x != _p.text ? 'Mismatch' : null),
+        ])), 
+        _btn('Save and Login', _reset)
+      ],
+      // 4. Success State: Celebration
+      if (_s == AuthState.success) ...[
+        const Icon(Icons.check_circle, size: 80, color: Colors.green), 
+        _view('Verified'), 
+        const Text('Identity updated. Redirecting to your workspace...')
+      ],
     ]),
   ));
 

@@ -24,6 +24,12 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
         final session = Supabase.instance.client.auth.currentSession;
+        final event = snapshot.data?.event;
+
+        // CRITICAL: If this is a password recovery event, stay on the reset screen
+        if (event == AuthChangeEvent.passwordRecovery) {
+          return const LinkSpecAuthScreen();
+        }
 
         if (session == null) {
           return const LoginScreen();
