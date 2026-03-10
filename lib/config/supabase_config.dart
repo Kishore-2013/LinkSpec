@@ -11,12 +11,12 @@ class SupabaseConfig {
 
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://link-spec.vercel.app/',
+    defaultValue: 'https://link-spec.vercel.app',
   );
 
   static const String otpApiUrl = String.fromEnvironment(
     'OTP_API_URL',
-    defaultValue: 'https://otp-sender-seven.vercel.app/',
+    defaultValue: 'https://otp-sender-seven.vercel.app',
   );
 
   static const String profileBucket = String.fromEnvironment(
