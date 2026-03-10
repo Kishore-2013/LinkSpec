@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../services/linkspec_notify.dart';
 import 'dart:async';
 import '../widgets/aw_logo.dart';
-import '../services/email_service.dart';
 import '../services/supabase_service.dart';
 import '../utils/validators.dart';
 
@@ -58,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen>
   late final Animation<double> _blobFloat1; // coral — drifts up
   late final Animation<double> _blobFloat2; // green — drifts down-right
   late final Animation<double> _blobFloat3; // curve — drifts up-left
-  late final StreamSubscription<AuthState> _authSubscription;
+  late final StreamSubscription<sb.AuthState> _authSubscription;
 
   @override
   void initState() {
@@ -94,13 +93,14 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
 
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.event == AuthChangeEvent.passwordRecovery) {
-        Navigator.of(context).pushReplacementNamed('/reset-password');
+    _authSubscription = sb.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == sb.AuthChangeEvent.passwordRecovery) {
+        if (mounted) Navigator.of(context).pushReplacementNamed('/reset-password');
       }
     });
 
-    // INTERCEPT: If the URL has a code, don't let the user stay here. Move them to Reset immediately.
+    // INTERCEPT: If the URL has a code or Type is recovery, don't let the user stay here. 
+    // This handles redirection when clicking the recovery link from email.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final uri = Uri.base;
       final hasCode = uri.queryParameters.containsKey('code') || 
@@ -157,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
       // Step 2: User likely doesn't exist, try Sign Up
-      final response = await Supabase.instance.client.auth.signUp(
+      final response = await sb.Supabase.instance.client.auth.signUp(
         email: email,
         password: password,
         data: {'full_name': fullName},
@@ -169,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen>
         _showSnack('Sign up failed. Please check your credentials.');
       }
 
-    } on AuthException catch (e) {
+    } on sb.AuthException catch (e) {
       if (mounted) LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
     } catch (e) {
       if (mounted) LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
@@ -182,12 +182,12 @@ class _LoginScreenState extends State<LoginScreen>
   /// Returns [true] if successful, [false] if it should fallback to sign-up.
   Future<bool> _attemptSignIn(String email, String password) async {
     try {
-      final response = await Supabase.instance.client.auth.signInWithPassword(
+      final response = await sb.Supabase.instance.client.auth.signInWithPassword(
         email: email,
         password: password,
       );
       return response.session != null;
-    } on AuthException catch (e) {
+    } on sb.AuthException catch (e) {
       // These specific errors imply the user should be created or has unconfirmed status
       if (e.message.contains('Invalid login credentials') || 
           e.message.contains('Email not confirmed')) {
@@ -651,13 +651,32 @@ class _LoginScreenState extends State<LoginScreen>
 
     setState(() => _isLoading = true);
     try {
+      // Rule 1: Check Profiles Table First
+      final profile = await sb.Supabase.instance.client
+          .from('profiles')
+          .select()
+          .eq('email', email)
+          .maybeSingle();
+
+      if (profile == null) {
+        // Rule 2: Handle New Users (supportive tone)
+        if (mounted) {
+          _showError("Ohh! no, we couldn't find an account with that email. Would you mind signing up to join our professional community?");
+          setState(() => _isSignUp = true);
+        }
+        return;
+      }
+
+      // Rule 3: Handle Existing Users
       // PERSISTENCE: Save the email locally so we can identify the user when they return from the link
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('recovery_email', email);
 
+      // Rule 4: Send the reset email via Service (Service handles path redirection)
       await SupabaseService.sendPasswordResetEmail(email);
+      
       if (mounted) {
-        _showSuccess('Password reset link sent to $email');
+        _showSuccess('Perfect! Your recovery link is on its way. Please check your inbox!');
       }
     } catch (e) {
       if (mounted) _showError('Error: ${e.toString()}');
