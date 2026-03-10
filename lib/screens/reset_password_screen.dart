@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'dart:async';
 import '../widgets/aw_logo.dart';
-import '../services/notification_service.dart';
+import '../services/linkspec_notify.dart';
 
 enum AuthState { initial, loading, success }
 
 /// Dedicated Reset Password Page for LinkSpec.
-/// Handles the access_token from the URL fragment automatically via Supabase.
 class LinkSpecAuthScreen extends StatefulWidget {
   const LinkSpecAuthScreen({Key? key}) : super(key: key);
 
@@ -23,7 +22,6 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
   bool _obsP = true;
   bool _obsC = true;
   
-  // Use sb alias to resolve type mismatch with local AuthState enum
   StreamSubscription<sb.AuthState>? _sub;
 
   @override
@@ -42,7 +40,6 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
 
   @override
   void dispose() {
-    // Cleanup to prevent memory leaks and duplicate triggers
     _sub?.cancel();
     _p.dispose(); 
     _c.dispose();
@@ -50,32 +47,36 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
   }
 
   Future<void> _reset() async {
-    if (!_key.currentState!.validate()) return;
+    if (!_key.currentState!.validate()) {
+      LinkSpecNotify.show(context, LinkSpecNotify.mapError('empty'), LinkSpecNotifyType.warning);
+      return;
+    }
     
     // Check if passwords match
     if (_p.text.trim() != _c.text.trim()) {
-      NotificationService.showWarning("The passwords don't seem to match. Could you please double-check them for us?");
+      LinkSpecNotify.show(context, LinkSpecNotify.mapError('mismatch'), LinkSpecNotifyType.warning);
       return;
     }
 
     setState(() => _s = AuthState.loading);
     try {
-      // Technical requirement: Use supabase.auth.updateUser for the password change
       await sb.Supabase.instance.client.auth.updateUser(sb.UserAttributes(password: _p.text.trim()));
       
       setState(() => _s = AuthState.success);
       
-      // Soothing Success Popup
-      NotificationService.showSuccess(
-        'Your password has been successfully updated. Could you please log in now using your new secure details? We’re ready for you!',
-        onDone: () {
-          if (mounted) Navigator.pushReplacementNamed(context, '/login');
-        },
+      // Success Notification
+      LinkSpecNotify.show(
+        context, 
+        'Perfect! Your password is updated. Could you please log in now to see your professional network?', 
+        LinkSpecNotifyType.success
       );
       
+      Future.delayed(const Duration(seconds: 4), () {
+        if (mounted) Navigator.pushReplacementNamed(context, '/login');
+      });
+      
     } catch (e) {
-      // Error Handling: Automatic soothing transformation occurs in NotificationService
-      NotificationService.showWarning(e);
+      LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
       setState(() => _s = AuthState.initial);
     }
   }
@@ -124,14 +125,12 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
                 Icons.verified_user_outlined, 
                 obs: _obsC, 
                 toggle: () => setState(() => _obsC = !_obsC),
-                v: (x) => (x == null || x.isEmpty) ? 'Required' : null,
               ),
             ]),
           ),
           _btn('Save and Login', _reset),
         ] else ...[
-          // Success View - Shown while the popup is visible
-          const Icon(Icons.check_circle, size: 80, color: Color(0xFF2E7D32)),
+          const Icon(Icons.check_circle, size: 80, color: Color(0xFF166534)),
           const SizedBox(height: 24),
           _view('Verified'),
           const Text(
@@ -182,7 +181,7 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
   ) => TextFormField(
     controller: c, 
     obscureText: obs, 
-    validator: v ?? (x) => (x == null || x.isEmpty) ? 'Required' : null, 
+    validator: v, 
     decoration: InputDecoration(
       hintText: h, 
       prefixIcon: Icon(i, color: Colors.grey.shade400, size: 22),

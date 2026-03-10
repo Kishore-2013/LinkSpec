@@ -218,15 +218,15 @@ class SupabaseService {
 
   /// Get current user's profile with in-memory caching
   static Future<Map<String, dynamic>?> getCurrentUserProfile({bool forceRefresh = false}) async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) return null;
-
-    // Return cached profile if available and not forcing refresh
-    if (_currentUserProfile != null && !forceRefresh) {
-      return _currentUserProfile;
-    }
-
     try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return null;
+
+      // Return cached profile if available and not forcing refresh
+      if (_currentUserProfile != null && !forceRefresh) {
+        return _currentUserProfile;
+      }
+
       var profile = await getUserProfile(userId);
       
       // If profile is missing, it might be due to database trigger lag.
@@ -241,9 +241,16 @@ class SupabaseService {
         _myDomain = profile['domain_id'] as String?;
       }
       return profile;
+    } on AuthException catch (e) {
+      // 422 usually means the session is invalid or stale.
+      if (e.statusCode == '422' || e.message.contains('422')) {
+        await _client.auth.signOut();
+      }
+      debugPrint('SupabaseService: Auth error in getCurrentUserProfile: $e');
+      rethrow; // Let the caller handle UI fallback
     } catch (e) {
-      debugPrint('SupabaseService: Critical error in getCurrentUserProfile: $e');
-      return null; // Ensure no crash
+      debugPrint('SupabaseService: Unexpected error in getCurrentUserProfile: $e');
+      rethrow;
     }
   }
 

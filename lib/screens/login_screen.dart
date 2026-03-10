@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/notification_service.dart';
+import '../services/linkspec_notify.dart';
 import 'dart:async';
 import '../widgets/aw_logo.dart';
 import '../services/email_service.dart';
@@ -170,9 +169,9 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
     } on AuthException catch (e) {
-      if (mounted) NotificationService.showWarning(e);
+      if (mounted) LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
     } catch (e) {
-      if (mounted) NotificationService.showWarning(e);
+      if (mounted) LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -220,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
     } catch (e) {
       if (mounted) {
-        NotificationService.showWarning(e);
+        LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
         Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
       }
     }
@@ -231,7 +230,7 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       await SupabaseService.signInWithMicrosoft();
     } catch (e) {
-      if (mounted) NotificationService.showWarning(e);
+      if (mounted) LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -667,23 +666,11 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    LinkSpecNotify.show(context, msg, LinkSpecNotifyType.warning);
   }
 
   void _showSuccess(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    LinkSpecNotify.show(context, msg, LinkSpecNotifyType.success);
   }
 
 
