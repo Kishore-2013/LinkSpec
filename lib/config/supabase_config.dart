@@ -16,7 +16,7 @@ class SupabaseConfig {
 
   static const String otpApiUrl = String.fromEnvironment(
     'OTP_API_URL',
-    defaultValue: '',
+    defaultValue: 'http://localhost:8000',
   );
 
   static const String profileBucket = String.fromEnvironment(
