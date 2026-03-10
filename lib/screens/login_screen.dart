@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../services/linkspec_notify.dart';
 import 'dart:async';
+import 'dart:html' as html;
 import '../widgets/aw_logo.dart';
 import '../services/supabase_service.dart';
 
@@ -67,16 +68,18 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     });
 
     // INTERCEPT: If the URL contains recovery parameters, redirect to dedicated auth screen.
-    // GHOST SESSION GUARD: If in recovery mode but on login screen, warn and reset.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final uri = Uri.base;
-      final isRecovery = uri.queryParameters.containsKey('code') || 
-                        uri.fragment.contains('code=') ||
-                        uri.queryParameters['type'] == 'recovery';
+      final hasCode = uri.queryParameters.containsKey('code') || uri.fragment.contains('code=');
+      final isRecoveryMode = uri.queryParameters['type'] == 'recovery' || uri.fragment.contains('type=recovery');
 
-      if (isRecovery) {
+      if (hasCode) {
+        // VALID RECOVERY: Move to reset screen immediately
+        Navigator.of(context).pushReplacementNamed('/reset-password');
+      } else if (isRecoveryMode) {
+        // GHOST SESSION: Clear URL to prevent 400 errors and notify user
+        html.window.history.replaceState({}, '', html.window.location.pathname);
         LinkSpecNotify.show(context, 'Ohh! no, it looks like we need to get you back to the right screen. Could you please try logging in again?', LinkSpecNotifyType.warning);
-        // We stay on login screen but notify the user.
       }
     });
   }
@@ -97,6 +100,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     
     setState(() => _isLoading = true);
     try {
+      // SECURITY: Clear any potential conflicting sessions or internal Supabase state
+      await sb.Supabase.instance.client.auth.signOut();
+      
       if (_isSignUp) {
         // Sign up logic via SupabaseService if available, or direct call
         await sb.Supabase.instance.client.auth.signUp(
