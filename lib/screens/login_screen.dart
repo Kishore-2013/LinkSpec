@@ -12,6 +12,8 @@ import '../widgets/aw_logo.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import '../utils/validators.dart';
+import 'package:web/web.dart' as web;
+
 
 /// Login Screen — Unified Microsoft 365 Authentication.
 /// Features a single, premium 'Sign in with Microsoft' entry point.
