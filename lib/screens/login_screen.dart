@@ -95,20 +95,26 @@ class _LoginScreenState extends State<LoginScreen>
 
     _authSubscription = sb.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == sb.AuthChangeEvent.passwordRecovery) {
-        if (mounted) Navigator.of(context).pushReplacementNamed('/reset-password');
+        if (mounted) {
+          // The Soothing Redirection: Notify user of the safe funneling
+          LinkSpecNotify.show(context, "Ohh! no, it looks like you're trying to reset your password. We're moving you to a secure, dedicated page for that right now!", LinkSpecNotifyType.info);
+          Navigator.of(context).pushReplacementNamed('/reset-password');
+        }
       }
     });
 
-    // INTERCEPT: If the URL has a code or Type is recovery, don't let the user stay here. 
-    // This handles redirection when clicking the recovery link from email.
+    // INTERCEPT: Path Guard for Reset Password Flow
+    // This ensures that when a user clicks a recovery link, they are immediately
+    // moved to the dedicated screen, avoiding auth state conflicts on the Login page.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final uri = Uri.base;
-      final hasCode = uri.queryParameters.containsKey('code') || 
-                      uri.fragment.contains('code=') ||
-                      uri.fragment.contains('type=recovery') ||
-                      uri.queryParameters['type'] == 'recovery';
+      final hasResetIntent = uri.queryParameters.containsKey('code') || 
+                             uri.fragment.contains('code=') ||
+                             uri.fragment.contains('type=recovery') ||
+                             uri.queryParameters['type'] == 'recovery';
 
-      if (hasCode && mounted) {
+      if (hasResetIntent && mounted) {
+        LinkSpecNotify.show(context, "Ohh! no, it looks like you're trying to reset your password. We're moving you to a secure, dedicated page for that right now!", LinkSpecNotifyType.info);
         Navigator.of(context).pushReplacementNamed('/reset-password');
       }
     });
