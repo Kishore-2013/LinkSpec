@@ -259,9 +259,10 @@ class SupabaseService {
     final response = await _client
         .from('posts')
         .select('id')
-        .eq('author_id', userId);
+        .eq('author_id', userId)
+        .count(CountOption.exact);
     
-    return (response as List).length;
+    return response.count;
   }
 
   /// Get users in the same domain (optimized with cached domain and server-side filtering)
@@ -368,32 +369,52 @@ class SupabaseService {
         .order('created_at', ascending: false)
         .limit(30);
 
-    final posts = List<Map<String, dynamic>>.from(response);
+    final rawPosts = List<Map<String, dynamic>>.from(response);
+    return _mapPostResponse(rawPosts);
+  }
 
-    // Batch fetch like/follow statuses
-    final postIds  = posts.map((p) => p['id']  as String).toList();
+  /// Refactored helper to map raw Supabase rows into curated Post objects.
+  /// Deduplicates mapping logic across all post-fetching methods.
+  static Future<List<Map<String, dynamic>>> _mapPostResponse(List<Map<String, dynamic>> posts) async {
+    if (posts.isEmpty) return [];
+
+    final postIds = posts.map((p) => p['id'] as String).toList();
     final authorIds = posts.map((p) => p['author_id'] as String).toSet().toList();
-    final likedSet = await getLikeStatuses(postIds);
-    final followingSet = await getFollowStatuses(authorIds);
+    
+    // Optimized: Fetch like/follow statuses concurrently
+    final results = await Future.wait([
+      getLikeStatuses(postIds),
+      getFollowStatuses(authorIds),
+    ]);
+    
+    final likedSet = results[0];
+    final followingSet = results[1];
 
     return posts.map((post) {
-      final profile      = post['profiles'];
-      final postId       = post['id']        as String;
-      final authorId     = post['author_id'] as String;
-      final likes        = post['likes']     as List?;
-      final likeCount    = likes != null && likes.isNotEmpty ? (likes[0]['count'] ?? 0) : 0;
-      final comments     = post['comments']  as List?;
-      final commentCount = comments != null && comments.isNotEmpty ? (comments[0]['count'] ?? 0) : 0;
+      final profile = post['profiles'];
+      final postId = post['id'] as String;
+      final authorId = post['author_id'] as String;
+
+      // Logic: Prefer joined profile data, fallback to flat fields if RPC result
+      final likeData = post['likes'] as List?;
+      final likeCount = (likeData != null && likeData.isNotEmpty) 
+          ? (likeData[0]['count'] ?? 0) 
+          : (post['like_count'] ?? 0);
+
+      final commentData = post['comments'] as List?;
+      final commentCount = (commentData != null && commentData.isNotEmpty) 
+          ? (commentData[0]['count'] ?? 0) 
+          : (post['comment_count'] ?? 0);
 
       return {
         ...post,
-        'author_name':    profile?['full_name'],
-        'author_avatar':  profile?['avatar_url'],
-        'author_domain':  profile?['domain_id'],
-        'like_count':     likeCount,
-        'comment_count':  commentCount,
-        'is_liked':       likedSet.contains(postId),
-        'is_following':   followingSet.contains(authorId),
+        'author_name': profile?['full_name'] ?? post['author_name'],
+        'author_avatar': profile?['avatar_url'] ?? post['author_avatar'],
+        'author_domain': profile?['domain_id'] ?? post['author_domain'],
+        'like_count': (likeCount as num).toInt(),
+        'comment_count': (commentCount as num).toInt(),
+        'is_liked': likedSet.contains(postId),
+        'is_following': followingSet.contains(authorId),
       };
     }).toList();
   }
@@ -529,29 +550,8 @@ class SupabaseService {
       },
     );
 
-    final posts = List<Map<String, dynamic>>.from(response as List);
-
-    if (posts.isEmpty) return [];
-
-    // Batch-fetch isFollowing / isLiked for the current user
-    final authorIds = posts.map((p) => p['author_id'] as String).toSet().toList();
-    final followingSet = await getFollowStatuses(authorIds);
-
-    final postIds = posts.map((p) => p['id'] as String).toList();
-    final likedSet = await getLikeStatuses(postIds);
-
-    return posts.map((post) {
-      final postId   = post['id']        as String;
-      final authorId = post['author_id'] as String;
-      return {
-        ...post,
-        // RPC already returns flat author_name / author_avatar / author_domain
-        'like_count':    (post['like_count']    as num?)?.toInt() ?? 0,
-        'comment_count': (post['comment_count'] as num?)?.toInt() ?? 0,
-        'is_liked':      likedSet.contains(postId),
-        'is_following':  followingSet.contains(authorId),
-      };
-    }).toList();
+    final rawPosts = List<Map<String, dynamic>>.from(response as List);
+    return _mapPostResponse(rawPosts);
   }
 
   /// Batch check if current user liked posts
@@ -590,38 +590,8 @@ class SupabaseService {
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
 
-    final posts = List<Map<String, dynamic>>.from(response);
-    
-    // Batch fetch follow/like statuses
-    final authorIds = posts.map((p) => p['author_id'] as String).toSet().toList();
-    final followingSet = await getFollowStatuses(authorIds);
-    final postIds = posts.map((p) => p['id'] as String).toList();
-    final likedSet = await getLikeStatuses(postIds);
-
-    return posts.map((post) {
-      final profile = post['profiles'];
-      final postId = post['id'] as String;
-      final authorId = post['author_id'] as String;
-
-      final likes = post['likes'] as List?;
-      final likeCount = likes != null && likes.isNotEmpty ? (likes[0]['count'] ?? 0) : 0;
-
-      final comments = post['comments'] as List?;
-      final commentCount = comments != null && comments.isNotEmpty ? (comments[0]['count'] ?? 0) : 0;
-
-      return {
-        ...post,
-        'author_name': profile?['full_name'],
-        'author_avatar': profile?['avatar_url'],
-        'author_domain': profile?['domain_id'],
-        'like_count': likeCount,
-        'comment_count': commentCount,
-        'is_liked': likedSet.contains(postId),
-        'is_following': followingSet.contains(authorId),
-        'views_count': post['views_count'] ?? 0,
-        'shares_count': post['shares_count'] ?? 0,
-      };
-    }).toList();
+    final rawPosts = List<Map<String, dynamic>>.from(response);
+    return _mapPostResponse(rawPosts);
   }
 
   /// Update a post
@@ -661,37 +631,8 @@ class SupabaseService {
         ''')
         .filter('id', 'in', postIds);
 
-    final posts = List<Map<String, dynamic>>.from(response);
-    
-    // Batch fetch follow statuses
-    final authorIds = posts.map((p) => p['author_id'] as String).toSet().toList();
-    final followingSet = await getFollowStatuses(authorIds);
-
-    // Batch fetch like statuses
-    final likedSet = await getLikeStatuses(postIds);
-
-    return posts.map((post) {
-      final profile = post['profiles'];
-      final postId = post['id'] as String;
-      final authorId = post['author_id'] as String;
-
-      final likes = post['likes'] as List?;
-      final likeCount = likes != null && likes.isNotEmpty ? (likes[0]['count'] ?? 0) : 0;
-
-      final comments = post['comments'] as List?;
-      final commentCount = comments != null && comments.isNotEmpty ? (comments[0]['count'] ?? 0) : 0;
-
-      return {
-        ...post,
-        'author_name': profile?['full_name'],
-        'author_avatar': profile?['avatar_url'],
-        'author_domain': profile?['domain_id'],
-        'like_count': likeCount,
-        'comment_count': commentCount,
-        'is_liked': likedSet.contains(postId),
-        'is_following': followingSet.contains(authorId),
-      };
-    }).toList();
+    final rawPosts = List<Map<String, dynamic>>.from(response);
+    return _mapPostResponse(rawPosts);
   }
 
   /// Increment post view count
@@ -845,8 +786,9 @@ class SupabaseService {
           .from('messages')
           .select('id')
           .eq('receiver_id', userId)
-          .or('is_read.eq.false,is_read.is.null'); // catches NULL and false
-      return (response as List).length;
+          .or('is_read.eq.false,is_read.is.null')
+          .count(CountOption.exact);
+      return response.count;
     } catch (e) {
       debugPrint('getUnreadMessageCount error: $e');
       return 0;
@@ -1546,8 +1488,9 @@ class SupabaseService {
           .from('notifications')
           .select('id')
           .eq('user_id', userId)
-          .eq('is_read', false);
-      return (response as List).length;
+          .eq('is_read', false)
+          .count(CountOption.exact);
+      return response.count;
     } catch (e) {
       debugPrint('getUnreadNotificationCount error: $e');
       return 0;
@@ -1761,29 +1704,16 @@ class SupabaseService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return [];
 
-    // Recent posts by the user
-    final myPosts = await _client
-        .from('posts')
-        .select('id, content, created_at')
-        .eq('author_id', userId)
-        .order('created_at', ascending: false)
-        .limit(5);
+    // Run all fetches in parallel
+    final results = await Future.wait([
+      _client.from('posts').select('id, content, created_at').eq('author_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
+      _client.from('comments').select('id, content, created_at, post_id').eq('author_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
+      _client.from('likes').select('id, created_at, post_id').eq('user_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
+    ]);
 
-    // Recent comments by the user
-    final myComments = await _client
-        .from('comments')
-        .select('id, content, created_at, post_id')
-        .eq('author_id', userId)
-        .order('created_at', ascending: false)
-        .limit(5);
-
-    // Recent likes by the user
-    final myLikes = await _client
-        .from('likes')
-        .select('id, created_at, post_id')
-        .eq('user_id', userId)
-        .order('created_at', ascending: false)
-        .limit(5);
+    final List<dynamic> myPosts = results[0];
+    final List<dynamic> myComments = results[1];
+    final List<dynamic> myLikes = results[2];
 
     final activities = <Map<String, dynamic>>[];
 

@@ -209,6 +209,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _badgeTimer?.cancel();
+    _messagesChannel?.unsubscribe();
+    _notificationsChannel?.unsubscribe();
+    _latestPostsSub?.cancel();
+    _jobsSub?.cancel();
+    _applicationsSub?.cancel();
+    _sidebarSvc.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _onNewNotification(PostgresChangePayload payload) async {
     if (mounted) {
       setState(() => _unreadNotifications++);
@@ -347,18 +360,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (mounted) setState(() => _newJobsCount = jobsCount);
   }
 
-  @override
-  void dispose() {
-    _badgeTimer?.cancel();
-    _scrollController.dispose();
-    _sidebarSvc.dispose();
-    _latestPostsSub?.cancel();
-    _jobsSub?.cancel();
-    _applicationsSub?.cancel();
-    _messagesChannel?.unsubscribe();
-    _notificationsChannel?.unsubscribe();
-    super.dispose();
-  }
+
 
   Future<void> _loadBadgeCounts() async {
     try {
@@ -440,6 +442,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_feedCtrl.domain != d || _feedCtrl.mode != mode) {
       SupabaseService.optimizeMemory();
       setState(() => _isSwitchingDomain = true);
+      _sidebarSvc.dispose(); // Cleanup old real-time channels
       _feedCtrl = PostWindowManager(domain: d, mode: mode);
       _sidebarSvc = SidebarDataService(domain: d)
         ..subscribeRealtime(onUpdate: () {

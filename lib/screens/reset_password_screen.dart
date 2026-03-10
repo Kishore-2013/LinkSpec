@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 import '../widgets/aw_logo.dart';
+import '../services/supabase_service.dart';
+
+/// Enum to manage the dynamic states of the unified recovery flow.
+enum AuthState { 
+  forgot,   // Initial "Enter email" view
+  mailSent, // Confirmation after sending reset link
+  reset,    // "Enter new password" view (if token detected)
+  success   // Celebration view after successful reset
+}
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({Key? key}) : super(key: key);
@@ -11,372 +19,462 @@ class ResetPasswordScreen extends StatefulWidget {
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
-class _ResetPasswordScreenState extends State<ResetPasswordScreen> with TickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
-  final _passwordController = TextEditingController();
-  final _confirmController = TextEditingController();
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> 
+    with TickerProviderStateMixin {
+  
+  // ── State ──────────────────────────────────────────────────────────────────
+  AuthState _currentState = AuthState.forgot;
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Design tokens — Flamingo Warm
-  static const _bg         = Color(0xFFFBF6F3); 
-  static const _surface    = Color(0xFFFFFFFF); 
-  static const _primary    = Color(0xFFCF7E6B); 
-  static const _accent     = Color(0xFFE8B4A8); 
-  static const _text       = Color(0xFF2D2525); 
-  static const _textMid    = Color(0xFF9E9090); 
-  static const _border     = Color(0xFFEDE0D8); 
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
 
-  late final AnimationController _blobCtrl;
-  late final Animation<double> _blobFloat1; 
-  late final Animation<double> _blobFloat2; 
-  late final Animation<double> _blobFloat3; 
+  // ── Design Tokens ────────────────────────────────────────────────────────
+  static const _primary    = Color(0xFF1C1C1E); // Deep Black
+  static const _accent     = Color(0xFF0066CC); // Apple Blue
+  static const _text       = Color(0xFF1C1C1E); 
+  static const _textMid    = Color(0xFF8E8E93); 
+  static const _border     = Color(0xFFE5E5EA); 
+  static const _bg         = Color(0xFFFBF6F3);
 
   @override
   void initState() {
     super.initState();
-    _blobCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
-    _blobFloat1 = Tween<double>(begin: 0, end: -16).animate(CurvedAnimation(parent: _blobCtrl, curve: Curves.easeInOut));
-    _blobFloat2 = Tween<double>(begin: 0, end: 14).animate(CurvedAnimation(parent: _blobCtrl, curve: const Interval(0.2, 1.0, curve: Curves.easeInOut)));
-    _blobFloat3 = Tween<double>(begin: 0, end: -12).animate(CurvedAnimation(parent: _blobCtrl, curve: const Interval(0.4, 1.0, curve: Curves.easeInOut)));
+    _checkInitialState();
+  }
+
+  /// Logic to detect if we arrived via a recovery deep link.
+  void _checkInitialState() {
+    // Note: Supabase on Web usually handles the hash session automatically.
+    // We check for 'code' or 'type=recovery' in current URL.
+    final uri = Uri.base;
+    final hasCode = uri.queryParameters.containsKey('code') || 
+                    uri.fragment.contains('code=') ||
+                    uri.fragment.contains('type=recovery') ||
+                    uri.queryParameters['type'] == 'recovery';
+
+    if (hasCode) {
+      setState(() => _currentState = AuthState.reset);
+    }
   }
 
   @override
   void dispose() {
-    _blobCtrl.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
   }
 
-  bool _needsManualEmail = false;
-  bool _needsOtpCode = false;
-  final _manualEmailController = TextEditingController();
-  final _otpCodeController = TextEditingController();
+  // ── Flow Handlers ─────────────────────────────────────────────────────────
 
-  Future<void> _handleReset() async {
+  /// Step 1: Request reset link
+  Future<void> _handleForgotPassword() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
     
+    setState(() => _isLoading = true);
     try {
-      final auth = Supabase.instance.client.auth;
-
-      // 1. Give background tools a moment
-      for (int i = 0; i < 3; i++) {
-        if (auth.currentSession != null) break;
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-
-      final uri = Uri.base;
-      String? code = uri.queryParameters['code'];
-      String? emailInUrl = uri.queryParameters['email'];
-      
-      if (uri.fragment.contains('code=') || uri.fragment.contains('email=')) {
-        final fragments = Uri.splitQueryString(uri.fragment.replaceAll('#', '').split('?').last);
-        code ??= fragments['code'];
-        emailInUrl ??= fragments['email'];
-      }
-
-      // IDENTIFICATION
-      if (emailInUrl == null || emailInUrl.isEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        emailInUrl = prefs.getString('recovery_email');
-      }
-
-      // 2. Verification Step
-      if (auth.currentSession == null) {
-        final targetEmail = emailInUrl ?? auth.currentUser?.email ?? 
-                           (_needsManualEmail ? _manualEmailController.text.trim() : null);
-        
-        if (targetEmail == null || targetEmail.isEmpty) {
-          setState(() {
-            _needsManualEmail = true;
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please confirm your email address to continue.'),
-              backgroundColor: Color(0xFFCF7E6B),
-            ),
-          );
-          return;
-        }
-
-        try {
-          // If we are in OTP mode, use the code they typed
-          if (_needsOtpCode) {
-            String typedCode = _otpCodeController.text.trim();
-            if (typedCode.isEmpty) throw 'Please enter the 6-digit code sent to your email.';
-            
-            await auth.verifyOTP(
-              email: targetEmail,
-              token: typedCode,
-              type: OtpType.magiclink, // Fallback to standard OTP login if recovery link is broken
-            );
-          } else {
-             // Normal link recovery
-             if (code == null) throw 'Security code is missing. Please request a new link.';
-             await auth.verifyOTP(
-               email: targetEmail,
-               token: code,
-               type: OtpType.recovery,
-             );
-          }
-        } catch (otpError) {
-          // If the link fails due to PKCE (Code verifier missing), we fallback to sending a clean 6-digit code
-          if (auth.currentSession == null) {
-             if (!_needsOtpCode && targetEmail != null && targetEmail.isNotEmpty) {
-                // The link is broken by the browser. Let's send a standard OTP code instead.
-                await auth.signInWithOtp(email: targetEmail);
-                setState(() {
-                  _needsOtpCode = true;
-                  _isLoading = false;
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Link expired due to browser security. We just sent a 6-digit code to your email. Enter it below.'),
-                    backgroundColor: Color(0xFF0066CC),
-                    duration: Duration(seconds: 5),
-                  ),
-                );
-                return;
-             }
-             rethrow; 
-          }
-        }
-      }
-
-      // 3. Final update
-      if (auth.currentSession != null) {
-        await auth.updateUser(
-          UserAttributes(password: _passwordController.text.trim()),
-        );
-        
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('recovery_email');
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Succesfully Reset! Enjoy LinkSpec.'),
-              backgroundColor: Color(0xFF34D399),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          await Future.delayed(const Duration(milliseconds: 1000));
-          if (mounted) Navigator.of(context).pushReplacementNamed('/home');
-        }
-      } else {
-        throw 'Security check failed. Please request a new link.';
-      }
+      final email = _emailController.text.trim();
+      await SupabaseService.sendPasswordResetEmail(email);
+      setState(() => _currentState = AuthState.mailSent);
     } catch (e) {
-      if (mounted) {
-        String errorMsg = e.toString();
-        if (errorMsg.contains('otp_expired') || errorMsg.contains('403')) {
-          errorMsg = 'This code is invalid or has expired.';
-        } else if (errorMsg.contains('user not found') || errorMsg.contains('user_not_found')) {
-          errorMsg = 'Account not found. Please ensure you are using the correct email address.';
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMsg),
-            backgroundColor: const Color(0xFFEF4444),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      _showSnackbar(e.toString(), isError: true);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
     }
   }
 
+  /// Step 2: Update password with new one
+  Future<void> _handleResetPassword() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final newPassword = _passwordController.text.trim();
+      
+      // Update the user's password in the current auth session
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+
+      setState(() => _currentState = AuthState.success);
+      
+      // Auto-navigate to home after 2 seconds
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        }
+      });
+    } catch (e) {
+      _showSnackbar(e.toString(), isError: true);
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackbar(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: isError ? Colors.redAccent : Colors.green,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
-      body: Stack(
-        children: [
-          Positioned.fill(child: SvgPicture.asset('assets/svg/marble_texture.svg', fit: BoxFit.cover)),
-          AnimatedBuilder(
-            animation: _blobCtrl,
-            builder: (context, _) => Stack(
-              children: [
-                Positioned(top: -60 + _blobFloat1.value, left: -50, child: Opacity(opacity: 0.8, child: SvgPicture.asset('assets/svg/soft_coral.svg', width: 280))),
-                Positioned(bottom: -70 + _blobFloat2.value, left: -80, child: Opacity(opacity: 0.7, child: SvgPicture.asset('assets/svg/soft_green_blob.svg', width: 340))),
-                Positioned(bottom: -30 + _blobFloat3.value, right: -40, child: Opacity(opacity: 0.6, child: SvgPicture.asset('assets/svg/side_organic_curve.svg', width: 280))),
-              ],
-            ),
-          ),
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Column(
-                  children: [
-                    const AWLogo(size: 72, showAppName: true),
-                    const SizedBox(height: 48),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: _surface,
-                        borderRadius: BorderRadius.circular(32),
-                        border: Border.all(color: _border, width: 1.5),
-                        boxShadow: [BoxShadow(color: _primary.withOpacity(0.06), blurRadius: 30, offset: const Offset(0, 15))],
-                      ),
-                      padding: const EdgeInsets.all(40),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Text('Secure Your Account', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: _text, letterSpacing: -1), textAlign: TextAlign.center),
-                            const SizedBox(height: 12),
-                            const Text('Choose a strong new password to regain access to your LinkSpec feed.', style: TextStyle(color: _textMid, fontSize: 13, height: 1.5), textAlign: TextAlign.center),
-                            const SizedBox(height: 40),
-                            
-                            // 1. Fallback: Ask for clean OTP code if link is broken
-                            if (_needsOtpCode) ...[
-                              _buildLabel('6-DIGIT CODE'),
-                              _buildTextField(
-                                controller: _otpCodeController,
-                                hint: 'Enter code from your email',
-                                icon: Icons.numbers,
-                                validator: (v) => (v == null || v.isEmpty) ? 'Code is required' : null,
-                              ),
-                              const SizedBox(height: 24),
-                            ],
-
-                            // 2. Fallback: Ask for email if memory/URL failed
-                            if (_needsManualEmail) ...[
-                              _buildLabel('EMAIL ADDRESS'),
-                              _buildTextField(
-                                controller: _manualEmailController,
-                                hint: 'Verify your email',
-                                icon: Icons.email_outlined,
-                                validator: (v) => (v == null || v.isEmpty) ? 'Email is required' : null,
-                              ),
-                              const SizedBox(height: 24),
-                            ],
-
-                            _buildLabel('NEW PASSWORD'),
-                            _buildTextField(
-                              controller: _passwordController,
-                              hint: 'Minimum 6 characters',
-                              icon: Icons.lock_outline_rounded,
-                              obscure: _obscurePassword,
-                              validator: (v) => (v == null || v.length < 6) ? 'At least 6 characters' : null,
-                              suffix: _buildToggleVisibility(),
-                            ),
-                            const SizedBox(height: 24),
-                            _buildLabel('CONFIRM PASSWORD'),
-                            _buildTextField(
-                              controller: _confirmController,
-                              hint: 'Re-type password',
-                              icon: Icons.verified_user_outlined,
-                              obscure: _obscurePassword,
-                              validator: (v) => (v != _passwordController.text) ? 'Passwords do not match' : null,
-                            ),
-                            const SizedBox(height: 48),
-                            _buildPrimaryButton(),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+      backgroundColor: Colors.white,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.05), 
+                    end: Offset.zero,
+                  ).animate(anim),
+                  child: child,
                 ),
               ),
+              child: _buildCurrentView(),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentView() {
+    switch (_currentState) {
+      case AuthState.forgot:
+        return _ForgotPasswordView(
+          key: const ValueKey('forgot'),
+          controller: _emailController,
+          isLoading: _isLoading,
+          onSend: _handleForgotPassword,
+          onBack: () => Navigator.pop(context),
+        );
+      case AuthState.mailSent:
+        return _MailSentView(
+          key: const ValueKey('mailSent'),
+          email: _emailController.text,
+          onBack: () => setState(() => _currentState = AuthState.forgot),
+        );
+      case AuthState.reset:
+        return _ResetView(
+          key: const ValueKey('reset'),
+          formKey: _formKey,
+          passCtrl: _passwordController,
+          confCtrl: _confirmController,
+          isLoading: _isLoading,
+          obscure: _obscurePassword,
+          onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+          onSubmit: _handleResetPassword,
+        );
+      case AuthState.success:
+        return _SuccessView(
+          key: const ValueKey('success'),
+          onHome: () => Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false),
+        );
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENT VIEWS
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ForgotPasswordView extends StatelessWidget {
+  const _ForgotPasswordView({
+    Key? key,
+    required this.controller,
+    required this.isLoading,
+    required this.onSend,
+    required this.onBack,
+  }) : super(key: key);
+
+  final TextEditingController controller;
+  final bool isLoading;
+  final VoidCallback onSend;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const AWLogo(size: 60, showAppName: true),
+        const SizedBox(height: 40),
+        const Text(
+          'Password Recovery',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Enter your email to receive a recovery link.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey, fontSize: 14),
+        ),
+        const SizedBox(height: 32),
+        Form(
+          child: _CustomField(
+            controller: controller,
+            hint: 'Email Address',
+            icon: Icons.mail_outline_rounded,
+            keyboardType: TextInputType.emailAddress,
+          ),
+        ),
+        const SizedBox(height: 24),
+        _ActionBtn(
+          label: 'Send Reset Link',
+          isLoading: isLoading,
+          onTap: onSend,
+        ),
+        TextButton(
+          onPressed: onBack,
+          child: const Text('Back to Login', style: TextStyle(color: Colors.grey)),
+        ),
+      ],
+    );
+  }
+}
+
+class _MailSentView extends StatelessWidget {
+  const _MailSentView({Key? key, required this.email, required this.onBack}) : super(key: key);
+  final String email;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.mark_email_read_outlined, size: 80, color: Color(0xFF0066CC)),
+        const SizedBox(height: 24),
+        const Text(
+          'Check your inbox',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'We sent a secure link to $email.\nPlease click it to reset your password.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.grey, height: 1.5),
+        ),
+        const SizedBox(height: 40),
+        _ActionBtn(
+          label: 'I didn\'t get an email',
+          onTap: onBack,
+          isOutline: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _ResetView extends StatelessWidget {
+  const _ResetView({
+    Key? key,
+    required this.formKey,
+    required this.passCtrl,
+    required this.confCtrl,
+    required this.isLoading,
+    required this.obscure,
+    required this.onToggleObscure,
+    required this.onSubmit,
+  }) : super(key: key);
+
+  final GlobalKey<FormState> formKey;
+  final TextEditingController passCtrl;
+  final TextEditingController confCtrl;
+  final bool isLoading;
+  final bool obscure;
+  final VoidCallback onToggleObscure;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const AWLogo(size: 50, showAppName: true),
+          const SizedBox(height: 32),
+          const Text(
+            'New Password',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Ensure your new password is secure.',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 32),
+          _CustomField(
+            controller: passCtrl,
+            hint: 'New Password',
+            icon: Icons.lock_outline_rounded,
+            obscure: obscure,
+            suffix: IconButton(
+              icon: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+              onPressed: onToggleObscure,
+              iconSize: 20,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _CustomField(
+            controller: confCtrl,
+            hint: 'Confirm Password',
+            icon: Icons.verified_user_outlined,
+            obscure: obscure,
+            validator: (v) => v != passCtrl.text ? 'Passwords do not match' : null,
+          ),
+          const SizedBox(height: 32),
+          _ActionBtn(
+            label: 'Update Password',
+            isLoading: isLoading,
+            onTap: onSubmit,
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildLabel(String text) => Padding(
-    padding: const EdgeInsets.only(left: 4, bottom: 8),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w900,
-        color: _textMid,
-        letterSpacing: 1.5,
-      ),
-    ),
-  );
+class _SuccessView extends StatelessWidget {
+  const _SuccessView({Key? key, required this.onHome}) : super(key: key);
+  final VoidCallback onHome;
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    bool obscure = false,
-    String? Function(String?)? validator,
-    Widget? suffix,
-  }) {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Color(0xFFE8F5E9),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.check_circle_rounded, size: 80, color: Colors.green),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Identity Verified',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Your password has been updated.\nYou can now sign in with your new credentials.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey, height: 1.5),
+        ),
+        const SizedBox(height: 40),
+        _ActionBtn(
+          label: 'Continue to App',
+          onTap: onHome,
+        ),
+      ],
+    );
+  }
+}
+
+// ── UI HELPERS ───────────────────────────────────────────────────────────────
+
+class _CustomField extends StatelessWidget {
+  const _CustomField({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+    this.obscure = false,
+    this.suffix,
+    this.validator,
+    this.keyboardType,
+  });
+
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final bool obscure;
+  final Widget? suffix;
+  final String? Function(String?)? validator;
+  final TextInputType? keyboardType;
+
+  @override
+  Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
       obscureText: obscure,
-      validator: validator,
-      style: const TextStyle(color: _text, fontSize: 15, fontWeight: FontWeight.w600),
+      validator: validator ?? (v) => (v == null || v.isEmpty) ? 'Required' : null,
+      keyboardType: keyboardType,
+      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: _textMid, fontSize: 14, fontWeight: FontWeight.normal),
-        prefixIcon: Icon(icon, color: _primary.withOpacity(0.5), size: 20),
+        hintStyle: const TextStyle(color: Color(0xFF8E8E93), fontWeight: FontWeight.normal),
+        prefixIcon: Icon(icon, size: 18, color: const Color(0xFF8E8E93)),
         suffixIcon: suffix,
         filled: true,
-        fillColor: _bg.withOpacity(0.3),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        fillColor: const Color(0xFFF2F2F7),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: _border, width: 1),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: _border, width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: _primary, width: 2),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
         ),
       ),
     );
   }
+}
 
-  Widget _buildToggleVisibility() => GestureDetector(
-    onTap: () => setState(() => _obscurePassword = !_obscurePassword),
-    child: Icon(
-      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-      size: 18,
-      color: _textMid,
-    ),
-  );
+class _ActionBtn extends StatelessWidget {
+  const _ActionBtn({
+    required this.label,
+    required this.onTap,
+    this.isLoading = false,
+    this.isOutline = false,
+  });
 
-  Widget _buildPrimaryButton() {
+  final String label;
+  final VoidCallback onTap;
+  final bool isLoading;
+  final bool isOutline;
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _isLoading ? null : _handleReset,
+      onTap: isLoading ? null : onTap,
       child: Container(
-        height: 60,
+        height: 56,
+        width: double.infinity,
         decoration: BoxDecoration(
-          color: _primary,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: _primary.withOpacity(0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
+          color: isOutline ? Colors.transparent : const Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.circular(14),
+          border: isOutline ? Border.all(color: const Color(0xFFE5E5EA), width: 1.5) : null,
         ),
         child: Center(
-          child: _isLoading
-              ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-              : const Text(
-                  'Update Password',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+          child: isLoading
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text(
+                  label,
+                  style: TextStyle(
+                    color: isOutline ? const Color(0xFF1C1C1E) : Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
         ),
       ),
     );
   }
 }
+

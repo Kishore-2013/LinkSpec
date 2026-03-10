@@ -128,58 +128,41 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ── auth ─────────────────────────────────────────────────────────────────
+  
+  /// Unified authentication handler following a "Sign In, then Sign Up" strategy.
+  /// 
+  /// Logic: 
+  /// 1. Validate form fields.
+  /// 2. Attempt to sign in with email/password.
+  /// 3. If sign-in fails with credentials error (meaning user might not exist), 
+  ///    attempt to sign up.
+  /// 4. On success, route to the appropriate screen based on profile status.
   Future<void> _handleAuth() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
-
+    
     final email    = _emailController.text.trim();
     final password = _passwordController.text;
     final fullName = _nameController.text.trim();
 
+    setState(() => _isLoading = true);
+    
     try {
-      // ── Step 1: Always try Sign In first ──
-      try {
-        final response = await Supabase.instance.client.auth.signInWithPassword(
-          email: email,
-          password: password,
-        );
-        
-        if (response.session != null) {
-          if (!mounted) return;
-          // SUCCESS: Already an existing user, go straight to routing logic
-          await _handlePostAuthRouting();
-          return;
-        }
-      } on AuthException catch (e) {
-        // Only proceed to Sign Up if it's an 'Invalid login credentials' error
-        // which usually means the user doesn't exist yet (or wrong pass).
-        // If it's another error (e.g. email not confirmed), we should show it.
-        if (e.message.contains('Invalid login credentials') || e.message.contains('Email not confirmed')) {
-          // If the user entered a name, they probably intended to sign up.
-          // Or if they are on the sign-up toggle.
-          // But according to the prompt: "Only if signIn fails with an 'Invalid login credentials' error, then call supabase.auth.signUp."
-          
-          if (e.message.contains('Email not confirmed')) {
-             // If email not confirmed, we might want to try signing up anyway or just show error.
-             // Supabase signUp will return an error if user exists.
-          }
-        } else {
-          rethrow; // Rethrow other auth errors
-        }
+      // Step 1: Attempt Sign In
+      final signedIn = await _attemptSignIn(email, password);
+      
+      if (signedIn) {
+        await _handlePostAuthRouting();
+        return;
       }
 
-      // ── Step 2: Try Sign Up (New User) ──
-      // Note: We only reach here if signIn failed with credentials error.
+      // Step 2: User likely doesn't exist, try Sign Up
       final response = await Supabase.instance.client.auth.signUp(
         email: email,
         password: password,
         data: {'full_name': fullName},
       );
 
-      if (!mounted) return;
       if (response.user != null) {
-        // SUCCESS: New user created.
-        // Bypass VerificationScreen: Navigate directly to routing logic.
         await _handlePostAuthRouting();
       } else {
         _showSnack('Sign up failed. Please check your credentials.');
@@ -188,9 +171,28 @@ class _LoginScreenState extends State<LoginScreen>
     } on AuthException catch (e) {
       if (mounted) _showSnack(e.message);
     } catch (e) {
-      if (mounted) _showSnack('An unexpected error occurred: ${e.toString()}');
+      if (mounted) _showSnack('Unexpected error: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Attempts to sign in the user. 
+  /// Returns [true] if successful, [false] if it should fallback to sign-up.
+  Future<bool> _attemptSignIn(String email, String password) async {
+    try {
+      final response = await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      return response.session != null;
+    } on AuthException catch (e) {
+      // These specific errors imply the user should be created or has unconfirmed status
+      if (e.message.contains('Invalid login credentials') || 
+          e.message.contains('Email not confirmed')) {
+        return false;
+      }
+      rethrow; // Other errors like 'Rate limit' should stop the flow
     }
   }
 
