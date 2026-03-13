@@ -4,7 +4,8 @@ set -e
 # 1. Setup Flutter SDK
 echo "--- Ensuring Flutter SDK is present ---"
 if [ ! -d "flutter" ]; then
-  git clone https://github.com/flutter/flutter.git -b stable --depth 1
+  # Pinning to 3.24.5 to match local environment and avoid google_fonts bugs in 3.41+
+  git clone https://github.com/flutter/flutter.git -b 3.24.5 --depth 1
 fi
 
 # Use absolute path for the build session to avoid "command not found"
