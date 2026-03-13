@@ -940,7 +940,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         runSpacing: 8,
                         children: List.generate(_profile!.skills.length, (i) {
                           final skill = _profile!.skills[i];
-                          return ActionChip(
+                          return InputChip(
                             label: Text(skill),
                             backgroundColor: Colors.blue[50],
                             labelStyle: const TextStyle(color: Colors.blue, fontSize: 12),
