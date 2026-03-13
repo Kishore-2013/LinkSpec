@@ -169,49 +169,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
     }
   }
 
-  Future<void> _startVerification() async {
-    if (_profile == null) return;
-
-    final userId = SupabaseService.getCurrentUserId();
-    if (userId == null) return;
-
-    // Domain to Fermion Env mapping
-    final Map<String, String> domainToEnv = {
-      'Medical': 'medc1',
-      'IT/Software': 'sde1',
-      'Civil Engineering': 'de2',
-      'Law': 'bie2',
-      'Business': 'ba2',
-      'Global': 'default',
-    };
-
-    final env = domainToEnv[_profile!.domainId] ?? 'default';
-    final url = VerificationService.getRedirectUrl(userId: userId, env: env);
-
-    // Optional: Pre-create user in Fermion
-    await VerificationService.createFermionUser(
-      userId: userId, 
-      name: _profile!.fullName, 
-      email: _profile!.email ?? '',
-    );
-
-    if (!mounted) return;
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => VerificationViewer(
-          url: url,
-          onComplete: () {
-            // Potential check for results
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Verification in progress. Please wait a moment for the badge to appear.')),
-            );
-            Navigator.pop(context);
-          },
-        ),
-      ),
-    );
   }
 
   Widget _buildVerificationBadge() {
@@ -222,26 +179,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
     );
   }
 
-  Widget _buildGetVerifiedButton() {
-    final status = _profile?.verificationStatus ?? 'none';
-    if (status == 'verified') return const SizedBox.shrink();
-
-    return OutlinedButton.icon(
-      onPressed: _startVerification,
-      icon: Icon(status == 'pending' ? Icons.hourglass_bottom_rounded : Icons.verified_user, size: 14),
-      label: Text(status == 'pending' ? 'Pending' : 'Get Verified', 
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-      style: OutlinedButton.styleFrom(
-        backgroundColor: status == 'pending' ? Colors.grey[700] : Colors.blue[900],
-        foregroundColor: Colors.white,
-        side: BorderSide(color: status == 'pending' ? Colors.grey[700]! : Colors.blue[900]!, width: 1.2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-        minimumSize: const Size(0, 32),
-      ),
-    );
-  }
 
 
   @override
@@ -442,13 +379,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
                         child: const BackButton(color: Colors.white),
                       ),
                     ),
-                    // 4. Absolute Get Verified Button
-                    if (isOwnProfile)
-                      Positioned(
-                        top: 260, // Level with name (200 cover + 60 padding)
-                        right: 20,
-                        child: _buildGetVerifiedButton(),
-                      ),
+                    ),
                   ],
                 ),
               ),

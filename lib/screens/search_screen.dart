@@ -370,10 +370,19 @@ class _SearchScreenState extends State<SearchScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(person['full_name'],
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16)),
+                                Row(
+                                  children: [
+                                    Text(person['full_name'],
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16)),
+                                    if (person['verification_status'] == 'verified')
+                                      const Padding(
+                                        padding: EdgeInsets.only(left: 4),
+                                        child: Icon(Icons.verified, color: Colors.blue, size: 16),
+                                      ),
+                                  ],
+                                ),
                                 Text(
                                   person['domain_id'] ?? 'Professional',
                                   style: TextStyle(
