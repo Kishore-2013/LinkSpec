@@ -226,21 +226,19 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
     final status = _profile?.verificationStatus ?? 'none';
     if (status == 'verified') return const SizedBox.shrink();
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: OutlinedButton.icon(
-        onPressed: _startVerification,
-        icon: const Icon(Icons.security, size: 16),
-        label: Text(status == 'pending' ? 'Verification Pending' : 'Get Verified', 
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.blue[900],
-          foregroundColor: Colors.white,
-          side: BorderSide(color: Colors.blue[900]!, width: 1.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        ),
+    return OutlinedButton.icon(
+      onPressed: _startVerification,
+      icon: Icon(status == 'pending' ? Icons.hourglass_bottom_rounded : Icons.verified_user, size: 14),
+      label: Text(status == 'pending' ? 'Pending' : 'Get Verified', 
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: status == 'pending' ? Colors.grey[700] : Colors.blue[900],
+        foregroundColor: Colors.white,
+        side: BorderSide(color: status == 'pending' ? Colors.grey[700]! : Colors.blue[900]!, width: 1.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+        minimumSize: const Size(0, 32),
       ),
     );
   }
@@ -361,21 +359,23 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
                                     ),
                                   ),
                                   // Right-side badges
-                                  if (currentCompany != null || latestSchool != null)
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        if (currentCompany != null)
-                                          _buildBadge(currentCompany, Icons.business),
-                                        if (latestSchool != null) ...[
-                                          const SizedBox(height: 10),
-                                          _buildBadge(latestSchool, Icons.school),
-                                        ],
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      if (currentCompany != null)
+                                        _buildBadge(currentCompany, Icons.business),
+                                      if (latestSchool != null) ...[
+                                        const SizedBox(height: 10),
+                                        _buildBadge(latestSchool, Icons.school),
                                       ],
-                                    ),
+                                      if (isOwnProfile) ...[
+                                        const SizedBox(height: 10),
+                                        _buildGetVerifiedButton(),
+                                      ],
+                                    ],
+                                  ),
                                 ],
                               ),
-                              if (isOwnProfile) _buildGetVerifiedButton(),
                               const SizedBox(height: 20),
                               if (!isOwnProfile)
                                 Row(
