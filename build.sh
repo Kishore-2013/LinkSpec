@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# 0. Install Node dependencies (API)
+echo "--- Installing Node dependencies ---"
+npm install
+
 # 1. Setup Flutter SDK
 echo "--- Ensuring Flutter SDK is present ---"
 if [ ! -d "flutter" ]; then
