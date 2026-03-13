@@ -4,14 +4,14 @@ set -e
 # 1. Setup Flutter SDK
 echo "--- Ensuring Flutter SDK is present ---"
 if [ ! -d "flutter" ]; then
-  # Pinning to 3.24.5 to match local environment and avoid google_fonts bugs in 3.41+
-  git clone https://github.com/flutter/flutter.git -b 3.24.5 --depth 1
+  git clone https://github.com/flutter/flutter.git -b stable --depth 1
 fi
 
 # Use absolute path for the build session to avoid "command not found"
 export FLUTTER_HOME="$(pwd)/flutter"
 export PATH="$FLUTTER_HOME/bin:$PATH"
 export RUN_FLUTTER_AS_ROOT=true
+export CHROME_EXECUTABLE=$(which google-chrome || which chromium-browser || echo "/usr/bin/google-chrome")
 
 
 # 2. Configuration
