@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'dart:ui_web' as ui;
 import 'package:web/web.dart' as web;
+import 'dart:js_interop';
 
 class VerificationViewer extends StatefulWidget {
   final String url;
@@ -21,6 +22,7 @@ class VerificationViewer extends StatefulWidget {
 class _VerificationViewerState extends State<VerificationViewer> {
   WebViewController? _controller;
   final String _viewId = 'verification-iframe';
+  web.EventListener? _messageListener;
 
   @override
   void initState() {
@@ -38,6 +40,18 @@ class _VerificationViewerState extends State<VerificationViewer> {
         iframe.setAttribute('allow', 'fullscreen');
         return iframe;
       });
+
+      // Listen for postMessage from the verification tab/iframe
+      _messageListener = (web.MessageEvent event) {
+        final data = event.data.toString();
+        if (data.contains('verification_success') || data.contains('verification-completed')) {
+          if (mounted && widget.onComplete != null) {
+            widget.onComplete!();
+          }
+        }
+      }.toJS as web.EventListener;
+
+      web.window.addEventListener('message', _messageListener!);
     } else {
       // Initialize WebView for Mobile
       _controller = WebViewController()
@@ -58,6 +72,14 @@ class _VerificationViewerState extends State<VerificationViewer> {
         )
         ..loadRequest(Uri.parse(widget.url));
     }
+  }
+
+  @override
+  void dispose() {
+    if (kIsWeb && _messageListener != null) {
+      web.window.removeEventListener('message', _messageListener!);
+    }
+    super.dispose();
   }
 
   @override

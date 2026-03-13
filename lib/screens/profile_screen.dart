@@ -938,20 +938,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     : Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: List.generate(_profile!.skills.length, (i) => Chip(
-                          label: Text(_profile!.skills[i]),
-                          backgroundColor: Colors.blue[50],
-                          labelStyle: const TextStyle(color: Colors.blue, fontSize: 12),
-                          side: BorderSide.none,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          onDeleted: _isEditing ? () {
-                            setState(() {
-                              final s = [..._profile!.skills];
-                              s.removeAt(i);
-                              _profile = _profile!.copyWith(skills: s);
-                            });
-                          } : null,
-                        )),
+                        children: List.generate(_profile!.skills.length, (i) {
+                          final skill = _profile!.skills[i];
+                          return ActionChip(
+                            label: Text(skill),
+                            backgroundColor: Colors.blue[50],
+                            labelStyle: const TextStyle(color: Colors.blue, fontSize: 12),
+                            side: BorderSide.none,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            onPressed: _isEditing ? null : () => _startVerification(skill: skill),
+                            onDeleted: _isEditing ? () {
+                              setState(() {
+                                final s = [..._profile!.skills];
+                                s.removeAt(i);
+                                _profile = _profile!.copyWith(skills: s);
+                              });
+                            } : null,
+                          );
+                        }),
                       ),
               ),
             ),
@@ -1148,7 +1152,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Future<void> _startVerification() async {
+  Future<void> _startVerification({String? skill}) async {
     if (_profile == null) return;
 
     final userId = SupabaseService.getCurrentUserId();
@@ -1165,14 +1169,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     };
 
     final env = domainToEnv[_profile!.domainId] ?? 'default';
-    final url = VerificationService.getRedirectUrl(userId: userId, env: env);
-
-    // Optional: Pre-create user in Fermion
-    await VerificationService.createFermionUser(
-      userId: userId, 
-      name: _profile!.fullName, 
-      email: _profile!.email ?? '',
-    );
+    final url = VerificationService.getRedirectUrl(userId: userId, env: env, skill: skill);
 
     if (!mounted) return;
 

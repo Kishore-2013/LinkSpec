@@ -130,53 +130,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const config = ENVIRONMENTS[env as keyof typeof ENVIRONMENTS] || ENVIRONMENTS.default;
     const labId = config.productId;
 
-    // 1) Enroll user into the Fermion digital product
-    const enrollRes = await fetch(ENROLL_URL, {
-      method: 'POST',
-      headers: {
-        'FERMION-API-KEY': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        data: [
-          {
-            data: {
-              fermionDigitalProductId: config.productId,
-              userId: userId,
-            },
-          },
-        ],
-      }),
-    });
-
-    if (!enrollRes.ok && enrollRes.status !== 409) {
-      const errText = await enrollRes.text();
-      console.error(`Fermion enroll failed for ${env}:`, enrollRes.status, errText);
-      return res
-        .status(enrollRes.status)
-        .send(`Enrollment failed: ${errText || 'unknown error'}`);
-    }
-
-    // 2) Sign the playground token
-    const token = jwt.sign(
-      {
-        labId,
-        userId,
-        playgroundOptions: {
-          isCodeCopyPasteAllowed: false,
-          shouldHideLogo: false,
-          overrideDefaultFilesystemForLab: { isEnabled: false },
-        },
-      },
-      apiKey,
-      { algorithm: 'HS256', expiresIn: '1h' }
-    );
-
-    // 3) Redirect to the contest page with token
+    // 1) Get the contest URL and handle dynamic school host
     const schoolHost = process.env.FERMION_SCHOOL_HOST || 'careerbadge.apply-wizz.com';
     const contestUrl = config.contestUrl.replace('careerbadge.apply-wizz.com', schoolHost);
     
-    const url = `${contestUrl}?token=${encodeURIComponent(token)}`;
+    // 2) Append skill if provided
+    const skill = req.query.skill as string;
+    let url = contestUrl;
+    if (skill) {
+      url += (url.includes('?') ? '&' : '?') + `skill=${encodeURIComponent(skill)}`;
+    }
+
+    // 3) Direct redirect (Fermion will handle login/registration prompt)
     res.setHeader('Cache-Control', 'no-store');
     return res.redirect(302, url);
   } catch (e: any) {
