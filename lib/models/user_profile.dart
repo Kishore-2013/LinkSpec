@@ -12,6 +12,7 @@ class UserProfile {
   final String? motherDomain;
   final String? tag; // Legacy support
   final String? email;
+  final String? verificationStatus; // 'none', 'pending', 'verified'
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -29,6 +30,7 @@ class UserProfile {
     this.skills = const [],
     this.tag = 'User',
     this.email,
+    this.verificationStatus = 'none',
     required this.createdAt,
     required this.updatedAt,
   });
@@ -48,6 +50,7 @@ class UserProfile {
       skills: List<String>.from(json['skills'] ?? []),
       tag: json['tag'] as String? ?? 'User',
       email: json['email'] as String?,
+      verificationStatus: json['verification_status'] as String? ?? 'none',
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -68,6 +71,7 @@ class UserProfile {
       'mother_domain': motherDomain,
       'tag': tag,
       'email': email,
+      'verification_status': verificationStatus,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -87,6 +91,7 @@ class UserProfile {
     List<String>? skills,
     String? tag,
     String? email,
+    String? verificationStatus,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -104,6 +109,7 @@ class UserProfile {
       skills: skills ?? this.skills,
       tag: tag ?? this.tag,
       email: email ?? this.email,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

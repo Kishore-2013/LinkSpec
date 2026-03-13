@@ -8,6 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/follow_provider.dart';
 import '../providers/unite_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../services/verification_service.dart';
+import '../widgets/verification_viewer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
+import 'dart:async';
 
 
 class MemberProfileScreen extends ConsumerStatefulWidget {
@@ -30,6 +34,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
   int _connectionsCount = 0;
   List<Post> _userPosts = [];
   bool _isUniteLoading = false;
+  sb.RealtimeChannel? _profileSubscription;
 
 
   @override
@@ -37,6 +42,28 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadProfileData();
+    _setupProfileListener();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _profileSubscription?.unsubscribe();
+    super.dispose();
+  }
+
+  void _setupProfileListener() {
+    _profileSubscription = SupabaseService.subscribeToProfileChanges(widget.userId, (payload) {
+      if (mounted) {
+        setState(() {
+          if (_profile != null) {
+            _profile = _profile!.copyWith(
+              verificationStatus: payload['verification_status'] as String?,
+            );
+          }
+        });
+      }
+    });
   }
 
   Future<void> _loadProfileData({bool silent = false}) async {
@@ -142,6 +169,82 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
     }
   }
 
+  Future<void> _startVerification() async {
+    if (_profile == null) return;
+
+    final userId = SupabaseService.getCurrentUserId();
+    if (userId == null) return;
+
+    // Domain to Fermion Env mapping
+    final Map<String, String> domainToEnv = {
+      'Medical': 'medc1',
+      'IT/Software': 'sde1',
+      'Civil Engineering': 'de2',
+      'Law': 'bie2',
+      'Business': 'ba2',
+      'Global': 'default',
+    };
+
+    final env = domainToEnv[_profile!.domainId] ?? 'default';
+    final url = VerificationService.getRedirectUrl(userId: userId, env: env);
+
+    // Optional: Pre-create user in Fermion
+    await VerificationService.createFermionUser(
+      userId: userId, 
+      name: _profile!.fullName, 
+      email: _profile!.email ?? '',
+    );
+
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VerificationViewer(
+          url: url,
+          onComplete: () {
+            // Potential check for results
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Verification in progress. Please wait a moment for the badge to appear.')),
+            );
+            Navigator.pop(context);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerificationBadge() {
+    if (_profile?.verificationStatus != 'verified') return const SizedBox.shrink();
+    return const Padding(
+      padding: EdgeInsets.only(left: 6),
+      child: Icon(Icons.verified, color: Colors.blue, size: 20),
+    );
+  }
+
+  Widget _buildGetVerifiedButton() {
+    final status = _profile?.verificationStatus ?? 'none';
+    if (status == 'verified') return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: OutlinedButton.icon(
+        onPressed: _startVerification,
+        icon: const Icon(Icons.security, size: 16),
+        label: Text(status == 'pending' ? 'Verification Pending' : 'Get Verified', 
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.blue[900],
+          foregroundColor: Colors.white,
+          side: BorderSide(color: Colors.blue[900]!, width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        ),
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -209,12 +312,17 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          _profile!.fullName,
-                                          style: const TextStyle(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              _profile!.fullName,
+                                              style: const TextStyle(
+                                                fontSize: 24,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            _buildVerificationBadge(),
+                                          ],
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
@@ -267,6 +375,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
                                     ),
                                 ],
                               ),
+                              if (isOwnProfile) _buildGetVerifiedButton(),
                               const SizedBox(height: 20),
                               if (!isOwnProfile)
                                 Row(

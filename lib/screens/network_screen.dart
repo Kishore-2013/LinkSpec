@@ -237,9 +237,18 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          profile['full_name'],
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              profile['full_name'],
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                            ),
+                                            if (profile['verification_status'] == 'verified')
+                                              const Padding(
+                                                padding: EdgeInsets.only(left: 4),
+                                                child: Icon(Icons.verified, color: Colors.blue, size: 16),
+                                              ),
+                                          ],
                                         ),
                                         Text(
                                           profile['domain_id'].toString().toUpperCase(),

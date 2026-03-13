@@ -20,7 +20,8 @@ class Post {
   final int commentCount;
   final bool isLiked;
   final bool isFollowing;
-  final bool isTrending; // Flag for top weekly posts
+  final bool isTrending; 
+  final String? authorVerificationStatus;
 
   Post({
     required this.id,
@@ -39,6 +40,7 @@ class Post {
     this.isTrending = false,
     this.isAutomated = false,
     this.linkedJobId,
+    this.authorVerificationStatus = 'none',
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
@@ -62,6 +64,7 @@ class Post {
       isTrending: json['is_trending'] as bool? ?? false,
       isAutomated: json['is_automated'] as bool? ?? false,
       linkedJobId: json['linked_job_id'] as String?,
+      authorVerificationStatus: json['author_verification_status'] as String? ?? 'none',
     );
   }
 
@@ -79,6 +82,7 @@ class Post {
       'like_count': likeCount,
       'is_automated': isAutomated,
       'linked_job_id': linkedJobId,
+      'author_verification_status': authorVerificationStatus,
     };
   }
 
@@ -95,6 +99,7 @@ class Post {
     int? likeCount,
     bool? isAutomated,
     String? linkedJobId,
+    String? authorVerificationStatus,
   }) {
     return Post(
       id: id ?? this.id,
@@ -109,6 +114,7 @@ class Post {
       likeCount: likeCount ?? this.likeCount,
       isAutomated: isAutomated ?? this.isAutomated,
       linkedJobId: linkedJobId ?? this.linkedJobId,
+      authorVerificationStatus: authorVerificationStatus ?? this.authorVerificationStatus,
     );
   }
 

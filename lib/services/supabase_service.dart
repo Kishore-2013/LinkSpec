@@ -149,6 +149,39 @@ class SupabaseService {
     }
   }
 
+  /// Update the verification status for a user.
+  /// status: 'none' | 'pending' | 'verified'
+  static Future<void> updateVerificationStatus(String userId, String status) async {
+    await _client
+        .from('profiles')
+        .update({'verification_status': status})
+        .eq('id', userId);
+    
+    if (userId == _client.auth.currentUser?.id) {
+      if (_currentUserProfile != null) {
+        _currentUserProfile!['verification_status'] = status;
+      }
+    }
+  }
+
+  /// Subscribe to profile changes for the current user
+  static RealtimeChannel subscribeToProfileChanges(String userId, void Function(Map<String, dynamic> payload) onUpdate) {
+    return _client
+        .channel('public:profiles:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'profiles',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: userId,
+          ),
+          callback: (payload) => onUpdate(payload.newRecord),
+        )
+        .subscribe();
+  }
+
   /// Upload avatar image and return public URL (Binary-Standard)
   static Future<String> uploadAvatar(Uint8List bytes, String fileName) async {
     final userId = _client.auth.currentUser?.id;
@@ -382,7 +415,8 @@ class SupabaseService {
           profiles:author_id (
             full_name,
             avatar_url,
-            domain_id
+            domain_id,
+            verification_status
           ),
           likes:likes(count),
           comments:comments(count)
@@ -433,6 +467,7 @@ class SupabaseService {
         'author_name': profile?['full_name'] ?? post['author_name'],
         'author_avatar': profile?['avatar_url'] ?? post['author_avatar'],
         'author_domain': profile?['domain_id'] ?? post['author_domain'],
+        'author_verification_status': profile?['verification_status'] ?? post['author_verification_status'],
         'like_count': (likeCount as num).toInt(),
         'comment_count': (commentCount as num).toInt(),
         'is_liked': likedSet.contains(postId),

@@ -214,6 +214,11 @@ class _PostCardState extends ConsumerState<PostCard> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                                if (widget.post.authorVerificationStatus == 'verified')
+                                  const Padding(
+                                    padding: EdgeInsets.only(left: 4),
+                                    child: Icon(Icons.verified, color: Colors.blue, size: 16),
+                                  ),
                                 const SizedBox(width: 5),
                                 const Text('• 1st', style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)),
                                 if (widget.post.isTrending) ...[

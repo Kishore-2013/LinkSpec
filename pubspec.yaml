@@ -14,7 +14,7 @@ dependencies:
 
   # UI & Fonts
   cupertino_icons: ^1.0.8
-  google_fonts: ^8.0.2 # Critical for Flutter 3.41+ compatibility
+  google_fonts: ^6.2.0 # Adjusted for compatibility with Dart SDK 3.6.2
 
   # Backend & Database
   supabase_flutter: ^2.8.4
@@ -45,6 +45,7 @@ dependencies:
   http: ^1.6.0
   flutter_dotenv: ^5.2.1
   crypto: ^3.0.3
+  webview_flutter: ^4.10.0
 
   # NOTE: 'mailer' remains removed as it is strictly incompatible with Web (requires dart:io)
   # Use Supabase Auth for all email flows
