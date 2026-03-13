@@ -4,7 +4,7 @@ import '../services/supabase_service.dart';
 import 'package:flutter/foundation.dart';
 
 class VerificationService {
-  static const String _baseUrl = 'https://linkspec.vercel.app/api';
+  static const String _baseUrl = 'https://link-spec.vercel.app/api';
 
   /// Triggers the Fermion enrollment and returns the redirect URL.
   /// env: the environment/contest key (e.g., 'fe1', 'be1', etc.)
