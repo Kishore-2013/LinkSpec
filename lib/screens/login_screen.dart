@@ -133,15 +133,19 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           );
 
           if (response.statusCode == 200) {
+            // Extract the signed token — Flutter holds it, sends back on verify
+            final responseData = json.decode(response.body) as Map<String, dynamic>;
+            final otpToken = responseData['token'] as String? ?? '';
+
             if (mounted) {
               LinkSpecNotify.show(context, "Perfect! We've sent a 6-digit verification code to your inbox!", LinkSpecNotifyType.info);
-              // Navigate to verify screen using 'extra' to hide sensitive data from the URL
               context.go(
-                '/otp-verify',
+                '/otp-verify?email=${Uri.encodeComponent(email)}',
                 extra: {
                   'email': email,
                   'name': name,
                   'password': password,
+                  'token': otpToken,
                 },
               );
             }

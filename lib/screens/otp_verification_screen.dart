@@ -11,26 +11,38 @@ class OTPVerificationScreen extends StatefulWidget {
   final String email;
   final String? name;
   final String? password;
+  final String token; // signed token from /send-otp — held in Flutter memory
 
   const OTPVerificationScreen({
-    Key? key, 
+    Key? key,
     required this.email,
     this.name,
     this.password,
+    this.token = '',
   }) : super(key: key);
 
   @override
   State<OTPVerificationScreen> createState() => _OTPVerificationScreenState();
 }
 
+
 class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   final _otpController = TextEditingController();
   bool _isLoading = false;
 
   Future<void> _verifyWithServer() async {
+    if (widget.email.isEmpty) {
+      LinkSpecNotify.show(context, 'Ohh! no, we seem to have lost your email. Please try logging in again.', LinkSpecNotifyType.warning);
+      return;
+    }
+    
     final code = _otpController.text.trim();
     if (code.length < 6) {
       LinkSpecNotify.show(context, 'Ohh! no, please enter the full 6-digit code!', LinkSpecNotifyType.warning);
+      return;
+    }
+    if (widget.token.isEmpty) {
+      LinkSpecNotify.show(context, 'Ohh! no, your session expired. Please go back and try signing up again.', LinkSpecNotifyType.warning);
       return;
     }
 
@@ -42,6 +54,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         body: jsonEncode({
           'email': widget.email,
           'otp_code': code,
+          'token': widget.token,  // signed token — server decodes & verifies
         }),
       );
 
@@ -108,6 +121,10 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   }
 
   Future<void> _resendFromServer() async {
+    if (widget.email.isEmpty) {
+      LinkSpecNotify.show(context, "Ohh! no, we don't have your email address to resend the code.", LinkSpecNotifyType.warning);
+      return;
+    }
     if (_isLoading) return; // Prevent double-tap
     
     setState(() => _isLoading = true);

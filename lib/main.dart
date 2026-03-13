@@ -69,13 +69,16 @@ final _router = GoRouter(
     GoRoute(
       path: '/otp-verify',
       builder: (context, state) {
-        final email = state.uri.queryParameters['email'] ?? '';
-        final name = state.uri.queryParameters['name'];
-        final password = state.uri.queryParameters['password'];
+        final Map<String, dynamic>? extra = state.extra as Map<String, dynamic>?;
+        final email    = extra?['email']    ?? state.uri.queryParameters['email'] ?? '';
+        final name     = extra?['name']     ?? state.uri.queryParameters['name'];
+        final password = extra?['password'] ?? state.uri.queryParameters['password'];
+        final token    = extra?['token']    as String? ?? '';
         return OTPVerificationScreen(
           email: email,
           name: name,
           password: password,
+          token: token,
         );
       },
     ),
