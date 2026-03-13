@@ -169,7 +169,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
     }
   }
 
-  }
 
   Widget _buildVerificationBadge() {
     if (_profile?.verificationStatus != 'verified') return const SizedBox.shrink();
@@ -378,7 +377,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
                         backgroundColor: Colors.black.withOpacity(0.3),
                         child: const BackButton(color: Colors.white),
                       ),
-                    ),
                     ),
                   ],
                 ),
