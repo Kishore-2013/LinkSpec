@@ -52,8 +52,8 @@ const ENVIRONMENTS = {
     contestUrl: 'https://careerbadge.apply-wizz.com/contest/military-seed'
   },
   sde1: {
-    productId: '69b3df96facdfdaa50f64a0b',
-    contestUrl: 'https://careerbadge.apply-wizz.com/contest/tree-slightly'
+    productId: '68d24a735824ea0d74588d2e',
+    contestUrl: 'https://careerbadge.apply-wizz.com/contest/thou-under'
   },
   sde2: {
     productId: '68d24a7f9fd1dab5a920e877',
