@@ -9,7 +9,8 @@ import '../services/linkspec_notify.dart';
 /// Receives optional route argument `{'fullName': String}` from the sign-up flow
 /// to pre-populate the Full Name field so users don't have to type it twice.
 class DomainSelectionScreen extends StatefulWidget {
-  const DomainSelectionScreen({Key? key}) : super(key: key);
+  final String? fullName;
+  const DomainSelectionScreen({Key? key, this.fullName}) : super(key: key);
 
   @override
   State<DomainSelectionScreen> createState() => _DomainSelectionScreenState();
@@ -48,11 +49,15 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Pre-fill name from sign-up arguments (only on first call)
+    // Pre-fill name from sign-up arguments
     if (_fullNameController.text.isEmpty) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is Map && args['fullName'] != null) {
-        _fullNameController.text = args['fullName'] as String;
+      if (widget.fullName != null) {
+        _fullNameController.text = widget.fullName!;
+      } else {
+        final args = ModalRoute.of(context)?.settings.arguments;
+        if (args is Map && args['fullName'] != null) {
+          _fullNameController.text = args['fullName'] as String;
+        }
       }
     }
   }
@@ -106,13 +111,17 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen>
       });
 
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/home');
+      // SUCCESS! Move to home feed
+      context.go('/home');
     } on PostgrestException catch (e) {
       if (mounted) LinkSpecNotify.show(context, 'Ohh! no, we hit a database snag: ${e.message}', LinkSpecNotifyType.warning);
+      debugPrint('DomainSelection Error (Postgrest): ${e.message} | ${e.details}');
     } on AuthException catch (e) {
       if (mounted) LinkSpecNotify.show(context, 'Ohh! no, there was an authentication hiccup: ${e.message}', LinkSpecNotifyType.warning);
+      debugPrint('DomainSelection Error (Auth): ${e.message}');
     } catch (e) {
-      if (mounted) LinkSpecNotify.show(context, 'Ohh! no, something unexpected happened. Could you please try again?', LinkSpecNotifyType.warning);
+      if (mounted) LinkSpecNotify.show(context, 'Ohh! no, we hit a snag: ${e.toString()}', LinkSpecNotifyType.warning);
+      debugPrint('DomainSelection Error (Unexpected): $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

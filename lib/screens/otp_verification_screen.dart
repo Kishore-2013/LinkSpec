@@ -83,7 +83,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
               'Perfect! Your identity is verified. Your account has been created!', 
               LinkSpecNotifyType.info
             );
-            context.go('/domain-selection');
+            context.go('/domain-selection', extra: {'fullName': widget.name});
             } on sb.AuthException catch (e) {
               if (mounted) {
                 if (e.statusCode == '422') {

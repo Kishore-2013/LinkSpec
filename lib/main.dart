@@ -84,7 +84,11 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/domain-selection',
-      builder: (context, state) => DomainSelectionScreen(),
+      builder: (context, state) {
+        final Map<String, dynamic>? extra = state.extra as Map<String, dynamic>?;
+        final fullName = extra?['fullName'] as String?;
+        return DomainSelectionScreen(fullName: fullName);
+      },
     ),
     GoRoute(
       path: '/home',
