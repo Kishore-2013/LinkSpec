@@ -29,6 +29,13 @@ class OTPVerificationScreen extends StatefulWidget {
 class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   final _otpController = TextEditingController();
   bool _isLoading = false;
+  late String _activeToken; // Track the current session token in state
+
+  @override
+  void initState() {
+    super.initState();
+    _activeToken = widget.token;
+  }
 
   Future<void> _verifyWithServer() async {
     if (widget.email.isEmpty) {
@@ -41,7 +48,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       LinkSpecNotify.show(context, 'Ohh! no, please enter the full 6-digit code!', LinkSpecNotifyType.warning);
       return;
     }
-    if (widget.token.isEmpty) {
+    if (_activeToken.isEmpty) {
       LinkSpecNotify.show(context, 'Ohh! no, your session expired. Please go back and try signing up again.', LinkSpecNotifyType.warning);
       return;
     }
@@ -54,7 +61,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         body: jsonEncode({
           'email': widget.email,
           'otp_code': code,
-          'token': widget.token,  // signed token — server decodes & verifies
+          'token': _activeToken,  // Use the state token, not the initial widget token
         }),
       );
 
@@ -77,13 +84,18 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
               LinkSpecNotifyType.info
             );
             context.go('/domain-selection');
-          } catch (e) {
-            LinkSpecNotify.show(
-              context, 
-              'Identity verified, but account registration failed. Please try logging in.', 
-              LinkSpecNotifyType.warning
-            );
-          }
+            } on sb.AuthException catch (e) {
+              if (mounted) {
+                if (e.statusCode == '422') {
+                  LinkSpecNotify.show(context, 'It looks like this email is already registered. Please try logging in instead.', LinkSpecNotifyType.warning);
+                  context.go('/login');
+                } else {
+                  LinkSpecNotify.show(context, 'Ohh! no, verification passed but account creation failed: ${e.message}', LinkSpecNotifyType.warning);
+                }
+              }
+            } catch (e) {
+              if (mounted) LinkSpecNotify.show(context, 'Identity verified, but an unexpected error occurred. Please try again.', LinkSpecNotifyType.warning);
+            }
         } else {
            // Success for non-signup flows (like password reset etc)
            context.go('/domain-selection');
@@ -138,11 +150,13 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       if (!mounted) return;
 
       if (response.statusCode == 200) {
-        LinkSpecNotify.show(
-          context, 
-          "Perfect! We've sent a fresh code to your inbox.", 
-          LinkSpecNotifyType.info
-        );
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        final newToken = data['token'] as String? ?? '';
+        
+        if (mounted) {
+          setState(() => _activeToken = newToken); // Update the state with new token
+          LinkSpecNotify.show(context, "Perfect! We've sent a fresh code. Please use it.", LinkSpecNotifyType.info);
+        }
       } else {
         LinkSpecNotify.show(
           context, 
