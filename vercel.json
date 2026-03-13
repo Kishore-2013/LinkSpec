@@ -2,10 +2,10 @@
   "version": 2,
   "installCommand": "echo 'Skipping install — handled by build.sh'",
   "buildCommand": "sh build.sh",
-  "outputDirectory": "build/web",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/build/web/$1" },
+    { "source": "/((?!api/).*)", "destination": "/build/web/index.html" }
   ],
   "headers": [{
     "source": "/(.*)",

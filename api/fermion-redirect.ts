@@ -173,7 +173,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
 
     // 3) Redirect to the contest page with token
-    const url = `${config.contestUrl}?token=${encodeURIComponent(token)}`;
+    const schoolHost = process.env.FERMION_SCHOOL_HOST || 'careerbadge.apply-wizz.com';
+    const contestUrl = config.contestUrl.replace('careerbadge.apply-wizz.com', schoolHost);
+    
+    const url = `${contestUrl}?token=${encodeURIComponent(token)}`;
     res.setHeader('Cache-Control', 'no-store');
     return res.redirect(302, url);
   } catch (e: any) {
