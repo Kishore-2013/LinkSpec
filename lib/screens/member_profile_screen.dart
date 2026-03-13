@@ -331,6 +331,18 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
                                           ),
                                         ),
                                         const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue,
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: Text(
+                                            _profile!.domainId.toUpperCase(),
+                                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
                                         Row(
                                           children: [
                                             const Icon(Icons.business, size: 16, color: Colors.blue),
@@ -361,16 +373,13 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
                                   // Right-side badges
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       if (currentCompany != null)
                                         _buildBadge(currentCompany, Icons.business),
                                       if (latestSchool != null) ...[
                                         const SizedBox(height: 10),
                                         _buildBadge(latestSchool, Icons.school),
-                                      ],
-                                      if (isOwnProfile) ...[
-                                        const SizedBox(height: 10),
-                                        _buildGetVerifiedButton(),
                                       ],
                                     ],
                                   ),
@@ -433,6 +442,13 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
                         child: const BackButton(color: Colors.white),
                       ),
                     ),
+                    // 4. Absolute Get Verified Button
+                    if (isOwnProfile)
+                      Positioned(
+                        top: 260, // Level with name (200 cover + 60 padding)
+                        right: 20,
+                        child: _buildGetVerifiedButton(),
+                      ),
                   ],
                 ),
               ),
