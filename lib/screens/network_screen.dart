@@ -224,7 +224,12 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
                                         ? NetworkImage(profile['avatar_url'])
                                         : null,
                                     child: profile['avatar_url'] == null
-                                        ? Text(profile['full_name'][0].toUpperCase(), style: const TextStyle(color: Colors.blue))
+                                        ? Text(
+                                            (profile['full_name'] != null && profile['full_name'].toString().isNotEmpty)
+                                                ? profile['full_name'][0].toUpperCase()
+                                                : '?', 
+                                            style: const TextStyle(color: Colors.blue)
+                                          )
                                         : null,
                                   ),
                                   const SizedBox(width: 12),

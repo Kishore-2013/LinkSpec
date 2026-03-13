@@ -114,10 +114,15 @@ class SupabaseService {
           .eq('id', userId);
       
       // Update local cache if avatar or fullName changed
-      if (_currentUserProfile != null) {
-        if (fullName != null) _currentUserProfile!['full_name'] = fullName;
-        if (avatarUrl != null) _currentUserProfile!['avatar_url'] = avatarUrl;
-        if (bio != null) _currentUserProfile!['bio'] = bio;
+      final profile = _currentUserProfile;
+      if (profile != null) {
+        if (fullName != null) profile['full_name'] = fullName;
+        if (avatarUrl != null) profile['avatar_url'] = avatarUrl;
+        if (bio != null) profile['bio'] = bio;
+        if (experience != null) profile['experience'] = experience;
+        if (education != null) profile['education'] = education;
+        if (projects != null) profile['projects'] = projects;
+        if (skills != null) profile['skills'] = skills;
       }
     }
   }
@@ -137,9 +142,10 @@ class SupabaseService {
     
     // Clear local cache to force refresh with new domain content
     _myDomain = newDomain;
-    if (_currentUserProfile != null) {
-      _currentUserProfile!['domain_id'] = newDomain;
-      _currentUserProfile!['industry'] = newDomain;
+    final profile = _currentUserProfile;
+    if (profile != null) {
+      profile['domain_id'] = newDomain;
+      profile['industry'] = newDomain;
     }
   }
 
@@ -290,12 +296,13 @@ class SupabaseService {
       await getCurrentUserProfile();
     }
     
-    if (_myDomain == null) return [];
+    final domain = _myDomain;
+    if (domain == null) return [];
 
     var query = _client
         .from('profiles')
         .select()
-        .eq('domain_id', _myDomain!);
+        .eq('domain_id', domain);
         
     if (searchQuery != null && searchQuery.isNotEmpty) {
       query = query.ilike('full_name', '%$searchQuery%');
@@ -1273,8 +1280,9 @@ class SupabaseService {
     var query = _client.from('jobs').select('*, saved_jobs(id)');
     
     // Filter by domain if available
-    if (_myDomain != null) {
-      query = query.eq('domain_id', _myDomain!);
+    final domain = _myDomain;
+    if (domain != null) {
+      query = query.eq('domain_id', domain);
     }
     
     final response = await query.order('posted_at', ascending: false);
@@ -1300,9 +1308,10 @@ class SupabaseService {
 
     final query = _client.from('groups').select();
     
-    if (_myDomain != null) {
+    final domain = _myDomain;
+    if (domain != null) {
       return List<Map<String, dynamic>>.from(
-        await query.eq('domain_id', _myDomain!).order('created_at', ascending: false)
+        await query.eq('domain_id', domain).order('created_at', ascending: false)
       );
     }
     
@@ -1345,9 +1354,10 @@ class SupabaseService {
 
     final query = _client.from('events').select();
     
-    if (_myDomain != null) {
+    final domain = _myDomain;
+    if (domain != null) {
       return List<Map<String, dynamic>>.from(
-        await query.eq('domain_id', _myDomain!).order('date', ascending: true)
+        await query.eq('domain_id', domain).order('date', ascending: true)
       );
     }
     
@@ -1649,8 +1659,11 @@ class SupabaseService {
     for (final row in rows) {
       final content = (row['content'] as String?) ?? '';
       for (final m in hashtagRe.allMatches(content)) {
-        final tag = '#${m.group(1)!.toLowerCase()}';
-        tagCount[tag] = (tagCount[tag] ?? 0) + 1;
+        final match = m.group(1);
+        if (match != null) {
+          final tag = '#${match.toLowerCase()}';
+          tagCount[tag] = (tagCount[tag] ?? 0) + 1;
+        }
       }
     }
 
