@@ -14,8 +14,8 @@ dependencies:
 
   # UI & Fonts
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.2.1 # Downgraded for compatibility with Dart SDK 3.6.2
-  google_sign_in: ^6.2.1 # Required for Google Authentication on Web
+  google_fonts: ^8.0.2 
+  google_sign_in: ^6.3.0 
 
   # Backend & Database
   supabase_flutter: ^2.8.4
