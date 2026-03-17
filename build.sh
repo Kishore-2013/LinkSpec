@@ -52,10 +52,9 @@ echo "--- Starting Flutter Web Build ---"
 flutter pub get
 
 # 4. Perform Release Build
-# Updated for Flutter 3.41+
+# Updated for Flutter 3.41+ (web-renderer is now handled automatically)
 echo "--- Building Flutter Web (Release) ---"
 flutter build web --release \
-  --web-renderer canvaskit \
   --no-tree-shake-icons \
   --dart-define=SUPABASE_URL="$SUPABASE_URL" \
   --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
