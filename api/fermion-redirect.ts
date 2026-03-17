@@ -133,14 +133,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── Resolve school host ──────────────────────────────────────────────────
     const schoolHost = process.env.FERMION_SCHOOL_HOST || 'careerbadge.apply-wizz.com';
     
-    // Redirect to the dashboard to allow user to choose any contest
-    // instead of forcing a specific contest based on the environment.
-    let contestUrl = `https://${schoolHost}/`;
-
-    // ── Append skill filter if provided ─────────────────────────────────────
-    if (skill) {
-      contestUrl += (contestUrl.includes('?') ? '&' : '?') + `skill=${encodeURIComponent(skill)}`;
-    }
+    // Redirect to the root home page only, allowing users to choose any contest
+    const contestUrl = '/';
 
     // ── POLICY: FORCE LOGOUT + MANUALLY LOGIN ──────────────────────────────
     // To ensure the user is NEVER automatically logged in with a cached session,
