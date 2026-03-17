@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_l10n.dart';
 import '../providers/theme_provider.dart';
 import '../services/supabase_service.dart';
+import '../services/google_auth_service.dart';
+import '../providers/google_user_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -338,6 +340,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 // return the user to the home feed.
                 SupabaseService.clearCache();
                 await Supabase.instance.client.auth.signOut();
+                await googleAuthService.signOut();
+                ref.read(googleUserProvider.notifier).state = null;
                 if (mounted) {
                   Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
                 }

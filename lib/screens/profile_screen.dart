@@ -11,6 +11,7 @@ import '../widgets/post_card.dart' show ViewTracker;
 import '../providers/saved_posts_provider.dart';
 import '../services/verification_service.dart';
 import '../widgets/verification_viewer.dart';
+import '../providers/google_user_provider.dart';
 import 'dart:async';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -73,8 +74,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (mounted) setState(() => _isLoading = true);
     try {
       final profileData = await SupabaseService.getCurrentUserProfile(forceRefresh: true);
+      
       if (profileData == null) {
-        if (mounted) setState(() => _isLoading = false);
+        // FALLBACK: Try Google User from memory
+        final googleUser = ref.read(googleUserProvider);
+        if (googleUser != null && mounted) {
+          setState(() {
+            _profile = UserProfile(
+              id: googleUser.id,
+              fullName: googleUser.displayName ?? 'Google User',
+              domainId: 'social',
+              email: googleUser.email,
+              avatarUrl: googleUser.photoUrl,
+              skills: [],
+              experience: [],
+              education: [],
+              projects: [],
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+            _nameController.text = _profile!.fullName;
+            _isLoading = false;
+          });
+        } else if (mounted) {
+          setState(() => _isLoading = false);
+        }
         return;
       }
 
