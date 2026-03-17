@@ -20,6 +20,7 @@ export CHROME_EXECUTABLE=$(which google-chrome || which chromium-browser || echo
 
 # 2. Configuration
 flutter config --no-analytics
+flutter config --enable-web
 flutter precache --web
 
 # 3. Environment Check
@@ -51,9 +52,11 @@ echo "--- Starting Flutter Web Build ---"
 flutter pub get
 
 # 4. Perform Release Build
-# Updated for Flutter 3.41+ (web-renderer is handled automatically)
+# Updated for Flutter 3.41+
 echo "--- Building Flutter Web (Release) ---"
 flutter build web --release \
+  --web-renderer canvaskit \
+  --no-tree-shake-icons \
   --dart-define=SUPABASE_URL="$SUPABASE_URL" \
   --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
   --dart-define=API_BASE_URL="$API_BASE_URL" \
