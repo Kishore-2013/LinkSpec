@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// AWLogo — Reusable ApplyWizz logo widget.
+/// AWLogo — Reusable LinkSpec logo widget.
 ///
 /// Displays the official `apply_wizz_logo.jpg` asset inside a dark
 /// circular container that matches the brand's design language.

@@ -144,7 +144,7 @@ class JobService {
           "🏢 Company: $company\n"
           "💰 Salary: $salary\n"
           "📍 Location: $location\n\n"
-          "We are looking for talent! View the full details in the Jobs Board. #Hiring #$finalDomain #ApplyWizz";
+          "We are looking for talent! View the full details in the Jobs Board. #Hiring #$finalDomain #linkspec";
 
       await PostService.createPost(
         content: postContent,

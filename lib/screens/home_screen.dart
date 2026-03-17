@@ -772,7 +772,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const Padding(
             padding: EdgeInsets.all(14),
             child: Text(
-              '© 2026 ApplyWizz',
+              '© 2026 linkspec',
               style: TextStyle(color: Colors.grey, fontSize: 11),
             ),
           ),
@@ -818,7 +818,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             if (!isMobile) ...[
               const SizedBox(width: 10),
               Text(
-                'ApplyWizz',
+                'linkspec',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -911,7 +911,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   title: const Text('Log out?',
                       style: TextStyle(fontWeight: FontWeight.w700)),
                   content: const Text(
-                      'Are you sure you want to log out of ApplyWizz?'),
+                      'Are you sure you want to log out of linkspec?'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(false),

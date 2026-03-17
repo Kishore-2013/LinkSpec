@@ -69,6 +69,5 @@ flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
   image_path: "assets/images/apply_wizz_logo.jpg"
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/apply_wizz_logo.jpg"
   min_sdk_android: 21
+

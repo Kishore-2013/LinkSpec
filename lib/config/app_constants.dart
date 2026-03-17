@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// App-wide constants
 class AppConstants {
   // App Info
-  static const String appName = 'ApplyWizz';
+  static const String appName = 'linkspec';
   static const String appTagline = 'Professional Networking, Domain-Focused';
   
   // Domains

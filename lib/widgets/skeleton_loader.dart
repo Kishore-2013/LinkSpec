@@ -60,7 +60,7 @@ class _HomeSkeletonLoaderState extends State<HomeSkeletonLoader>
                         AWLogo(size: 56, showAppName: false),
                         SizedBox(height: 8),
                         Text(
-                          'ApplyWizz',
+                          'linkspec',
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w900,

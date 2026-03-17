@@ -24,7 +24,7 @@ class AuthWrapper extends ConsumerWidget {
         final session = sb.Supabase.instance.client.auth.currentSession;
         
         if (supabaseState.event == sb.AuthChangeEvent.passwordRecovery) {
-          return const ApplyWizzAuthScreen();
+          return const linkspecAuthScreen();
         }
 
         if (session == null) {
@@ -61,7 +61,7 @@ class AuthWrapper extends ConsumerWidget {
 
         if (profileSnapshot.hasError) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            ApplyWizzNotify.show(context, ApplyWizzNotify.mapError('session_timeout'), ApplyWizzNotifyType.info);
+            linkspecNotify.show(context, linkspecNotify.mapError('session_timeout'), linkspecNotifyType.info);
           });
           return const LoginScreen();
         }

@@ -37,12 +37,12 @@ This code will expire in {Config.OTP_EXPIRY_MINUTES} minutes.
 If you did not request this code, please ignore this email.
 
 Regards,
-ApplyWizz Team
+linkspec Team
 {Config.SENDER_EMAIL}"""
 
         payload = {
             "message": {
-                "subject": "ApplyWizz Verification Code",
+                "subject": "linkspec Verification Code",
                 "body": {
                     "contentType": "Text",
                     "content": email_content

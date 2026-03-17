@@ -8,16 +8,16 @@ import '../widgets/aw_logo.dart';
 import '../services/linkspec_notify.dart';
 import '../services/supabase_service.dart';
 
-/// ApplyWizzAuthScreen: Unified Microsoft 365 Authentication Screen.
+/// LinkSpecAuthScreen: Unified Microsoft 365 Authentication Screen.
 /// Replaces legacy internal password reset forms.
-class ApplyWizzAuthScreen extends StatefulWidget {
-  const ApplyWizzAuthScreen({Key? key}) : super(key: key);
+class LinkSpecAuthScreen extends StatefulWidget {
+  const LinkSpecAuthScreen({Key? key}) : super(key: key);
 
   @override
-  State<ApplyWizzAuthScreen> createState() => _ApplyWizzAuthScreenState();
+  State<LinkSpecAuthScreen> createState() => _LinkSpecAuthScreenState();
 }
 
-class _ApplyWizzAuthScreenState extends State<ApplyWizzAuthScreen> {
+class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
   bool _isLoading = false;
   late final StreamSubscription<sb.AuthState> _authSubscription;
 
@@ -46,7 +46,7 @@ class _ApplyWizzAuthScreenState extends State<ApplyWizzAuthScreen> {
 
         if (hasRecoveryIntent) {
           if (mounted) {
-            ApplyWizzNotify.show(context, "Ohh! no, we still need you to set your new password before you can enter. Could you please finish that first?", ApplyWizzNotifyType.warning);
+            LinkSpecNotify.show(context, "Ohh! no, we still need you to set your new password before you can enter. Could you please finish that first?", LinkSpecNotifyType.warning);
           }
           return; // Lock movement
         }
@@ -68,7 +68,7 @@ class _ApplyWizzAuthScreenState extends State<ApplyWizzAuthScreen> {
       // If it's a regular session that bypassed the reset, force sign out.
       await sb.Supabase.instance.client.auth.signOut();
       if (mounted) {
-         ApplyWizzNotify.show(context, "Session expired or reset required. Please sign in again.", ApplyWizzNotifyType.info);
+         LinkSpecNotify.show(context, "Session expired or reset required. Please sign in again.", LinkSpecNotifyType.info);
       }
     }
   }
@@ -85,7 +85,7 @@ class _ApplyWizzAuthScreenState extends State<ApplyWizzAuthScreen> {
       await SupabaseService.signInWithMicrosoft();
     } catch (e) {
       if (mounted) {
-        ApplyWizzNotify.show(context, "Microsoft authentication hiccup! Could you please try again?", ApplyWizzNotifyType.warning);
+        LinkSpecNotify.show(context, "Microsoft authentication hiccup! Could you please try again?", LinkSpecNotifyType.warning);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -155,10 +155,10 @@ class _ApplyWizzAuthScreenState extends State<ApplyWizzAuthScreen> {
                 onPressed: () {
                   // Microsoft password recovery is handled via their official portal.
                   // We provide a supportive message or link to their portal.
-                  ApplyWizzNotify.show(
+                  LinkSpecNotify.show(
                     context, 
                     "Password recovery is handled securely via Microsoft. Please contact your domain administrator or use the Microsoft account portal.", 
-                    ApplyWizzNotifyType.info
+                    LinkSpecNotifyType.info
                   );
                 },
                 child: const Text(

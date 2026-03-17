@@ -7,7 +7,7 @@ import '../config/supabase_config.dart';
 
 
 // Diagnostic: Force filesystem update. Corrected unread counts.
-/// Supabase Service for ApplyWizz
+/// Supabase Service for linkspec
 /// Handles all database operations with domain-gated logic
 class SupabaseService {
   static final SupabaseClient _client = Supabase.instance.client;
