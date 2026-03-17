@@ -466,5 +466,4 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
       ),
     );
   }
-  }
 }
