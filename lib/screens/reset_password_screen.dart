@@ -5,7 +5,7 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web; // Used to clear the address bar
 import '../widgets/aw_logo.dart';
-import '../services/ApplyWizz_notify.dart';
+import '../services/linkspec_notify.dart';
 import '../services/supabase_service.dart';
 
 /// ApplyWizzAuthScreen: Unified Microsoft 365 Authentication Screen.

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../services/supabase_service.dart';
-import '../services/ApplyWizz_notify.dart';
+import '../services/linkspec_notify.dart';
 import '../providers/domain_provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/domain_selection_screen.dart';

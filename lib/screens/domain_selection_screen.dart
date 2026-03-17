@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/aw_logo.dart';
 import '../widgets/clay_container.dart';
-import '../services/ApplyWizz_notify.dart';
+import '../services/linkspec_notify.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/domain_provider.dart';
 

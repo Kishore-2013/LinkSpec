@@ -5,6 +5,7 @@ import '../services/supabase_service.dart';
 import '../models/post.dart';
 import '../models/user_profile.dart';
 import '../models/group.dart';
+import 'package:go_router/go_router.dart';
 import '../widgets/post_card.dart';
 import '../widgets/create_post_dialog.dart';
 import 'messages_list_screen.dart' deferred as messaging;

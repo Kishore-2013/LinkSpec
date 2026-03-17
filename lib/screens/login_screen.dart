@@ -111,8 +111,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
       if (hasGhostIntent) {
         SupabaseService.clearCache();
         await sb.Supabase.instance.client.auth.signOut();
-        await googleAuthService.signOut();
-        ref.read(googleUserProvider.notifier).state = null;
       }
       
       if (_isSignUp) {
@@ -135,7 +133,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
             final otpToken = responseData['token'] as String? ?? '';
 
             if (mounted) {
-              LinkSpecNotify.show(context, "Perfect! We've sent a 6-digit verification code to your inbox!", LinkSpecNotifyType.info);
+              ApplyWizzNotify.show(context, "Perfect! We've sent a 6-digit verification code to your inbox!", ApplyWizzNotifyType.info);
               context.go(
                 '/otp-verify?email=${Uri.encodeComponent(email)}',
                 extra: {
@@ -147,10 +145,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
               );
             }
           } else {
-            if (mounted) LinkSpecNotify.show(context, "Ohh! no, we couldn't send the code. Please check your email and try again.", LinkSpecNotifyType.warning);
+            if (mounted) ApplyWizzNotify.show(context, "Ohh! no, we couldn't send the code. Please check your email and try again.", ApplyWizzNotifyType.warning);
           }
         } catch (e) {
-          if (mounted) LinkSpecNotify.show(context, "Ohh! no, we couldn't reach our mail server. Please try again later.", LinkSpecNotifyType.warning);
+          if (mounted) ApplyWizzNotify.show(context, "Ohh! no, we couldn't reach our mail server. Please try again later.", ApplyWizzNotifyType.warning);
         }
       } else {
         // 3. SIGN IN
@@ -163,21 +161,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
       if (mounted) {
         if (e.statusCode == '422' || e.message.toLowerCase().contains('already registered')) {
           // 422 Handle: User already exists
-          LinkSpecNotify.show(context, 'Ohh! no, it looks like this email is already registered! Could you please try signing in or use a different email?', LinkSpecNotifyType.warning);
+          ApplyWizzNotify.show(context, 'Ohh! no, it looks like this email is already registered! Could you please try signing in or use a different email?', ApplyWizzNotifyType.warning);
           setState(() {
             _isSignUp = false;
             _formKey.currentState?.reset();
           });
         } else if (e.statusCode == '400') {
           // 400 Handle: Bad Request/Stale Token
-          LinkSpecNotify.show(context, 'Ohh! no, something went a bit wrong with the request. Could you please double-check your details and try one more time?', LinkSpecNotifyType.warning);
+          ApplyWizzNotify.show(context, 'Ohh! no, something went a bit wrong with the request. Could you please double-check your details and try one more time?', ApplyWizzNotifyType.warning);
         } else {
-          LinkSpecNotify.show(context, 'Ohh! no, we hit a bit of a snag. Could you please check this: ${e.message}', LinkSpecNotifyType.warning);
+          ApplyWizzNotify.show(context, 'Ohh! no, we hit a bit of a snag. Could you please check this: ${e.message}', ApplyWizzNotifyType.warning);
         }
       }
     } catch (e) {
       if (mounted) {
-        LinkSpecNotify.show(context, 'Ohh! no, something unexpected happened. Could you please try again in a moment?', LinkSpecNotifyType.warning);
+        ApplyWizzNotify.show(context, 'Ohh! no, something unexpected happened. Could you please try again in a moment?', ApplyWizzNotifyType.warning);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -187,7 +185,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
   Future<void> _handleForgotPassword() async {
     final email = _emailCtrl.text.trim();
     if (email.isEmpty) {
-      LinkSpecNotify.show(context, "Please enter your email first.", LinkSpecNotifyType.warning);
+      ApplyWizzNotify.show(context, "Please enter your email first.", ApplyWizzNotifyType.warning);
       return;
     }
 
@@ -197,28 +195,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
          email,
          redirectTo: kIsWeb ? '${Uri.base.origin}/reset-password' : null,
        );
-       if (mounted) LinkSpecNotify.show(context, "Recovery link sent! Please check your inbox.", LinkSpecNotifyType.info);
+       if (mounted) ApplyWizzNotify.show(context, "Recovery link sent! Please check your inbox.", ApplyWizzNotifyType.info);
     } catch (e) {
-       if (mounted) LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
+       if (mounted) ApplyWizzNotify.show(context, ApplyWizzNotify.mapError(e), ApplyWizzNotifyType.warning);
     } finally {
        if (mounted) setState(() => _isLoading = false);
     }
   }
 
 
-  /// The new GIS approach handles user state via listeners.
-  /// This method is now primarily for debugging or manual fallback.
-  Future<void> _handleGoogleLogin() async {
-    setState(() => _isLoading = true);
-    try {
-      // NOTE: With renderButton(), the user flow is handled by the native button.
-      // We listen to changes in GoogleAuthService.initialize()
-    } catch (e) {
-      if (mounted) LinkSpecNotify.show(context, 'Google Sign-In failed. Please try again.', LinkSpecNotifyType.warning);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -481,8 +466,5 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
       ),
     );
   }
-}
-
-
   }
 }

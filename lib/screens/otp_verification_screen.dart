@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/aw_logo.dart';
 import '../config/supabase_config.dart';
-import '../services/ApplyWizz_notify.dart';
+import '../services/linkspec_notify.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
   final String email;

@@ -116,7 +116,7 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/reset-password',
-      builder: (context, state) => const LinkSpecAuthScreen(),
+      builder: (context, state) => const ApplyWizzAuthScreen(),
     ),
   ],
 );

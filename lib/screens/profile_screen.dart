@@ -75,32 +75,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final profileData = await SupabaseService.getCurrentUserProfile(forceRefresh: true);
       
       if (profileData == null) {
-        // FALLBACK: Try Google User from memory
-        final googleUser = ref.read(googleUserProvider);
-        if (googleUser != null && mounted) {
-          final googleProfile = ref.read(googleUserProfileProvider);
-          setState(() {
-            _profile = UserProfile(
-              id: googleUser.id,
-              fullName: googleUser.displayName ?? 'Google User',
-              domainId: googleProfile?.domain ?? 'social',
-              bio: googleProfile?.bio,
-              email: googleUser.email,
-              avatarUrl: googleUser.photoUrl,
-              skills: [],
-              experience: [],
-              education: [],
-              projects: [],
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            );
-            _nameController.text = _profile!.fullName;
-            _bioController.text = _profile!.bio ?? '';
-            _isLoading = false;
-          });
-        } else {
-          setState(() => _isLoading = false);
-        }
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
 
