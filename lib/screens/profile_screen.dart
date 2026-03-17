@@ -1170,16 +1170,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     };
 
     final env = domainToEnv[_profile!.domainId] ?? 'default';
-    final user = Supabase.instance.client.auth.currentUser;
-    final email = user?.email;
-    final name = _profile?.fullName;
     
+    // NOTE: email and name are intentionally NOT passed here.
+    // Passing them causes fermion-redirect to generate an SSO token that
+    // auto-logs the user in — bypassing Fermion's own login/signup screen.
+    // Always require manual login on the Fermion side.
     final url = VerificationService.getRedirectUrl(
-      userId: userId, 
-      env: env, 
+      userId: userId,
+      env: env,
       skill: skill,
-      email: email,
-      name: name,
+      // email and name omitted on purpose
     );
 
     if (!mounted) return;

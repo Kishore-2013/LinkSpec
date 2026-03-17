@@ -1,11 +1,17 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import jwt from 'jsonwebtoken';
 
-// Environment configuration map
+// ─────────────────────────────────────────────────────────────────────────────
+// fermion-redirect.ts
+//
+// IMPORTANT POLICY: This endpoint NEVER generates an SSO token.
+// Fermion must always show its own login / sign-up screen so users
+// authenticate manually every single time. No auto-login, no cached sessions.
+// ─────────────────────────────────────────────────────────────────────────────
+
 const ENVIRONMENTS = {
   vivek: {
-    productId: '68d24a4a1295f90e0e22a041', 
-    contestUrl: 'https://careerbadge.apply-wizz.com/contest/situation-needs' 
+    productId: '68d24a4a1295f90e0e22a041',
+    contestUrl: 'https://careerbadge.apply-wizz.com/contest/situation-needs'
   },
   fe1: {
     productId: '68d24a4a1295f90e0e22a041',
@@ -16,16 +22,16 @@ const ENVIRONMENTS = {
     contestUrl: 'https://careerbadge.apply-wizz.com/contest/weak-practice'
   },
   be1: {
-    productId: '68d24a4a1295f90e0e22a041', 
-    contestUrl: 'https://careerbadge.apply-wizz.com/contest/be1-contest' 
+    productId: '68d24a4a1295f90e0e22a041',
+    contestUrl: 'https://careerbadge.apply-wizz.com/contest/be1-contest'
   },
   be2: {
-    productId: '68d24a4a1295f90e0e22a041', 
-    contestUrl: 'https://careerbadge.apply-wizz.com/contest/be2-contest' 
+    productId: '68d24a4a1295f90e0e22a041',
+    contestUrl: 'https://careerbadge.apply-wizz.com/contest/be2-contest'
   },
   be3: {
-    productId: '68d24a4a1295f90e0e22a041', 
-    contestUrl: 'https://careerbadge.apply-wizz.com/contest/be3-contest' 
+    productId: '68d24a4a1295f90e0e22a041',
+    contestUrl: 'https://careerbadge.apply-wizz.com/contest/be3-contest'
   },
   aml1: {
     productId: '68df98d58c6253ef47a720c3',
@@ -117,81 +123,34 @@ const ENVIRONMENTS = {
   }
 };
 
-const ENROLL_URL = 'https://backend.codedamn.com/api/public/enroll-user-into-digital-product';
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const apiKey = process.env.FERMION_API_KEY;
-    if (!apiKey) return res.status(500).send('Missing FERMION_API_KEY');
-
     const env = (req.query.env as string) || 'default';
-    const userId = (req.query.uid as string) || 'anon-user';
-    const email = req.query.email as string;
-    const name = req.query.name as string;
+    const skill = req.query.skill as string | undefined;
 
     const config = ENVIRONMENTS[env as keyof typeof ENVIRONMENTS] || ENVIRONMENTS.default;
-    const productId = config.productId;
 
-    // 1) Optional: Auto-enroll user into product if email exists
-    if (email && productId) {
-      try {
-        console.log(`Enrolling user ${userId} into product ${productId}`);
-        await fetch(ENROLL_URL, {
-          method: 'POST',
-          headers: {
-            'FERMION-API-KEY': apiKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            data: [{
-              data: {
-                userId: userId,
-                productId: productId
-              }
-            }]
-          })
-        });
-      } catch (enrollError) {
-        console.error('Auto-enrollment failed:', enrollError);
-      }
-    }
-
-    // 2) Get the contest URL and handle dynamic school host
+    // ── Resolve school host ──────────────────────────────────────────────────
     const schoolHost = process.env.FERMION_SCHOOL_HOST || 'careerbadge.apply-wizz.com';
-    const contestUrl = config.contestUrl.replace('careerbadge.apply-wizz.com', schoolHost);
-    
-    // 3) Append skill if provided
-    const skill = req.query.skill as string;
-    let finalUrl = contestUrl;
+    let contestUrl = config.contestUrl.replace('careerbadge.apply-wizz.com', schoolHost);
+
+    // ── Append skill filter if provided ─────────────────────────────────────
     if (skill) {
-      finalUrl += (finalUrl.includes('?') ? '&' : '?') + `skill=${encodeURIComponent(skill)}`;
+      contestUrl += (contestUrl.includes('?') ? '&' : '?') + `skill=${encodeURIComponent(skill)}`;
     }
 
-    // 4) Generate SSO token if we have user info
-    if (email) {
-      const tokenPayload = {
-        userId,
-        email,
-        name: name || email.split('@')[0],
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 7) // 7 days
-      };
-      
-      const token = jwt.sign(tokenPayload, apiKey);
-      
-      // Construct SSO URL
-      const ssoBaseUrl = `https://${schoolHost}/sso`;
-      const ssoUrl = new URL(ssoBaseUrl);
-      ssoUrl.searchParams.set('token', token);
-      ssoUrl.searchParams.set('redirect_uri', finalUrl);
-      
-      finalUrl = ssoUrl.toString();
-    }
+    // ── POLICY: NO SSO. Redirect straight to the contest page. ──────────────
+    // Fermion will show its own login / sign-up screen.
+    // We explicitly do NOT read req.query.email or generate any JWT token.
+    console.log(`[fermion-redirect] env=${env} → ${contestUrl} (no SSO, manual login required)`);
 
-    // 5) Direct redirect
-    console.log(`Redirecting to: ${finalUrl}`);
-    res.setHeader('Cache-Control', 'no-store');
-    return res.redirect(302, finalUrl);
+    // Prevent any intermediate caching from storing a stale redirect target.
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    return res.redirect(302, contestUrl);
+
   } catch (e: any) {
     console.error('fermion-redirect error:', e);
     return res.status(500).send(`Unexpected server error: ${e?.message || e}`);
