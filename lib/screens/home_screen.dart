@@ -403,17 +403,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           }
         });
       } else {
-        // FALLBACK: Google User
-        final googleUser = ref.read(googleUserProvider);
-        if (googleUser != null && mounted) {
+        // FALLBACK: Firebase User
+        final firebaseUserAsync = ref.read(firebaseUserProvider);
+        final firebaseUser = firebaseUserAsync.value;
+        
+        if (firebaseUser != null && mounted) {
           final googleProfile = ref.read(googleUserProfileProvider);
           setState(() {
             _currentUserProfile = UserProfile(
-              id: googleUser.id,
-              fullName: googleUser.displayName ?? 'Google User',
+              id: firebaseUser.uid,
+              fullName: firebaseUser.displayName ?? 'Firebase User',
               domainId: googleProfile?.domain ?? 'Global',
-              email: googleUser.email,
-              avatarUrl: googleUser.photoUrl,
+              email: firebaseUser.email,
+              avatarUrl: firebaseUser.photoURL,
               skills: [],
               experience: [],
               education: [],

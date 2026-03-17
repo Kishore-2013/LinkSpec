@@ -13,6 +13,8 @@ import '../services/verification_service.dart';
 import '../widgets/verification_viewer.dart';
 import '../providers/google_user_provider.dart';
 import '../providers/google_profile_provider.dart';
+import '../providers/firebase_user_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'dart:async';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -101,7 +103,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _isLoading = false;
           });
         } else if (mounted) {
-          setState(() => _isLoading = false);
+          // 2. FALLBACK: Check Firebase Google User (Social-Only Flow)
+          final firebaseUserAsync = ref.read(firebaseUserProvider);
+          final firebaseUser = firebaseUserAsync.value;
+          
+          if (firebaseUser != null) {
+            final googleProfile = ref.read(googleUserProfileProvider); // Still use this for domain/bio from memory
+            
+            setState(() {
+              _profile = UserProfile(
+                id: firebaseUser.uid, // Use Firebase UID as profile ID
+                fullName: firebaseUser.displayName ?? 'Firebase User',
+                domainId: googleProfile?.domain ?? 'social', // From memory
+                bio: googleProfile?.bio, // From memory
+                email: firebaseUser.email,
+                avatarUrl: firebaseUser.photoURL,
+                skills: [],
+                experience: [],
+                education: [],
+                projects: [],
+                createdAt: DateTime.now(), // Placeholder
+                updatedAt: DateTime.now(), // Placeholder
+              );
+              _nameController.text = _profile!.fullName;
+              _bioController.text = _profile!.bio ?? '';
+              _isLoading = false;
+            });
+
+            // Sync the domain provider if set in memory
+            if (googleProfile?.domain != null) {
+              Future.microtask(() {
+                // Assuming currentDomainProvider exists and is a StateProvider<String>
+                // if (mounted) ref.read(currentDomainProvider.notifier).state = googleProfile!.domain;
+              });
+            }
+          } else {
+            setState(() => _isLoading = false);
+          }
         }
         return;
       }

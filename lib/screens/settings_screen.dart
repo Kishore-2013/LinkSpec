@@ -4,8 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_l10n.dart';
 import '../providers/theme_provider.dart';
 import '../services/supabase_service.dart';
-import '../services/google_auth_service.dart';
-import '../providers/google_user_provider.dart';
+import '../services/firebase_auth_service.dart';
+import '../providers/firebase_user_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -338,10 +338,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 // Properly sign out: clear cache, invalidate Supabase session,
                 // then replace entire navigation stack so back button cannot
                 // return the user to the home feed.
+                // Properly sign out: clear cache, invalidate sessions,
+                // then replace entire navigation stack.
                 SupabaseService.clearCache();
                 await Supabase.instance.client.auth.signOut();
-                await googleAuthService.signOut();
-                ref.read(googleUserProvider.notifier).state = null;
+                await firebaseAuthService.signOut();
+                
                 if (mounted) {
                   Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
                 }

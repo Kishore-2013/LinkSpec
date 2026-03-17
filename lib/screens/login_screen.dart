@@ -12,10 +12,11 @@ import '../widgets/aw_logo.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import '../services/google_auth_service.dart';
-import '../providers/google_user_provider.dart';
-import 'package:web/web.dart' as web;
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/firebase_auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:google_sign_in_web/google_sign_in_web.dart';
+import '../providers/firebase_user_provider.dart';
 
 /// Login Screen — Unified Microsoft 365 Authentication.
 /// Features a single, premium 'Sign in with Microsoft' entry point.
@@ -85,12 +86,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
       if (hasCode) {
         // VALID RECOVERY: Move to reset screen immediately
         Navigator.of(context).pushReplacementNamed('/reset-password');
-      } else if (isRecoveryMode) {
-        // GHOST SESSION: Clear URL to prevent 400 errors and notify user
-        web.window.history.replaceState(null, '', web.window.location.pathname);
-        LinkSpecNotify.show(context, 'Ohh! no, it looks like we need to get you back to the right screen. Could you please try logging in again?', LinkSpecNotifyType.warning);
       }
     });
+
+    // START GIS LISTENER: Now bridges to Firebase
+    googleAuthService.instance.onCurrentUserChanged.listen((GoogleSignInAccount? user) {
+      if (user != null && mounted) {
+        _handleGoogleSuccess(user);
+      }
+    });
+  }
+
+  Future<void> _handleGoogleSuccess(GoogleSignInAccount user) async {
+    // 1. Bridge to Firebase Auth
+    final auth = await user.authentication;
+    if (auth.idToken != null) {
+      try {
+        final fb.AuthCredential credential = fb.GoogleAuthProvider.credential(
+          idToken: auth.idToken!,
+          accessToken: auth.accessToken,
+        );
+        await fb.FirebaseAuth.instance.signInWithCredential(credential);
+      } catch (e) {
+        debugPrint('Firebase Bridge Error: $e');
+      }
+    }
+
+    // 2. Clear Supabase session to prevent hybrid conflicts (unless deliberately bridging both)
+    // For now, we allow them to coexist but usually, one provider at a time is cleaner.
+    
+    // 3. Navigate
+    if (mounted) {
+      if (_isSignUp) {
+        context.go('/domain-selection', extra: {'fullName': user.displayName ?? ''});
+      } else {
+        context.go('/home');
+      }
+    }
   }
 
   @override
@@ -214,46 +246,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
   }
 
 
+  /// The new GIS approach handles user state via listeners.
+  /// This method is now primarily for debugging or manual fallback.
   Future<void> _handleGoogleLogin() async {
     setState(() => _isLoading = true);
     try {
-      final user = await googleAuthService.signIn();
-      if (user != null) {
-        if (mounted) {
-          LinkSpecNotify.show(context, 'Welcome ${user.displayName}!', LinkSpecNotifyType.info);
-          
-          // BRIDGE TO SUPABASE (Optional but recommended for LinkSpec)
-          final auth = await user.authentication;
-          final idToken = auth.idToken;
-          final accessToken = auth.accessToken;
-
-          if (idToken != null) {
-            try {
-              await sb.Supabase.instance.client.auth.signInWithIdToken(
-                provider: sb.OAuthProvider.google,
-                idToken: idToken,
-                accessToken: accessToken,
-              );
-            } catch (e) {
-              debugPrint('Supabase Bridge Error: $e');
-              // Fallback: Proceed with just Google info if Supabase isn't configured for Google yet
-            }
-          }
-          
-          // Store in memory
-          ref.read(googleUserProvider.notifier).state = user;
-          
-          if (mounted) {
-          if (_isSignUp) {
-            // New user onboarding flow: Go to Domain Selection
-            context.go('/domain-selection', extra: {'fullName': user.displayName ?? ''});
-          } else {
-            // Returning user: Go directly to Home
-            context.go('/home');
-          }
-        }
-        }
-      }
+      // NOTE: With renderButton(), the user flow is handled by the native button.
+      // We listen to changes in GoogleAuthService.initialize()
     } catch (e) {
       if (mounted) LinkSpecNotify.show(context, 'Google Sign-In failed. Please try again.', LinkSpecNotifyType.warning);
     } finally {
@@ -479,10 +478,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
         ),
         const SizedBox(height: 24),
         
-        _GoogleButton(
-          isLoading: _isLoading, 
-          isSignUp: _isSignUp,
-          onTap: _isLoading ? null : _handleGoogleLogin,
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 300),
+            child: (GoogleSignInPlatform.instance as GoogleSignInWeb).renderButton(
+              configuration: GSIButtonConfiguration(
+                theme: GSIButtonTheme.filledBlue,
+                size: GSIButtonSize.large,
+                text: _isSignUp ? GSIButtonText.signupWith : GSIButtonText.signinWith,
+                shape: GSIButtonShape.pill,
+              ),
+            ),
+          ),
         ),
         
         const SizedBox(height: 32),

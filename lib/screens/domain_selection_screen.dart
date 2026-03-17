@@ -97,11 +97,12 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
       }
 
       if (user == null) {
-        // CHECK GOOGLE FLOW:
-        // If no Supabase session, check if we have a Google user in memory
-        final googleUser = ref.read(googleUserProvider);
-        if (googleUser != null) {
-          // Google flow: Save to memory provider and skip Supabase
+        // CHECK FIREBASE FLOW:
+        final firebaseUserAsync = ref.read(firebaseUserProvider);
+        final firebaseUser = firebaseUserAsync.value;
+        
+        if (firebaseUser != null) {
+          // Firebase flow: Save to memory provider and skip Supabase profile creation
           ref.read(googleUserProfileProvider.notifier).state = GoogleUserProfile(
             domain: _selectedDomain!,
             bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),

@@ -1,5 +1,8 @@
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in_web/google_sign_in_web.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/google_user_provider.dart';
 
 /// Service layer for handling Google Sign-In logic.
 /// This follows Clean Architecture by isolating the auth logic from the UI.
@@ -20,11 +23,16 @@ class GoogleAuthService {
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId: kIsWeb ? clientId : null,
-    scopes: [
-      'email',
-      'profile',
-    ],
   );
+
+  GoogleSignIn get instance => _googleSignIn;
+
+  /// Initializes the stream listener. Should be called early (e.g., in main or a provider).
+  void initialize(WidgetRef ref) {
+    _googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount? account) {
+      ref.read(googleUserProvider.notifier).state = account;
+    });
+  }
 
   /// Triggers the Google Sign-In flow (popup on Web).
   /// Returns a [GoogleSignInAccount] if successful, or null if cancelled.
