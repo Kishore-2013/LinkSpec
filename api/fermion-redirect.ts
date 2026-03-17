@@ -139,17 +139,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       contestUrl += (contestUrl.includes('?') ? '&' : '?') + `skill=${encodeURIComponent(skill)}`;
     }
 
-    // ── POLICY: NO SSO. Redirect straight to the contest page. ──────────────
-    // Fermion will show its own login / sign-up screen.
-    // We explicitly do NOT read req.query.email or generate any JWT token.
-    console.log(`[fermion-redirect] env=${env} → ${contestUrl} (no SSO, manual login required)`);
+    // ── POLICY: FORCE LOGOUT + MANUALLY LOGIN ──────────────────────────────
+    // To ensure the user is NEVER automatically logged in with a cached session,
+    // we first send them to the /logout endpoint. The logout process is
+    // configured to redirect back to the /login page, with the final
+    // contest destination passed as a redirect_uri.
+    const logonGateUrl = `https://${schoolHost}/logout?next=${encodeURIComponent(`/login?redirect_uri=${contestUrl}`)}`;
+
+    console.log(`[fermion-redirect] env=${env} → Forced Logout Gateway: ${logonGateUrl}`);
 
     // Prevent any intermediate caching from storing a stale redirect target.
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    return res.redirect(302, contestUrl);
+    return res.redirect(302, logonGateUrl);
 
   } catch (e: any) {
     console.error('fermion-redirect error:', e);
