@@ -14,7 +14,7 @@ dependencies:
 
   # UI & Fonts
   cupertino_icons: ^1.0.8
-  google_fonts: ^8.0.2 
+  google_fonts: ^6.2.1
   jwt_decoder: ^2.0.1
 
   # Backend & Database
