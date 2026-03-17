@@ -1170,16 +1170,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     };
 
     final env = domainToEnv[_profile!.domainId] ?? 'default';
-    
-    // NOTE: email and name are intentionally NOT passed here.
-    // Passing them causes fermion-redirect to generate an SSO token that
-    // auto-logs the user in — bypassing Fermion's own login/signup screen.
-    // Always require manual login on the Fermion side.
+    final user = Supabase.instance.client.auth.currentUser;
+    final email = user?.email;
+    final name = _profile?.fullName;
+
+    // Show mandatory warning dialog before proceeding
+    final proceed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Manual Login Requirement', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('You are about to be redirected to Fermion for verification.'),
+            const SizedBox(height: 12),
+            const Text('IMPORTANT:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+            const Text('You MUST sign in or sign up on Fermion using this exact email:'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey[300]!)),
+              child: SelectableText(email ?? 'No email found', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
+            ),
+            const SizedBox(height: 12),
+            const Text('Using any other email will result in your verification failing.', style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+            child: const Text('I Understand, Proceed'),
+          ),
+        ],
+      ),
+    );
+
+    if (proceed != true || !mounted) return;
+
     final url = VerificationService.getRedirectUrl(
       userId: userId,
       env: env,
       skill: skill,
-      // email and name omitted on purpose
+      email: email,
+      name: name,
     );
 
     if (!mounted) return;
