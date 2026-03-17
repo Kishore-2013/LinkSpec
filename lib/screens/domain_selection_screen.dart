@@ -4,19 +4,22 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/aw_logo.dart';
 import '../widgets/clay_container.dart';
 import '../services/linkspec_notify.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/google_user_provider.dart';
+import '../providers/google_profile_provider.dart';
 
 /// Domain Selection Screen — Claymorphism design.
 /// Receives optional route argument `{'fullName': String}` from the sign-up flow
 /// to pre-populate the Full Name field so users don't have to type it twice.
-class DomainSelectionScreen extends StatefulWidget {
+class DomainSelectionScreen extends ConsumerStatefulWidget {
   final String? fullName;
   const DomainSelectionScreen({Key? key, this.fullName}) : super(key: key);
 
   @override
-  State<DomainSelectionScreen> createState() => _DomainSelectionScreenState();
+  ConsumerState<DomainSelectionScreen> createState() => _DomainSelectionScreenState();
 }
 
-class _DomainSelectionScreenState extends State<DomainSelectionScreen>
+class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
@@ -94,6 +97,23 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen>
       }
 
       if (user == null) {
+        // CHECK GOOGLE FLOW:
+        // If no Supabase session, check if we have a Google user in memory
+        final googleUser = ref.read(googleUserProvider);
+        if (googleUser != null) {
+          // Google flow: Save to memory provider and skip Supabase
+          ref.read(googleUserProfileProvider.notifier).state = GoogleUserProfile(
+            domain: _selectedDomain!,
+            bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
+          );
+          
+          // Sync domain provider
+          ref.read(currentDomainProvider.notifier).state = _selectedDomain!;
+          
+          if (mounted) context.go('/home');
+          return;
+        }
+
         if (mounted) {
           LinkSpecNotify.show(context, 'Ohh! no, your session timed out. Could you please try the verification again?', LinkSpecNotifyType.warning);
           context.go('/auth');
@@ -109,6 +129,9 @@ class _DomainSelectionScreenState extends State<DomainSelectionScreen>
         'domain_id': _selectedDomain,
         'bio': _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
       });
+
+      // Update domain provider for immediate feed refresh
+      ref.read(currentDomainProvider.notifier).state = _selectedDomain!;
 
       if (!mounted) return;
       // SUCCESS! Move to home feed

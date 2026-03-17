@@ -12,6 +12,7 @@ import '../providers/saved_posts_provider.dart';
 import '../services/verification_service.dart';
 import '../widgets/verification_viewer.dart';
 import '../providers/google_user_provider.dart';
+import '../providers/google_profile_provider.dart';
 import 'dart:async';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -79,11 +80,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         // FALLBACK: Try Google User from memory
         final googleUser = ref.read(googleUserProvider);
         if (googleUser != null && mounted) {
+          final googleProfile = ref.read(googleUserProfileProvider);
           setState(() {
             _profile = UserProfile(
               id: googleUser.id,
               fullName: googleUser.displayName ?? 'Google User',
-              domainId: 'social',
+              domainId: googleProfile?.domain ?? 'social',
+              bio: googleProfile?.bio,
               email: googleUser.email,
               avatarUrl: googleUser.photoUrl,
               skills: [],
@@ -94,6 +97,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               updatedAt: DateTime.now(),
             );
             _nameController.text = _profile!.fullName;
+            _bioController.text = _profile!.bio ?? '';
             _isLoading = false;
           });
         } else if (mounted) {

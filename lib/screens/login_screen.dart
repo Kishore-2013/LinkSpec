@@ -243,7 +243,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
           // Store in memory
           ref.read(googleUserProvider.notifier).state = user;
           
-          if (mounted) context.go('/home');
+          if (mounted) {
+          if (_isSignUp) {
+            // New user onboarding flow: Go to Domain Selection
+            context.go('/domain-selection', extra: {'fullName': user.displayName ?? ''});
+          } else {
+            // Returning user: Go directly to Home
+            context.go('/home');
+          }
+        }
         }
       }
     } catch (e) {

@@ -402,6 +402,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ref.read(currentDomainProvider.notifier).state = profileDomain;
           }
         });
+      } else {
+        // FALLBACK: Google User
+        final googleUser = ref.read(googleUserProvider);
+        if (googleUser != null && mounted) {
+          final googleProfile = ref.read(googleUserProfileProvider);
+          setState(() {
+            _currentUserProfile = UserProfile(
+              id: googleUser.id,
+              fullName: googleUser.displayName ?? 'Google User',
+              domainId: googleProfile?.domain ?? 'Global',
+              email: googleUser.email,
+              avatarUrl: googleUser.photoUrl,
+              skills: [],
+              experience: [],
+              education: [],
+              projects: [],
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+            // Sync domain if set in memory
+            if (googleProfile != null) {
+              ref.read(currentDomainProvider.notifier).state = googleProfile.domain;
+            }
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading profile: $e');
