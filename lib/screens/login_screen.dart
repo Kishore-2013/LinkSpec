@@ -17,6 +17,9 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:google_sign_in_web/google_sign_in_web.dart';
 import '../providers/firebase_user_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 
 /// Login Screen — Unified Microsoft 365 Authentication.
 /// Features a single, premium 'Sign in with Microsoft' entry point.

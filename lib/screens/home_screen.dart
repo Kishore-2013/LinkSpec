@@ -34,6 +34,9 @@ import '../api/sidebar_data_service.dart';
 import '../api/post_service.dart';
 import '../api/web_cache_manager.dart';
 import '../providers/domain_provider.dart';
+import '../providers/firebase_user_provider.dart';
+import '../providers/google_profile_provider.dart';
+import '../providers/google_user_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);

@@ -7,6 +7,8 @@ import '../services/linkspec_notify.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/google_user_provider.dart';
 import '../providers/google_profile_provider.dart';
+import '../providers/firebase_user_provider.dart';
+import '../providers/domain_provider.dart';
 
 /// Domain Selection Screen — Claymorphism design.
 /// Receives optional route argument `{'fullName': String}` from the sign-up flow
