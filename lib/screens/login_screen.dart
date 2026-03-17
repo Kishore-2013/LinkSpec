@@ -11,17 +11,7 @@ import 'dart:convert';
 import '../widgets/aw_logo.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
-import '../services/google_auth_service.dart';
-import '../services/firebase_auth_service.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb;
-import 'package:jwt_decoder/jwt_decoder.dart';
-import 'package:google_sign_in_web/google_sign_in_web.dart';
-import '../providers/firebase_user_provider.dart';
-import '../providers/google_user_provider.dart';
-import '../providers/google_profile_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 
 /// Login Screen — Unified Microsoft 365 Authentication.
 /// Features a single, premium 'Sign in with Microsoft' entry point.
@@ -93,41 +83,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
         Navigator.of(context).pushReplacementNamed('/reset-password');
       }
     });
-
-    // START GIS LISTENER: Now bridges to Firebase
-    googleAuthService.instance.onCurrentUserChanged.listen((GoogleSignInAccount? user) {
-      if (user != null && mounted) {
-        _handleGoogleSuccess(user);
-      }
-    });
-  }
-
-  Future<void> _handleGoogleSuccess(GoogleSignInAccount user) async {
-    // 1. Bridge to Firebase Auth
-    final auth = await user.authentication;
-    if (auth.idToken != null) {
-      try {
-        final fb.AuthCredential credential = fb.GoogleAuthProvider.credential(
-          idToken: auth.idToken!,
-          accessToken: auth.accessToken,
-        );
-        await fb.FirebaseAuth.instance.signInWithCredential(credential);
-      } catch (e) {
-        debugPrint('Firebase Bridge Error: $e');
-      }
-    }
-
-    // 2. Clear Supabase session to prevent hybrid conflicts (unless deliberately bridging both)
-    // For now, we allow them to coexist but usually, one provider at a time is cleaner.
-    
-    // 3. Navigate
-    if (mounted) {
-      if (_isSignUp) {
-        context.go('/domain-selection', extra: {'fullName': user.displayName ?? ''});
-      } else {
-        context.go('/home');
-      }
-    }
   }
 
   @override
@@ -474,29 +429,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
         ),
         
         const SizedBox(height: 24),
-        Row(
-          children: const [
-            Expanded(child: Divider(color: _border)),
-            Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('or', style: TextStyle(color: _textMid, fontSize: 13))),
-            Expanded(child: Divider(color: _border)),
-          ],
-        ),
-        const SizedBox(height: 24),
-        
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 300),
-            child: (GoogleSignInPlatform.instance as GoogleSignInPlugin).renderButton(
-              configuration: GSIButtonConfiguration(
-                theme: GSIButtonTheme.filledBlue,
-                size: GSIButtonSize.large,
-                text: _isSignUp ? GSIButtonText.signupWith : GSIButtonText.signinWith,
-                shape: GSIButtonShape.pill,
-              ),
-            ),
-          ),
-        ),
-        
         const SizedBox(height: 32),
         
         Center(
@@ -552,34 +484,5 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
 }
 
 
-class _GoogleButton extends StatelessWidget {
-  const _GoogleButton({required this.isLoading, required this.isSignUp, required this.onTap});
-  final bool isLoading;
-  final bool isSignUp;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: isLoading 
-          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1C1C1E)))
-          : Image.network(
-              'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png',
-              height: 22,
-            ),
-      label: Text(
-        isLoading 
-            ? (isSignUp ? 'Signing up...' : 'Signing in...') 
-            : (isSignUp ? 'Sign up with Google' : 'Sign in with Google'),
-      ),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        foregroundColor: const Color(0xFF1C1C1E),
-        side: const BorderSide(color: Color(0xFFE5E5EA)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-      ),
-    );
   }
 }

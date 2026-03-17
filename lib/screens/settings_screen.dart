@@ -4,8 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_l10n.dart';
 import '../providers/theme_provider.dart';
 import '../services/supabase_service.dart';
-import '../services/firebase_auth_service.dart';
-import '../providers/firebase_user_provider.dart';
+import '../providers/supabase_auth_provider.dart';
+import 'package:go_router/go_router.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -341,13 +341,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 // 1. Clear Supabase
                 SupabaseService.clearCache();
                 await Supabase.instance.client.auth.signOut();
-                
-                // 2. Clear Google/Firebase
-                await firebaseAuthService.signOut();
-                
-                // 3. Clear memory providers
-                ref.read(googleUserProvider.notifier).state = null;
-                ref.read(googleUserProfileProvider.notifier).state = null;
                 
                 if (mounted) {
                   context.go('/auth');

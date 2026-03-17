@@ -8,10 +8,7 @@ import '../screens/login_screen.dart';
 import '../screens/domain_selection_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/reset_password_screen.dart';
-import '../providers/firebase_user_provider.dart';
 import '../providers/supabase_auth_provider.dart';
-import '../services/firebase_auth_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 /// Entry point wrapper that handles fast domain-based routing.
 /// Prevents redundant delays and ensures users are routed correctly.
@@ -20,33 +17,21 @@ class AuthWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final firebaseUserAsync = ref.watch(firebaseUserProvider);
     final supabaseAuthAsync = ref.watch(supabaseAuthStateProvider);
 
-    return firebaseUserAsync.when(
-      data: (firebaseUser) {
-        if (firebaseUser != null) {
-          return _handleAuthenticatedState(context, ref, isFirebase: true);
-        }
+    return supabaseAuthAsync.when(
+      data: (supabaseState) {
+        final session = sb.Supabase.instance.client.auth.currentSession;
         
-        // No Firebase user, check Supabase
-        return supabaseAuthAsync.when(
-          data: (supabaseState) {
-            final session = sb.Supabase.instance.client.auth.currentSession;
-            
-            if (supabaseState.event == sb.AuthChangeEvent.passwordRecovery) {
-              return const ApplyWizzAuthScreen();
-            }
+        if (supabaseState.event == sb.AuthChangeEvent.passwordRecovery) {
+          return const ApplyWizzAuthScreen();
+        }
 
-            if (session == null) {
-              return const LoginScreen();
-            }
+        if (session == null) {
+          return const LoginScreen();
+        }
 
-            return _handleAuthenticatedState(context, ref, isFirebase: false);
-          },
-          loading: () => _buildLoadingScreen(),
-          error: (e, st) => const LoginScreen(),
-        );
+        return _handleAuthenticatedState(context, ref);
       },
       loading: () => _buildLoadingScreen(),
       error: (e, st) => const LoginScreen(),
@@ -64,7 +49,7 @@ class AuthWrapper extends ConsumerWidget {
     );
   }
 
-  Widget _handleAuthenticatedState(BuildContext context, WidgetRef ref, {required bool isFirebase}) {
+  Widget _handleAuthenticatedState(BuildContext context, WidgetRef ref) {
     // FETCH PROFILE: With Timeout and Error Catch to prevent infinite loading.
     return FutureBuilder<Map<String, dynamic>?>(
       future: SupabaseService.getCurrentUserProfile()

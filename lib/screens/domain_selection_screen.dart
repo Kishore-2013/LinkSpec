@@ -5,11 +5,7 @@ import '../widgets/aw_logo.dart';
 import '../widgets/clay_container.dart';
 import '../services/ApplyWizz_notify.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/google_user_provider.dart';
-import '../providers/google_profile_provider.dart';
-import '../providers/firebase_user_provider.dart';
 import '../providers/domain_provider.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb;
 
 /// Domain Selection Screen — Claymorphism design.
 /// Receives optional route argument `{'fullName': String}` from the sign-up flow
@@ -100,23 +96,6 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
       }
 
       if (user == null) {
-        // CHECK FIREBASE FLOW:
-        final fbUser = fb.FirebaseAuth.instance.currentUser;
-        
-        if (fbUser != null) {
-          // Firebase flow: Save to memory provider and skip Supabase profile creation
-          ref.read(googleUserProfileProvider.notifier).state = GoogleUserProfile(
-            domain: _selectedDomain!,
-            bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
-          );
-          
-          // Sync domain provider
-          ref.read(currentDomainProvider.notifier).state = _selectedDomain!;
-          
-          if (mounted) context.go('/home');
-          return;
-        }
-
         if (mounted) {
           ApplyWizzNotify.show(context, 'Ohh! no, your session timed out. Could you please try the verification again?', ApplyWizzNotifyType.warning);
           context.go('/auth');

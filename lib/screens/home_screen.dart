@@ -34,9 +34,6 @@ import '../api/sidebar_data_service.dart';
 import '../api/post_service.dart';
 import '../api/web_cache_manager.dart';
 import '../providers/domain_provider.dart';
-import '../providers/firebase_user_provider.dart';
-import '../providers/google_profile_provider.dart';
-import '../providers/google_user_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -405,32 +402,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ref.read(currentDomainProvider.notifier).state = profileDomain;
           }
         });
-      } else {
-        // FALLBACK: Firebase User (Synchronous check)
-        final fbUser = fb.FirebaseAuth.instance.currentUser;
-        
-        if (fbUser != null && mounted) {
-          final googleProfile = ref.read(googleUserProfileProvider);
-          setState(() {
-            _currentUserProfile = UserProfile(
-              id: fbUser.uid,
-              fullName: fbUser.displayName ?? 'Firebase User',
-              domainId: googleProfile?.domain ?? 'Global',
-              email: fbUser.email,
-              avatarUrl: fbUser.photoURL,
-              skills: [],
-              experience: [],
-              education: [],
-              projects: [],
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            );
-            // Sync domain if set in memory
-            if (googleProfile != null) {
-              ref.read(currentDomainProvider.notifier).state = googleProfile.domain;
-            }
-          });
-        }
       }
     } catch (e) {
       debugPrint('Error loading profile: $e');
@@ -959,13 +930,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   // 1. Clear Supabase
                   SupabaseService.clearCache();
                   await Supabase.instance.client.auth.signOut();
-
-                  // 2. Clear Google/Firebase
-                  await firebaseAuthService.signOut();
-
-                  // 3. Clear memory providers
-                  ref.read(googleUserProvider.notifier).state = null;
-                  ref.read(googleUserProfileProvider.notifier).state = null;
 
                   if (mounted) {
                     context.go('/auth');
