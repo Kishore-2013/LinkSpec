@@ -17,6 +17,8 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:google_sign_in_web/google_sign_in_web.dart';
 import '../providers/firebase_user_provider.dart';
+import '../providers/google_user_provider.dart';
+import '../providers/google_profile_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
@@ -484,7 +486,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
         Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 300),
-            child: (GoogleSignInPlatform.instance as GoogleSignInWeb).renderButton(
+            child: (GoogleSignInPlatform.instance as GoogleSignInPlugin).renderButton(
               configuration: GSIButtonConfiguration(
                 theme: GSIButtonTheme.filledBlue,
                 size: GSIButtonSize.large,
