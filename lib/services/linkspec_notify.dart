@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-enum LinkSpecNotifyType { warning, info, success }
+enum ApplyWizzNotifyType { warning, info, success }
 
 /// Global Notification System with a 'Supportive Assistant' tone.
-class LinkSpecNotify {
+class ApplyWizzNotify {
   /// Displays a floating, top-center notification card.
-  static void show(BuildContext context, String message, LinkSpecNotifyType type) {
+  static void show(BuildContext context, String message, ApplyWizzNotifyType type) {
     final overlay = Overlay.of(context);
     late OverlayEntry entry;
 
@@ -29,7 +29,7 @@ class LinkSpecNotify {
   static void showDialog(
     BuildContext context, 
     String message, 
-    LinkSpecNotifyType type, 
+    ApplyWizzNotifyType type, 
     {required VoidCallback onConfirm}
   ) {
     showGeneralDialog(
@@ -73,7 +73,7 @@ class LinkSpecNotify {
 
 class _NotifyCard extends StatefulWidget {
   final String message;
-  final LinkSpecNotifyType type;
+  final ApplyWizzNotifyType type;
   final VoidCallback onDismiss;
 
   const _NotifyCard({
@@ -117,21 +117,21 @@ class _NotifyCardState extends State<_NotifyCard> with SingleTickerProviderState
   Widget build(BuildContext context) {
     // Supportive Assistant Palette
     final bgColor = {
-      LinkSpecNotifyType.warning: const Color(0xFFFFE4D6), // Light Peach
-      LinkSpecNotifyType.info: const Color(0xFFE0F2FE),    // Pale Blue
-      LinkSpecNotifyType.success: const Color(0xFFDCFCE7), // Soft Mint
+      ApplyWizzNotifyType.warning: const Color(0xFFFFE4D6), // Light Peach
+      ApplyWizzNotifyType.info: const Color(0xFFE0F2FE),    // Pale Blue
+      ApplyWizzNotifyType.success: const Color(0xFFDCFCE7), // Soft Mint
     }[widget.type];
 
     final icon = {
-      LinkSpecNotifyType.warning: Icons.lightbulb_outline,
-      LinkSpecNotifyType.info: Icons.info_outline,
-      LinkSpecNotifyType.success: Icons.check_circle_outline,
+      ApplyWizzNotifyType.warning: Icons.lightbulb_outline,
+      ApplyWizzNotifyType.info: Icons.info_outline,
+      ApplyWizzNotifyType.success: Icons.check_circle_outline,
     }[widget.type];
 
     final color = {
-      LinkSpecNotifyType.warning: const Color(0xFF9A3412),
-      LinkSpecNotifyType.info: const Color(0xFF075985),
-      LinkSpecNotifyType.success: const Color(0xFF166534),
+      ApplyWizzNotifyType.warning: const Color(0xFF9A3412),
+      ApplyWizzNotifyType.info: const Color(0xFF075985),
+      ApplyWizzNotifyType.success: const Color(0xFF166534),
     }[widget.type];
 
     return SafeArea(
@@ -189,7 +189,7 @@ class _NotifyCardState extends State<_NotifyCard> with SingleTickerProviderState
 
 class _NotifyDialog extends StatelessWidget {
   final String message;
-  final LinkSpecNotifyType type;
+  final ApplyWizzNotifyType type;
   final VoidCallback onConfirm;
 
   const _NotifyDialog({
@@ -201,15 +201,15 @@ class _NotifyDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = {
-      LinkSpecNotifyType.warning: const Color(0xFF9A3412),
-      LinkSpecNotifyType.info: const Color(0xFF075985),
-      LinkSpecNotifyType.success: const Color(0xFF166534),
+      ApplyWizzNotifyType.warning: const Color(0xFF9A3412),
+      ApplyWizzNotifyType.info: const Color(0xFF075985),
+      ApplyWizzNotifyType.success: const Color(0xFF166534),
     }[type];
 
     final bgColor = {
-      LinkSpecNotifyType.warning: const Color(0xFFFFE4D6),
-      LinkSpecNotifyType.info: const Color(0xFFE0F2FE),
-      LinkSpecNotifyType.success: const Color(0xFFDCFCE7),
+      ApplyWizzNotifyType.warning: const Color(0xFFFFE4D6),
+      ApplyWizzNotifyType.info: const Color(0xFFE0F2FE),
+      ApplyWizzNotifyType.success: const Color(0xFFDCFCE7),
     }[type];
 
     return Center(
@@ -239,7 +239,7 @@ class _NotifyDialog extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  type == LinkSpecNotifyType.success 
+                  type == ApplyWizzNotifyType.success 
                       ? Icons.celebration_outlined 
                       : Icons.lightbulb_outline, 
                   color: color, 
@@ -282,3 +282,4 @@ class _NotifyDialog extends StatelessWidget {
     );
   }
 }
+

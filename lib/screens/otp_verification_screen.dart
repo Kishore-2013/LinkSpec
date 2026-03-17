@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/aw_logo.dart';
 import '../config/supabase_config.dart';
-import '../services/linkspec_notify.dart';
+import '../services/ApplyWizz_notify.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
   final String email;
@@ -39,17 +39,17 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
   Future<void> _verifyWithServer() async {
     if (widget.email.isEmpty) {
-      LinkSpecNotify.show(context, 'Ohh! no, we seem to have lost your email. Please try logging in again.', LinkSpecNotifyType.warning);
+      ApplyWizzNotify.show(context, 'Ohh! no, we seem to have lost your email. Please try logging in again.', ApplyWizzNotifyType.warning);
       return;
     }
     
     final code = _otpController.text.trim();
     if (code.length < 6) {
-      LinkSpecNotify.show(context, 'Ohh! no, please enter the full 6-digit code!', LinkSpecNotifyType.warning);
+      ApplyWizzNotify.show(context, 'Ohh! no, please enter the full 6-digit code!', ApplyWizzNotifyType.warning);
       return;
     }
     if (_activeToken.isEmpty) {
-      LinkSpecNotify.show(context, 'Ohh! no, your session expired. Please go back and try signing up again.', LinkSpecNotifyType.warning);
+      ApplyWizzNotify.show(context, 'Ohh! no, your session expired. Please go back and try signing up again.', ApplyWizzNotifyType.warning);
       return;
     }
 
@@ -78,53 +78,53 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
             );
             
             if (!mounted) return;
-            LinkSpecNotify.show(
+            ApplyWizzNotify.show(
               context, 
               'Perfect! Your identity is verified. Your account has been created!', 
-              LinkSpecNotifyType.info
+              ApplyWizzNotifyType.info
             );
             context.go('/domain-selection', extra: {'fullName': widget.name});
             } on sb.AuthException catch (e) {
               if (mounted) {
                 if (e.statusCode == '422') {
-                  LinkSpecNotify.show(context, 'It looks like this email is already registered. Please try logging in instead.', LinkSpecNotifyType.warning);
+                  ApplyWizzNotify.show(context, 'It looks like this email is already registered. Please try logging in instead.', ApplyWizzNotifyType.warning);
                   context.go('/login');
                 } else {
-                  LinkSpecNotify.show(context, 'Ohh! no, verification passed but account creation failed: ${e.message}', LinkSpecNotifyType.warning);
+                  ApplyWizzNotify.show(context, 'Ohh! no, verification passed but account creation failed: ${e.message}', ApplyWizzNotifyType.warning);
                 }
               }
             } catch (e) {
-              if (mounted) LinkSpecNotify.show(context, 'Identity verified, but an unexpected error occurred. Please try again.', LinkSpecNotifyType.warning);
+              if (mounted) ApplyWizzNotify.show(context, 'Identity verified, but an unexpected error occurred. Please try again.', ApplyWizzNotifyType.warning);
             }
         } else {
            // Success for non-signup flows (like password reset etc)
            context.go('/domain-selection');
         }
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        LinkSpecNotify.show(
+        ApplyWizzNotify.show(
           context, 
           'Ohh! no, that code doesn’t seem right. Could you please double-check your inbox?', 
-          LinkSpecNotifyType.warning
+          ApplyWizzNotifyType.warning
         );
       } else if (response.statusCode == 410) {
-        LinkSpecNotify.show(
+        ApplyWizzNotify.show(
           context, 
           'Ohh! no, it looks like that code has expired. Could you please request a new one?', 
-          LinkSpecNotifyType.warning
+          ApplyWizzNotifyType.warning
         );
       } else {
-        LinkSpecNotify.show(
+        ApplyWizzNotify.show(
           context, 
           'Ohh! no, we hit a bit of a snag on the server. Could you please try again?', 
-          LinkSpecNotifyType.warning
+          ApplyWizzNotifyType.warning
         );
       }
     } catch (e) {
       if (mounted) {
-        LinkSpecNotify.show(
+        ApplyWizzNotify.show(
           context, 
           'Ohh! no, we couldn’t reach the server. Please check your connection and try again.', 
-          LinkSpecNotifyType.warning
+          ApplyWizzNotifyType.warning
         );
       }
     } finally {
@@ -134,7 +134,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
   Future<void> _resendFromServer() async {
     if (widget.email.isEmpty) {
-      LinkSpecNotify.show(context, "Ohh! no, we don't have your email address to resend the code.", LinkSpecNotifyType.warning);
+      ApplyWizzNotify.show(context, "Ohh! no, we don't have your email address to resend the code.", ApplyWizzNotifyType.warning);
       return;
     }
     if (_isLoading) return; // Prevent double-tap
@@ -155,18 +155,18 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         
         if (mounted) {
           setState(() => _activeToken = newToken); // Update the state with new token
-          LinkSpecNotify.show(context, "Perfect! We've sent a fresh code. Please use it.", LinkSpecNotifyType.info);
+          ApplyWizzNotify.show(context, "Perfect! We've sent a fresh code. Please use it.", ApplyWizzNotifyType.info);
         }
       } else {
-        LinkSpecNotify.show(
+        ApplyWizzNotify.show(
           context, 
           "Ohh! no, we couldn't resend the code right now. Could you please try again in a moment?", 
-          LinkSpecNotifyType.warning
+          ApplyWizzNotifyType.warning
         );
       }
     } catch (e) {
       if (mounted) {
-        LinkSpecNotify.show(context, "Ohh! no, something went wrong with the connection.", LinkSpecNotifyType.warning);
+        ApplyWizzNotify.show(context, "Ohh! no, something went wrong with the connection.", ApplyWizzNotifyType.warning);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -256,3 +256,4 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     );
   }
 }
+

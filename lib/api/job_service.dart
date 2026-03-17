@@ -144,7 +144,7 @@ class JobService {
           "🏢 Company: $company\n"
           "💰 Salary: $salary\n"
           "📍 Location: $location\n\n"
-          "We are looking for talent! View the full details in the Jobs Board. #Hiring #$finalDomain #LinkSpec";
+          "We are looking for talent! View the full details in the Jobs Board. #Hiring #$finalDomain #ApplyWizz";
 
       await PostService.createPost(
         content: postContent,
@@ -259,3 +259,4 @@ class JobService {
         .limit(1);
   }
 }
+

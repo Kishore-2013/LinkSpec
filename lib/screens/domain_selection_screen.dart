@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/aw_logo.dart';
 import '../widgets/clay_container.dart';
-import '../services/linkspec_notify.dart';
+import '../services/ApplyWizz_notify.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/google_user_provider.dart';
 import '../providers/google_profile_provider.dart';
@@ -78,7 +78,7 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
   Future<void> _saveDomainSelection() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedDomain == null) {
-      LinkSpecNotify.show(context, 'Ohh! no, we still need you to pick a professional domain before you can enter!', LinkSpecNotifyType.warning);
+      ApplyWizzNotify.show(context, 'Ohh! no, we still need you to pick a professional domain before you can enter!', ApplyWizzNotifyType.warning);
       return;
     }
     setState(() => _isLoading = true);
@@ -118,7 +118,7 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
         }
 
         if (mounted) {
-          LinkSpecNotify.show(context, 'Ohh! no, your session timed out. Could you please try the verification again?', LinkSpecNotifyType.warning);
+          ApplyWizzNotify.show(context, 'Ohh! no, your session timed out. Could you please try the verification again?', ApplyWizzNotifyType.warning);
           context.go('/auth');
         }
         return;
@@ -140,13 +140,13 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
       // SUCCESS! Move to home feed
       context.go('/home');
     } on PostgrestException catch (e) {
-      if (mounted) LinkSpecNotify.show(context, 'Ohh! no, we hit a database snag: ${e.message}', LinkSpecNotifyType.warning);
+      if (mounted) ApplyWizzNotify.show(context, 'Ohh! no, we hit a database snag: ${e.message}', ApplyWizzNotifyType.warning);
       debugPrint('DomainSelection Error (Postgrest): ${e.message} | ${e.details}');
     } on AuthException catch (e) {
-      if (mounted) LinkSpecNotify.show(context, 'Ohh! no, there was an authentication hiccup: ${e.message}', LinkSpecNotifyType.warning);
+      if (mounted) ApplyWizzNotify.show(context, 'Ohh! no, there was an authentication hiccup: ${e.message}', ApplyWizzNotifyType.warning);
       debugPrint('DomainSelection Error (Auth): ${e.message}');
     } catch (e) {
-      if (mounted) LinkSpecNotify.show(context, 'Ohh! no, we hit a snag: ${e.toString()}', LinkSpecNotifyType.warning);
+      if (mounted) ApplyWizzNotify.show(context, 'Ohh! no, we hit a snag: ${e.toString()}', ApplyWizzNotifyType.warning);
       debugPrint('DomainSelection Error (Unexpected): $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -294,7 +294,7 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
                                         ),
                                       )
                                     : const Text(
-                                        'Continue to LinkSpec  →',
+                                        'Continue to ApplyWizz  →',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 16,
@@ -448,3 +448,4 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
     );
   }
 }
+

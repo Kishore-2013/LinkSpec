@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../services/supabase_service.dart';
-import '../services/linkspec_notify.dart';
+import '../services/ApplyWizz_notify.dart';
 import '../providers/domain_provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/domain_selection_screen.dart';
@@ -35,7 +35,7 @@ class AuthWrapper extends ConsumerWidget {
             final session = sb.Supabase.instance.client.auth.currentSession;
             
             if (supabaseState.event == sb.AuthChangeEvent.passwordRecovery) {
-              return const LinkSpecAuthScreen();
+              return const ApplyWizzAuthScreen();
             }
 
             if (session == null) {
@@ -76,7 +76,7 @@ class AuthWrapper extends ConsumerWidget {
 
         if (profileSnapshot.hasError) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            LinkSpecNotify.show(context, LinkSpecNotify.mapError('session_timeout'), LinkSpecNotifyType.info);
+            ApplyWizzNotify.show(context, ApplyWizzNotify.mapError('session_timeout'), ApplyWizzNotifyType.info);
           });
           return const LoginScreen();
         }
@@ -100,3 +100,4 @@ class AuthWrapper extends ConsumerWidget {
     );
   }
 }
+

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// App-wide constants
 class AppConstants {
   // App Info
-  static const String appName = 'LinkSpec';
+  static const String appName = 'ApplyWizz';
   static const String appTagline = 'Professional Networking, Domain-Focused';
   
   // Domains
@@ -48,3 +48,4 @@ class AppConstants {
   static const double defaultRadius = 12.0;
   static const Duration animationDuration = Duration(milliseconds: 300);
 }
+

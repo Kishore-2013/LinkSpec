@@ -8,7 +8,7 @@ import 'dart:developer' as developer;
 /// with the API server to evaluate scaling needs.
 class ScalingService {
   // Use the API URL from environment or configuration
-  static const String serverUrl = 'https://api.linkspec.com/api/scaling-service';
+  static const String serverUrl = 'https://api.ApplyWizz.com/api/scaling-service';
 
   /// evaluateScaling: Sends traffic metrics to the server for threshold evaluation.
   /// The server handles all recursive logic and logging internally.
@@ -51,3 +51,4 @@ class ScalingService {
     }
   }
 }
+
