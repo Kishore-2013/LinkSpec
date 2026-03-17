@@ -8,8 +8,16 @@ class VerificationService {
 
   /// Triggers the Fermion enrollment and returns the redirect URL.
   /// env: the environment/contest key (e.g., 'fe1', 'be1', etc.)
-  static String getRedirectUrl({required String userId, required String env, String? skill}) {
+  static String getRedirectUrl({
+    required String userId, 
+    required String env, 
+    String? name,
+    String? email,
+    String? skill,
+  }) {
     var url = '$_baseUrl/fermion-redirect?uid=$userId&env=$env';
+    if (name != null) url += '&name=${Uri.encodeComponent(name)}';
+    if (email != null) url += '&email=${Uri.encodeComponent(email)}';
     if (skill != null) {
       url += '&skill=${Uri.encodeComponent(skill)}';
     }

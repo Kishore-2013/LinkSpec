@@ -3,9 +3,9 @@ const MANIFEST = 'flutter-app-manifest';
 const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
-const RESOURCES = {"assets/AssetManifest.bin": "b1fedea34b375675a28ce4a924a822d8",
-"assets/AssetManifest.bin.json": "b03bfe3efba961c0fd0520d72811917b",
-"assets/AssetManifest.json": "fb662c4304364c525837c28f605b811b",
+const RESOURCES = {"assets/AssetManifest.bin": "2adf3311a94cdcf513e4e301cf4dfa15",
+"assets/AssetManifest.bin.json": "963b36fa25ebfacca498f81fd4d4504a",
+"assets/AssetManifest.json": "790b8e16e616f782f57baba3c03926ac",
 "assets/assets/images/apply_wizz_logo.jpg": "1e702913f834fbcf611e955e0bdf8c47",
 "assets/assets/svg/login_illustration.svg": "8c77d0bcb9bd206d7981ccc833ce8b4b",
 "assets/assets/svg/marble_texture.svg": "31eabfc33e025ecaeb552d4344786dfd",
@@ -24,8 +24,8 @@ const RESOURCES = {"assets/AssetManifest.bin": "b1fedea34b375675a28ce4a924a822d8
 "assets/assets/svg/wired-outline-259-share-arrow-hover-slide.svg": "8cb679a69d65ec2f1d5372b093287969",
 "assets/assets/svg/wired-outline-981-consultation-hover-conversation-alt.svg": "f371742c126e9803f870dad26be27250",
 "assets/FontManifest.json": "dc3d03800ccca4601324923c0b1d6d57",
-"assets/fonts/MaterialIcons-Regular.otf": "0f3169efa2d1d32cd8126ad62e9cb004",
-"assets/NOTICES": "cd6bbe2f8e47e6690ae76a66ef2daa15",
+"assets/fonts/MaterialIcons-Regular.otf": "2869ea9631c6f3b74eea7a170413c120",
+"assets/NOTICES": "f544bad3efdfefd7d575a692c243af2a",
 "assets/packages/cupertino_icons/assets/CupertinoIcons.ttf": "e986ebe42ef785b27164c36a9abc7818",
 "assets/shaders/ink_sparkle.frag": "ecc85a2e95f5e9f53123dcaf8cb9b6ce",
 "canvaskit/canvaskit.js": "26eef3024dbc64886b7f48e1b6fb05cf",
@@ -39,14 +39,14 @@ const RESOURCES = {"assets/AssetManifest.bin": "b1fedea34b375675a28ce4a924a822d8
 "canvaskit/skwasm.wasm": "828c26a0b1cc8eb1adacbdd0c5e8bcfa",
 "canvaskit/skwasm.worker.js": "89990e8c92bcb123999aa81f7e203b1c",
 "flutter.js": "4b2350e14c6650ba82871f60906437ea",
-"flutter_bootstrap.js": "a2f97ddcd8bf3d01974659a3a961c316",
+"flutter_bootstrap.js": "6badbb5345e971c3d53d5027b5e2c598",
 "icons/apply_wizz_logo.jpg": "1e702913f834fbcf611e955e0bdf8c47",
-"index.html": "e06b3301e94ecf011925755a6b15dd65",
-"/": "e06b3301e94ecf011925755a6b15dd65",
-"main.dart.js": "7911414a5aca3ba1b61bda8de51fcbb6",
-"main.dart.js_1.part.js": "d959cfc498a53f633ba70a2f44997644",
-"main.dart.js_2.part.js": "df7a601a42b9d1d8249445ca6f2e6d69",
-"manifest.json": "c6b35bd7d5b09a2ffde04aba2d0e4b4e",
+"index.html": "f7582266ccfcbad86f36f9ef5a4019ef",
+"/": "f7582266ccfcbad86f36f9ef5a4019ef",
+"main.dart.js": "b07a8d75a53bb62e5acdada203f0f1bb",
+"main.dart.js_1.part.js": "b8294cf751eb16767f362193059b0fd7",
+"main.dart.js_2.part.js": "3b9b469227210d53c48edfec90193d6b",
+"manifest.json": "223c4a90759057e9d600075caecb4768",
 "version.json": "8bfaf4a55685eb8456ae7dc34dd62448"};
 // The application shell files that are downloaded before a service worker can
 // start.

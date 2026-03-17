@@ -1170,7 +1170,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     };
 
     final env = domainToEnv[_profile!.domainId] ?? 'default';
-    final url = VerificationService.getRedirectUrl(userId: userId, env: env, skill: skill);
+    final user = Supabase.instance.client.auth.currentUser;
+    final email = user?.email;
+    final name = _profile?.fullName;
+    
+    final url = VerificationService.getRedirectUrl(
+      userId: userId, 
+      env: env, 
+      skill: skill,
+      email: email,
+      name: name,
+    );
 
     if (!mounted) return;
 

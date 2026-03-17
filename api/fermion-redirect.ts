@@ -126,24 +126,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const env = (req.query.env as string) || 'default';
     const userId = (req.query.uid as string) || 'anon-user';
+    const email = req.query.email as string;
+    const name = req.query.name as string;
 
     const config = ENVIRONMENTS[env as keyof typeof ENVIRONMENTS] || ENVIRONMENTS.default;
-    const labId = config.productId;
+    const productId = config.productId;
 
-    // 1) Get the contest URL and handle dynamic school host
+    // 1) Optional: Auto-enroll user into product if email exists
+    if (email && productId) {
+      try {
+        console.log(`Enrolling user ${userId} into product ${productId}`);
+        await fetch(ENROLL_URL, {
+          method: 'POST',
+          headers: {
+            'FERMION-API-KEY': apiKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            data: [{
+              data: {
+                userId: userId,
+                productId: productId
+              }
+            }]
+          })
+        });
+      } catch (enrollError) {
+        console.error('Auto-enrollment failed:', enrollError);
+      }
+    }
+
+    // 2) Get the contest URL and handle dynamic school host
     const schoolHost = process.env.FERMION_SCHOOL_HOST || 'careerbadge.apply-wizz.com';
     const contestUrl = config.contestUrl.replace('careerbadge.apply-wizz.com', schoolHost);
     
-    // 2) Append skill if provided
+    // 3) Append skill if provided
     const skill = req.query.skill as string;
-    let url = contestUrl;
+    let finalUrl = contestUrl;
     if (skill) {
-      url += (url.includes('?') ? '&' : '?') + `skill=${encodeURIComponent(skill)}`;
+      finalUrl += (finalUrl.includes('?') ? '&' : '?') + `skill=${encodeURIComponent(skill)}`;
     }
 
-    // 3) Direct redirect (Fermion will handle login/registration prompt)
+    // 4) Generate SSO token if we have user info
+    if (email) {
+      const tokenPayload = {
+        userId,
+        email,
+        name: name || email.split('@')[0],
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 7) // 7 days
+      };
+      
+      const token = jwt.sign(tokenPayload, apiKey);
+      
+      // Construct SSO URL
+      const ssoBaseUrl = `https://${schoolHost}/sso`;
+      const ssoUrl = new URL(ssoBaseUrl);
+      ssoUrl.searchParams.set('token', token);
+      ssoUrl.searchParams.set('redirect_uri', finalUrl);
+      
+      finalUrl = ssoUrl.toString();
+    }
+
+    // 5) Direct redirect
+    console.log(`Redirecting to: ${finalUrl}`);
     res.setHeader('Cache-Control', 'no-store');
-    return res.redirect(302, url);
+    return res.redirect(302, finalUrl);
   } catch (e: any) {
     console.error('fermion-redirect error:', e);
     return res.status(500).send(`Unexpected server error: ${e?.message || e}`);
