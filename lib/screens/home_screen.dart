@@ -406,19 +406,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           }
         });
       } else {
-        // FALLBACK: Firebase User
-        final firebaseUserAsync = ref.read(firebaseUserProvider);
-        final firebaseUser = firebaseUserAsync.value;
+        // FALLBACK: Firebase User (Synchronous check)
+        final fbUser = fb.FirebaseAuth.instance.currentUser;
         
-        if (firebaseUser != null && mounted) {
+        if (fbUser != null && mounted) {
           final googleProfile = ref.read(googleUserProfileProvider);
           setState(() {
             _currentUserProfile = UserProfile(
-              id: firebaseUser.uid,
-              fullName: firebaseUser.displayName ?? 'Firebase User',
+              id: fbUser.uid,
+              fullName: fbUser.displayName ?? 'Firebase User',
               domainId: googleProfile?.domain ?? 'Global',
-              email: firebaseUser.email,
-              avatarUrl: firebaseUser.photoURL,
+              email: fbUser.email,
+              avatarUrl: fbUser.photoURL,
               skills: [],
               experience: [],
               education: [],
@@ -957,12 +956,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               );
               if (confirmed == true && mounted) {
                 try {
+                  // 1. Clear Supabase
                   SupabaseService.clearCache();
-                  ref.read(savedPostsProvider.notifier).clear();
                   await Supabase.instance.client.auth.signOut();
-                  if (mounted)
-                    Navigator.of(context)
-                        .pushNamedAndRemoveUntil('/login', (route) => false);
+
+                  // 2. Clear Google/Firebase
+                  await firebaseAuthService.signOut();
+
+                  // 3. Clear memory providers
+                  ref.read(googleUserProvider.notifier).state = null;
+                  ref.read(googleUserProfileProvider.notifier).state = null;
+
+                  if (mounted) {
+                    context.go('/auth');
+                  }
                 } catch (e) {
                   debugPrint('Logout error: $e');
                 }

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
-import '../services/ApplyWizz_notify.dart';
+import '../services/linkspec_notify.dart';
 import 'dart:async';
 import 'dart:js_interop'; // Added for proper .toJS conversion if needed
 import 'package:http/http.dart' as http;
@@ -23,8 +23,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 
-/// Login Screen — Unified Authentication.
-/// Features a single, premium entry point.
+/// Login Screen — Unified Microsoft 365 Authentication.
+/// Features a single, premium 'Sign in with Microsoft' entry point.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -180,7 +180,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
             final otpToken = responseData['token'] as String? ?? '';
 
             if (mounted) {
-              ApplyWizzNotify.show(context, "Perfect! We've sent a 6-digit verification code to your inbox!", ApplyWizzNotifyType.info);
+              LinkSpecNotify.show(context, "Perfect! We've sent a 6-digit verification code to your inbox!", LinkSpecNotifyType.info);
               context.go(
                 '/otp-verify?email=${Uri.encodeComponent(email)}',
                 extra: {
@@ -192,10 +192,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
               );
             }
           } else {
-            if (mounted) ApplyWizzNotify.show(context, "Ohh! no, we couldn't send the code. Please check your email and try again.", ApplyWizzNotifyType.warning);
+            if (mounted) LinkSpecNotify.show(context, "Ohh! no, we couldn't send the code. Please check your email and try again.", LinkSpecNotifyType.warning);
           }
         } catch (e) {
-          if (mounted) ApplyWizzNotify.show(context, "Ohh! no, we couldn't reach our mail server. Please try again later.", ApplyWizzNotifyType.warning);
+          if (mounted) LinkSpecNotify.show(context, "Ohh! no, we couldn't reach our mail server. Please try again later.", LinkSpecNotifyType.warning);
         }
       } else {
         // 3. SIGN IN
@@ -208,21 +208,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
       if (mounted) {
         if (e.statusCode == '422' || e.message.toLowerCase().contains('already registered')) {
           // 422 Handle: User already exists
-          ApplyWizzNotify.show(context, 'Ohh! no, it looks like this email is already registered! Could you please try signing in or use a different email?', ApplyWizzNotifyType.warning);
+          LinkSpecNotify.show(context, 'Ohh! no, it looks like this email is already registered! Could you please try signing in or use a different email?', LinkSpecNotifyType.warning);
           setState(() {
             _isSignUp = false;
             _formKey.currentState?.reset();
           });
         } else if (e.statusCode == '400') {
           // 400 Handle: Bad Request/Stale Token
-          ApplyWizzNotify.show(context, 'Ohh! no, something went a bit wrong with the request. Could you please double-check your details and try one more time?', ApplyWizzNotifyType.warning);
+          LinkSpecNotify.show(context, 'Ohh! no, something went a bit wrong with the request. Could you please double-check your details and try one more time?', LinkSpecNotifyType.warning);
         } else {
-          ApplyWizzNotify.show(context, 'Ohh! no, we hit a bit of a snag. Could you please check this: ${e.message}', ApplyWizzNotifyType.warning);
+          LinkSpecNotify.show(context, 'Ohh! no, we hit a bit of a snag. Could you please check this: ${e.message}', LinkSpecNotifyType.warning);
         }
       }
     } catch (e) {
       if (mounted) {
-        ApplyWizzNotify.show(context, 'Ohh! no, something unexpected happened. Could you please try again in a moment?', ApplyWizzNotifyType.warning);
+        LinkSpecNotify.show(context, 'Ohh! no, something unexpected happened. Could you please try again in a moment?', LinkSpecNotifyType.warning);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -232,7 +232,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
   Future<void> _handleForgotPassword() async {
     final email = _emailCtrl.text.trim();
     if (email.isEmpty) {
-      ApplyWizzNotify.show(context, "Please enter your email first.", ApplyWizzNotifyType.warning);
+      LinkSpecNotify.show(context, "Please enter your email first.", LinkSpecNotifyType.warning);
       return;
     }
 
@@ -242,9 +242,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
          email,
          redirectTo: kIsWeb ? '${Uri.base.origin}/reset-password' : null,
        );
-       if (mounted) ApplyWizzNotify.show(context, "Recovery link sent! Please check your inbox.", ApplyWizzNotifyType.info);
+       if (mounted) LinkSpecNotify.show(context, "Recovery link sent! Please check your inbox.", LinkSpecNotifyType.info);
     } catch (e) {
-       if (mounted) ApplyWizzNotify.show(context, ApplyWizzNotify.mapError(e), ApplyWizzNotifyType.warning);
+       if (mounted) LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
     } finally {
        if (mounted) setState(() => _isLoading = false);
     }
@@ -259,7 +259,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
       // NOTE: With renderButton(), the user flow is handled by the native button.
       // We listen to changes in GoogleAuthService.initialize()
     } catch (e) {
-      if (mounted) ApplyWizzNotify.show(context, 'Google Sign-In failed. Please try again.', ApplyWizzNotifyType.warning);
+      if (mounted) LinkSpecNotify.show(context, 'Google Sign-In failed. Please try again.', LinkSpecNotifyType.warning);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -323,7 +323,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
           flex: 5,
           child: Stack(
             children: [
-              Positioned.fill(child: Container(color: const Color(0xFFE6F7F0))),
+              Positioned.fill(child: Container(color: const Color(0xFFF0F4FF))),
               Positioned.fill(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(48, 48, 48, 180),
@@ -336,8 +336,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    const AWLogo(size: 80, showAppName: true, showTagline: true),
-                    const SizedBox(height: 32),
+                    const AWLogo(size: 80, showAppName: false),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Unite with your\nprofessional domain.',
+                      style: TextStyle(color: _textDark, fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: -1.5, height: 1.1),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'LinkSpec is the domain-gated networking platform\nfor the modern professional.',
+                      style: TextStyle(color: _textDark.withOpacity(0.6), fontSize: 18, fontWeight: FontWeight.w500),
+                    ),
                   ],
                 ),
               ),
@@ -393,8 +402,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
               const SizedBox(height: 8),
               Text(
                 _isSignUp 
-                    ? 'Create your recruitment profile and start hiring.' 
-                    : 'Sign in to access your dashboard.',
+                    ? 'Create your professional profile and join your domain.' 
+                    : 'Sign in to access your professional domain feed.',
                 style: const TextStyle(fontSize: 15, color: _textMid),
               ),
             ],
@@ -574,4 +583,3 @@ class _GoogleButton extends StatelessWidget {
     );
   }
 }
-

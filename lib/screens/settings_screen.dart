@@ -338,14 +338,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 // Properly sign out: clear cache, invalidate Supabase session,
                 // then replace entire navigation stack so back button cannot
                 // return the user to the home feed.
-                // Properly sign out: clear cache, invalidate sessions,
-                // then replace entire navigation stack.
+                // 1. Clear Supabase
                 SupabaseService.clearCache();
                 await Supabase.instance.client.auth.signOut();
+                
+                // 2. Clear Google/Firebase
                 await firebaseAuthService.signOut();
                 
+                // 3. Clear memory providers
+                ref.read(googleUserProvider.notifier).state = null;
+                ref.read(googleUserProfileProvider.notifier).state = null;
+                
                 if (mounted) {
-                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                  context.go('/auth');
                 }
               },
               style: OutlinedButton.styleFrom(

@@ -9,6 +9,7 @@ import '../providers/google_user_provider.dart';
 import '../providers/google_profile_provider.dart';
 import '../providers/firebase_user_provider.dart';
 import '../providers/domain_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 
 /// Domain Selection Screen — Claymorphism design.
 /// Receives optional route argument `{'fullName': String}` from the sign-up flow
@@ -100,10 +101,9 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
 
       if (user == null) {
         // CHECK FIREBASE FLOW:
-        final firebaseUserAsync = ref.read(firebaseUserProvider);
-        final firebaseUser = firebaseUserAsync.value;
+        final fbUser = fb.FirebaseAuth.instance.currentUser;
         
-        if (firebaseUser != null) {
+        if (fbUser != null) {
           // Firebase flow: Save to memory provider and skip Supabase profile creation
           ref.read(googleUserProfileProvider.notifier).state = GoogleUserProfile(
             domain: _selectedDomain!,

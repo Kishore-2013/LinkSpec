@@ -55,7 +55,7 @@ void main() async {
 
   WebLifecycleHelper.register();
 
-  runApp(const ProviderScope(child: ApplyWizzApp()));
+  runApp(const ProviderScope(child: LinkSpecApp()));
 }
 
 final _router = GoRouter(
@@ -123,18 +123,18 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/reset-password',
-      builder: (context, state) => const ApplyWizzAuthScreen(),
+      builder: (context, state) => const LinkSpecAuthScreen(),
     ),
   ],
 );
 
-class ApplyWizzApp extends ConsumerWidget {
-  const ApplyWizzApp({Key? key}) : super(key: key);
+class LinkSpecApp extends ConsumerWidget {
+  const LinkSpecApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
-      title: 'ApplyWizz',
+      title: 'LinkSpec',
       routerConfig: _router,
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.light,
@@ -175,4 +175,3 @@ class ApplyWizzApp extends ConsumerWidget {
     );
   }
 }
-

@@ -104,20 +104,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           });
         } else if (mounted) {
           // 2. FALLBACK: Check Firebase Google User (Social-Only Flow)
-          final firebaseUserAsync = ref.read(firebaseUserProvider);
-          final firebaseUser = firebaseUserAsync.value;
+          final fbUser = fb.FirebaseAuth.instance.currentUser;
           
-          if (firebaseUser != null) {
+          if (fbUser != null) {
             final googleProfile = ref.read(googleUserProfileProvider); // Still use this for domain/bio from memory
             
             setState(() {
               _profile = UserProfile(
-                id: firebaseUser.uid, // Use Firebase UID as profile ID
-                fullName: firebaseUser.displayName ?? 'Firebase User',
+                id: fbUser.uid, // Use Firebase UID as profile ID
+                fullName: fbUser.displayName ?? 'Firebase User',
                 domainId: googleProfile?.domain ?? 'social', // From memory
                 bio: googleProfile?.bio, // From memory
-                email: firebaseUser.email,
-                avatarUrl: firebaseUser.photoURL,
+                email: fbUser.email,
+                avatarUrl: fbUser.photoURL,
                 skills: [],
                 experience: [],
                 education: [],
