@@ -75,7 +75,7 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
   Future<void> _saveDomainSelection() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedDomain == null) {
-      linkspecNotify.show(context, 'Ohh! no, we still need you to pick a professional domain before you can enter!', linkspecNotifyType.warning);
+      LinkSpecNotify.show(context, 'Ohh! no, we still need you to pick a professional domain before you can enter!', LinkSpecNotifyType.warning);
       return;
     }
     setState(() => _isLoading = true);
@@ -97,7 +97,7 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
 
       if (user == null) {
         if (mounted) {
-          linkspecNotify.show(context, 'Ohh! no, your session timed out. Could you please try the verification again?', linkspecNotifyType.warning);
+          LinkSpecNotify.show(context, 'Ohh! no, your session timed out. Could you please try the verification again?', LinkSpecNotifyType.warning);
           context.go('/auth');
         }
         return;
@@ -119,13 +119,13 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
       // SUCCESS! Move to home feed
       context.go('/home');
     } on PostgrestException catch (e) {
-      if (mounted) linkspecNotify.show(context, 'Ohh! no, we hit a database snag: ${e.message}', linkspecNotifyType.warning);
+      if (mounted) LinkSpecNotify.show(context, 'Ohh! no, we hit a database snag: ${e.message}', LinkSpecNotifyType.warning);
       debugPrint('DomainSelection Error (Postgrest): ${e.message} | ${e.details}');
     } on AuthException catch (e) {
-      if (mounted) linkspecNotify.show(context, 'Ohh! no, there was an authentication hiccup: ${e.message}', linkspecNotifyType.warning);
+      if (mounted) LinkSpecNotify.show(context, 'Ohh! no, there was an authentication hiccup: ${e.message}', LinkSpecNotifyType.warning);
       debugPrint('DomainSelection Error (Auth): ${e.message}');
     } catch (e) {
-      if (mounted) linkspecNotify.show(context, 'Ohh! no, we hit a snag: ${e.toString()}', linkspecNotifyType.warning);
+      if (mounted) LinkSpecNotify.show(context, 'Ohh! no, we hit a snag: ${e.toString()}', LinkSpecNotifyType.warning);
       debugPrint('DomainSelection Error (Unexpected): $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
