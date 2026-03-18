@@ -166,8 +166,6 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
               ),
             ],
           ),
-        ],
-      ),
     );
   }
 
