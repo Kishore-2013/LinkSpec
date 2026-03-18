@@ -98,7 +98,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
 
   bool _isValidEmail(String email) {
     final regex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@(gmail|outlook|yahoo|hotmail|icloud)\.com$'
+      r'^[a-zA-Z0-9._%+-]+@(gmail|outlook|yahoo|hotmail|icloud|Applywizz)\.com$'
     );
     return regex.hasMatch(email);
   }
