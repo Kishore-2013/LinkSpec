@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import '../services/linkspec_notify.dart';
 import '../services/supabase_service.dart';
 import '../config/app_constants.dart';
 import '../api/post_sanitizer.dart';
@@ -99,7 +100,11 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
         });
       }
     } catch (e) {
-      _showErrorSnackBar('Error picking image: $e');
+      LinkSpecNotify.show(
+        context, 
+        'Error picking image: $e', 
+        LinkSpecNotifyType.error
+      );
     }
   }
 
@@ -183,12 +188,19 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
           _venueController.clear();
           _removeImage();
         }
-        widget.onPostCreated?.call();
-        _showSuccessSnackBar('Post created successfully!');
+        LinkSpecNotify.show(
+          context, 
+          'Post created successfully!', 
+          LinkSpecNotifyType.success
+        );
       }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar('Error creating post: $e');
+        LinkSpecNotify.show(
+          context, 
+          'Error creating post: $e', 
+          LinkSpecNotifyType.error
+        );
       }
     } finally {
       if (mounted) {
@@ -199,25 +211,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     }
   }
 
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.blue[700],
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
+  // Helper methods removed in favor of direct LinkSpecNotify.show calls
 
   Widget _buildDomainPicker() {
     final domains = AppConstants.domains;

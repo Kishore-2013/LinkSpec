@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../services/supabase_service.dart';
+import '../services/linkspec_notify.dart';
 import 'member_profile_screen.dart';
 import 'chat_screen.dart';
 import '../widgets/clay_container.dart';
@@ -88,8 +89,10 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
       await ref.read(followProvider.notifier).toggleFollow(targetUserId);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e'), backgroundColor: Colors.red),
+        LinkSpecNotify.show(
+          context, 
+          'Action failed: $e', 
+          LinkSpecNotifyType.error
         );
       }
     }
@@ -114,10 +117,11 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
         );
       }
     } catch (e) {
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e'), backgroundColor: Colors.red),
+        LinkSpecNotify.show(
+          context, 
+          'Action failed: $e', 
+          LinkSpecNotifyType.error
         );
       }
     }

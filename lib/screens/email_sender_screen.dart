@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/email_service.dart';
+import '../services/linkspec_notify.dart';
+import '../services/supabase_service.dart';
 
 /// A simple, themed screen to test the [EmailService].
 class EmailSenderScreen extends StatefulWidget {
@@ -14,7 +16,7 @@ class _EmailSenderScreenState extends State<EmailSenderScreen> {
   final _subjectController = TextEditingController();
   final _messageController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  
+
   bool _isSending = false;
 
   @override
@@ -37,18 +39,14 @@ class _EmailSenderScreenState extends State<EmailSenderScreen> {
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success ? 'Email sent successfully!' : 'Failed to send email. Check your SMTP configuration.',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: success ? Colors.green : Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
       setState(() => _isSending = false);
+      
+      LinkSpecNotify.show(
+        context, 
+        success ? 'Email sent successfully!' : 'Failed to send email. Check your SMTP configuration.', 
+        success ? LinkSpecNotifyType.success : LinkSpecNotifyType.error
+      );
+
       if (success) {
         // Clear fields on success
         _subjectController.clear();

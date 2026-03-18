@@ -5,6 +5,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/supabase_service.dart';
+import '../services/linkspec_notify.dart';
+import '../utils/web_utils.dart';
 import '../models/user_profile.dart';
 import 'user_posts_insights_screen.dart';
 import 'member_profile_screen.dart';
@@ -161,14 +163,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await _loadProfile();
       setState(() => _isEditing = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Profile updated!'), backgroundColor: Colors.blue[700]),
+        LinkSpecNotify.show(
+          context, 
+          'Profile updated successfully', 
+          LinkSpecNotifyType.success
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e'), backgroundColor: Colors.red),
+        LinkSpecNotify.show(
+          context, 
+          'Error updating profile: $e', 
+          LinkSpecNotifyType.error
         );
       }
     } finally {
@@ -191,14 +197,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _profile = _profile?.copyWith(avatarUrl: url);
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Avatar updated!'), backgroundColor: Colors.blue[700]),
+        LinkSpecNotify.show(
+          context, 
+          'Avatar updated!', 
+          LinkSpecNotifyType.success
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red),
+        LinkSpecNotify.show(
+          context, 
+          'Upload failed: $e', 
+          LinkSpecNotifyType.error
         );
       }
     } finally {
@@ -219,14 +229,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final url = await SupabaseService.uploadCoverPhoto(bytes, result.files.single.name);
       setState(() => _coverUrl = url);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Cover photo updated!'), backgroundColor: Colors.blue[700]),
+        LinkSpecNotify.show(
+          context, 
+          'Cover photo updated!', 
+          LinkSpecNotifyType.success
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e'), backgroundColor: Colors.red),
+        LinkSpecNotify.show(
+          context, 
+          'Upload failed: $e', 
+          LinkSpecNotifyType.error
         );
       }
     } finally {
@@ -1370,8 +1384,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         builder: (context) => VerificationViewer(
           url: url,
           onComplete: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Verification in progress. Please wait a moment for the badge to appear.')),
+            LinkSpecNotify.show(
+              context, 
+              'Verification in progress. Please wait a moment for the badge to appear.', 
+              LinkSpecNotifyType.info
             );
             Navigator.pop(context);
           },

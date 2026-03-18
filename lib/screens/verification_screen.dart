@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/linkspec_notify.dart';
+import '../services/supabase_service.dart';
 import '../utils/web_utils.dart';
 import '../services/email_service.dart';
 
@@ -119,9 +122,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
         _showResend = false;
         _otpController.clear();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A new code has been sent!')),
-      );
+        LinkSpecNotify.show(
+          context,
+          'A new code has been sent!',
+          LinkSpecNotifyType.success
+        );
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
+import '../services/linkspec_notify.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SharePostDialog extends StatefulWidget {
   final String postId;
@@ -42,7 +44,7 @@ class _SharePostDialogState extends State<SharePostDialog> {
         searchQuery: query,
         limit: 20,
       );
-      
+
       final myProfile = await SupabaseService.getCurrentUserProfile();
       final myId = myProfile?['id'];
 
@@ -60,8 +62,10 @@ class _SharePostDialogState extends State<SharePostDialog> {
 
   Future<void> _shareWithSelected() async {
     if (_selectedUserIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one person to share with')),
+      LinkSpecNotify.show(
+        context,
+        'Please select at least one person to share with',
+        LinkSpecNotifyType.info,
       );
       return;
     }
@@ -84,13 +88,12 @@ class _SharePostDialogState extends State<SharePostDialog> {
     }
     if (mounted) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(successCount == _selectedUserIds.length
-              ? 'Post shared with ${successCount} ${successCount == 1 ? "person" : "people"}!'
-              : 'Shared with $successCount/${_selectedUserIds.length} people'),
-          backgroundColor: Colors.blue[700],
-        ),
+      LinkSpecNotify.show(
+        context, 
+        successCount == _selectedUserIds.length
+            ? 'Post shared with ${successCount} ${successCount == 1 ? "person" : "people"}!'
+            : 'Shared with $successCount/${_selectedUserIds.length} people',
+        LinkSpecNotifyType.success
       );
     }
   }

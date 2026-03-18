@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/web_cache_manager.dart';
 import '../models/job.dart';
 import '../services/supabase_service.dart';
+import '../services/linkspec_notify.dart';
 import 'job_detail_screen.dart';
 import '../widgets/clay_container.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -80,8 +81,10 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
         }
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Action failed: $e'), backgroundColor: Colors.red),
+      LinkSpecNotify.show(
+        context, 
+        'Action failed: $e', 
+        LinkSpecNotifyType.warning
       );
     }
   }
@@ -100,8 +103,10 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Application submitted successfully!'), backgroundColor: Colors.green),
+              LinkSpecNotify.show(
+                context, 
+                'Application submitted successfully!', 
+                LinkSpecNotifyType.success
               );
             },
             child: const Text('Confirm'),

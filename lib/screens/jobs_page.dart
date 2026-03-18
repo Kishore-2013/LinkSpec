@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/job.dart';
 import '../api/job_service.dart';
 import '../services/supabase_service.dart';
+import '../services/linkspec_notify.dart';
 import 'job_detail_screen.dart';
 import '../widgets/clay_container.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -443,7 +444,11 @@ class _JobsPageState extends ConsumerState<JobsPage> {
                         Navigator.pop(context);
                         _loadInitialJobs();
                       } catch (e) {
-                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                         LinkSpecNotify.show(
+                          context, 
+                          'Error creating job: ${e.toString()}', 
+                          LinkSpecNotifyType.error
+                        );
                       }
                     },
                     style: ElevatedButton.styleFrom(

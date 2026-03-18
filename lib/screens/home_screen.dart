@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
+import '../services/linkspec_notify.dart';
 import '../models/post.dart';
 import '../models/user_profile.dart';
 import '../models/group.dart';
@@ -272,73 +273,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _showNotificationBanner(String message, String type) {
-    final iconData = switch (type) {
-      'like' => Icons.favorite_rounded,
-      'comment' => Icons.chat_bubble_rounded,
-      'like_comment' => Icons.favorite_border_rounded,
-      'connection' => Icons.people_rounded,
-      _ => Icons.notifications_rounded,
-    };
-    final iconColor = switch (type) {
-      'like' => Colors.red,
-      'like_comment' => Colors.pink,
-      'connection' => Colors.blue,
-      _ => const Color(0xFF0066CC),
+    LinkSpecNotifyType notifyType = switch (type) {
+      'like' => LinkSpecNotifyType.success,
+      'comment' => LinkSpecNotifyType.info,
+      'connection' => LinkSpecNotifyType.success,
+      _ => LinkSpecNotifyType.info,
     };
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        duration: const Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        elevation: 6,
-        content: IntrinsicHeight(
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(iconData, color: iconColor, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(
-                    color: Color(0xFF1C1C1E),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  _navigateTo(5);
-                },
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  'View',
-                  style: TextStyle(
-                    color: iconColor,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    LinkSpecNotify.show(
+      context, 
+      message, 
+      notifyType,
+      onAction: () => _navigateTo(5),
+      actionLabel: 'View',
     );
   }
 
@@ -511,25 +458,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     await WebCacheManager.incrementJobsBadge();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.person_add_alt_1, color: Colors.white),
-            SizedBox(width: 12),
-            Expanded(
-                child: Text('New application received for your job listing!')),
-          ],
-        ),
-        backgroundColor: Colors.blue[700],
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'View',
-          textColor: Colors.white,
-          onPressed: () => _navigateTo(11),
-        ),
-      ),
-    );
+    if (mounted) {
+      LinkSpecNotify.show(
+        context, 
+        'New application received for your job listing!', 
+        LinkSpecNotifyType.info,
+        onAction: () => _navigateTo(11),
+        actionLabel: 'View',
+      );
+    }
   }
 
   Future<void> _loadOlderPosts() async {

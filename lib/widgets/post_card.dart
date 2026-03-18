@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import '../services/linkspec_notify.dart';
+import '../services/supabase_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -310,8 +311,10 @@ class _PostCardState extends ConsumerState<PostCard> {
                         await ref.read(followProvider.notifier).toggleFollow(widget.post.authorId);
                       } catch (e) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to update follow status: $e'), backgroundColor: Colors.red),
+                          LinkSpecNotify.show(
+                            context, 
+                            'Failed to update follow status: $e', 
+                            LinkSpecNotifyType.error
                           );
                         }
                       }
@@ -549,17 +552,10 @@ class _PostCardState extends ConsumerState<PostCard> {
     // After toggle, check the new state from the provider
     final nowSaved = ref.read(savedPostsProvider).contains(widget.post.id);
   
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          nowSaved ? '✓ Post saved to your collection' : 'Post removed from saved',
-        ),
-        backgroundColor: nowSaved ? Theme.of(context).primaryColor : Theme.of(context).hintColor,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
+    LinkSpecNotify.show(
+      context, 
+      nowSaved ? '✓ Post saved to your collection' : 'Post removed from saved', 
+      nowSaved ? LinkSpecNotifyType.success : LinkSpecNotifyType.info
     );
   }
 
@@ -570,14 +566,18 @@ class _PostCardState extends ConsumerState<PostCard> {
         final job = Job.fromJson(jobData);
         JobDetailScreen.show(context, job);
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Job listing no longer available')),
+        LinkSpecNotify.show(
+          context, 
+          'Job listing no longer available', 
+          LinkSpecNotifyType.warning
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading job: $e')),
+        LinkSpecNotify.show(
+          context, 
+          'Error loading job: $e', 
+          LinkSpecNotifyType.error
         );
       }
     }

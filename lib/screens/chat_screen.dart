@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
+import '../services/linkspec_notify.dart';
 import '../widgets/post_card.dart';
 import '../models/post.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -139,8 +141,10 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() {
           _messages.removeWhere((m) => m['id'] == tempId);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send: $e'), backgroundColor: Colors.red),
+        LinkSpecNotify.show(
+          context, 
+          'Error sending message: $e', 
+          LinkSpecNotifyType.error
         );
       }
     }

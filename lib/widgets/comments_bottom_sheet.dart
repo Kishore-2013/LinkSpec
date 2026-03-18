@@ -1,6 +1,6 @@
-
 import 'package:flutter/material.dart';
 import '../models/comment.dart';
+import '../services/linkspec_notify.dart';
 import '../services/supabase_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -64,9 +64,18 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
       _commentController.clear();
       setState(() => _replyingTo = null);
       await _loadComments();
+      if (mounted) {
+        LinkSpecNotify.show(
+          context, 
+          'Comment added!', 
+          LinkSpecNotifyType.success
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding comment: $e'), backgroundColor: Colors.red),
+      LinkSpecNotify.show(
+        context,
+        'Error adding comment',
+        LinkSpecNotifyType.error,
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);

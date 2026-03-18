@@ -6,6 +6,7 @@ import '../services/supabase_service.dart';
 import '../widgets/post_card.dart';
 import 'chat_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/linkspec_notify.dart';
 import '../providers/follow_provider.dart';
 import '../providers/unite_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -125,8 +126,10 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        LinkSpecNotify.show(
+          context, 
+          'Error: $e', 
+          LinkSpecNotifyType.error
         );
       }
     }
@@ -161,8 +164,10 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        LinkSpecNotify.show(
+          context, 
+          'Error: $e', 
+          LinkSpecNotifyType.error
         );
       }
     } finally {

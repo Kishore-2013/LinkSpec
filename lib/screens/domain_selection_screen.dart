@@ -6,6 +6,7 @@ import '../widgets/clay_container.dart';
 import '../services/linkspec_notify.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/domain_provider.dart';
+import '../services/supabase_service.dart';
 
 /// Domain Selection Screen — Claymorphism design.
 /// Receives optional route argument `{'fullName': String}` from the sign-up flow
@@ -133,12 +134,11 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
   }
 
   void _showSnack(String msg, {bool isError = true}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
-      backgroundColor: isError ? Colors.red[700] : Colors.blue[700],
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-    ));
+    LinkSpecNotify.show(
+      context, 
+      msg, 
+      isError ? LinkSpecNotifyType.error : LinkSpecNotifyType.success
+    );
   }
 
   @override

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/linkspec_notify.dart';
 import '../services/supabase_service.dart';
 import '../models/notification.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -100,8 +102,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await SupabaseService.deleteNotification(id);
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Notification deleted'), duration: Duration(seconds: 2)),
+        LinkSpecNotify.show(
+          context, 
+          'Notification cleared', 
+          LinkSpecNotifyType.info
         );
       }
       
@@ -109,8 +113,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (e) {
       debugPrint('Error deleting notification: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e'), backgroundColor: Colors.red),
+        LinkSpecNotify.show(
+          context, 
+          'Error clearing notification: $e', 
+          LinkSpecNotifyType.error
         );
       }
     }

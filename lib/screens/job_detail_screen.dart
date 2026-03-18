@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/job.dart';
 import '../services/supabase_service.dart';
+import '../services/linkspec_notify.dart';
 import '../api/job_service.dart';
 import 'job_applicants_page.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -187,19 +188,19 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           _isSaved = !_isSaved;
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isSaved ? 'Job saved to bookmarks' : 'Job removed from bookmarks'),
-            backgroundColor: Colors.blue,
-            behavior: SnackBarBehavior.floating,
-          ),
+        LinkSpecNotify.show(
+          context, 
+          _isSaved ? 'Job saved to bookmarks' : 'Job removed from bookmarks', 
+          LinkSpecNotifyType.info
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        LinkSpecNotify.show(
+          context, 
+          'Error: $e', 
+          LinkSpecNotifyType.error
         );
       }
     }
@@ -226,8 +227,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isApplying = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Application failed: $e'), backgroundColor: Colors.red),
+        LinkSpecNotify.show(
+          context, 
+          'Application failed: $e', 
+          LinkSpecNotifyType.error
         );
       }
     }
@@ -294,7 +297,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                         if (ctrl.text.trim().isEmpty) allFilled = false;
                       }
                       if (!allFilled) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please answer all questions'), backgroundColor: Colors.orange));
+                        LinkSpecNotify.show(
+                          context, 
+                          'Please answer all questions', 
+                          LinkSpecNotifyType.warning
+                        );
                         return;
                       }
 
@@ -312,7 +319,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                         }
                       } catch (e) {
                         setSheetState(() => _isApplying = false);
-                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                        LinkSpecNotify.show(
+                          context, 
+                          e.toString(), 
+                          LinkSpecNotifyType.error
+                        );
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -359,13 +370,21 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     try {
       await JobService.deleteJob(widget.job.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Job posting deleted successfully'), backgroundColor: Colors.blue));
+        LinkSpecNotify.show(
+          context, 
+          'Job posting deleted successfully', 
+          LinkSpecNotifyType.success
+        );
         Navigator.pop(context, true); // Signal that it was deleted
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isDeleting = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete job: $e'), backgroundColor: Colors.red));
+        LinkSpecNotify.show(
+          context, 
+          'Failed to delete job: $e', 
+          LinkSpecNotifyType.error
+        );
       }
     }
   }
@@ -779,7 +798,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (ctrl.text.trim().isEmpty) allFilled = false;
     }
     if (!allFilled) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please answer all questions'), backgroundColor: Colors.orange));
+      LinkSpecNotify.show(
+        context,
+        'Please answer all questions',
+        LinkSpecNotifyType.warning
+      );
       _scrollToForm();
       return;
     }
@@ -798,7 +821,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isApplying = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+        LinkSpecNotify.show(
+          context,
+          e.toString(),
+          LinkSpecNotifyType.error
+        );
       }
     }
   }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/linkspec_notify.dart';
+import '../services/supabase_service.dart';
 
 /// ============================================================================
 /// CREATE POST - AUTOMATIC DOMAIN ASSIGNMENT EXAMPLE
@@ -159,21 +162,19 @@ class CreatePostExample {
 
       // Show success message
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Post created successfully!'),
-            backgroundColor: Colors.blue[700],
-          ),
+        LinkSpecNotify.show(
+          context, 
+          'Post created successfully!', 
+          LinkSpecNotifyType.success
         );
       }
     } catch (e) {
       // Handle errors
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error creating post: $e'),
-            backgroundColor: Colors.red,
-          ),
+        LinkSpecNotify.show(
+          context, 
+          'Error creating post: $e', 
+          LinkSpecNotifyType.error
         );
       }
     }

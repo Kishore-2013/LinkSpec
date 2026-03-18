@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/event.dart';
 import '../services/supabase_service.dart';
+import '../services/linkspec_notify.dart';
 import 'package:intl/intl.dart';
 
 class EventsScreen extends StatefulWidget {
@@ -64,9 +66,11 @@ class _EventsScreenState extends State<EventsScreen> {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'eventsFAB',
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Create Event feature coming soon!')),
-          );
+          LinkSpecNotify.show(
+          context,
+          'Create Event feature coming soon!',
+          LinkSpecNotifyType.info
+        );
         },
         label: const Text('Create'),
         icon: const Icon(Icons.add),
@@ -163,8 +167,10 @@ class _EventsScreenState extends State<EventsScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Registered for event!')),
+                            LinkSpecNotify.show(
+                              context, 
+                              'Registered for event!', 
+                              LinkSpecNotifyType.success
                             );
                           },
                           child: const Text('Register'),

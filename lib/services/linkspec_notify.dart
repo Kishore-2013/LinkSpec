@@ -1,12 +1,15 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
-enum LinkSpecNotifyType { warning, info, success }
+enum LinkSpecNotifyType { warning, info, success, error }
 
 /// Global Notification System with a 'Supportive Assistant' tone.
 class LinkSpecNotify {
-  /// Displays a floating, top-center notification card.
+  /// Displays a floating, centered notification card.
   static void show(BuildContext context, String message, LinkSpecNotifyType type) {
     final overlay = Overlay.of(context);
+    if (overlay == null) return;
+
     late OverlayEntry entry;
 
     entry = OverlayEntry(
@@ -89,20 +92,19 @@ class _NotifyCard extends StatefulWidget {
 class _NotifyCardState extends State<_NotifyCard> with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _fade;
-  late Animation<Offset> _slide;
+  late Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
-    _slide = Tween<Offset>(begin: const Offset(0, -1.2), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
+    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.backOut);
 
     _ctrl.forward();
 
     // Start fade out before removal
-    Future.delayed(const Duration(milliseconds: 3600), () {
+    Future.delayed(const Duration(milliseconds: 3500), () {
       if (mounted) _ctrl.reverse();
     });
   }
@@ -115,67 +117,81 @@ class _NotifyCardState extends State<_NotifyCard> with SingleTickerProviderState
 
   @override
   Widget build(BuildContext context) {
-    // Supportive Assistant Palette
+    // Supportive Assistant Palette with transparency for glassmorphism
     final bgColor = {
-      LinkSpecNotifyType.warning: const Color(0xFFFFE4D6), // Light Peach
-      LinkSpecNotifyType.info: const Color(0xFFE0F2FE),    // Pale Blue
-      LinkSpecNotifyType.success: const Color(0xFFDCFCE7), // Soft Mint
+      LinkSpecNotifyType.warning: const Color(0xFFFFE4D6).withOpacity(0.85),
+      LinkSpecNotifyType.info: const Color(0xFFE0F2FE).withOpacity(0.85),
+      LinkSpecNotifyType.success: const Color(0xFFDCFCE7).withOpacity(0.85),
+      LinkSpecNotifyType.error: const Color(0xFFFEE2E2).withOpacity(0.85),
     }[widget.type];
 
     final icon = {
       LinkSpecNotifyType.warning: Icons.lightbulb_outline,
       LinkSpecNotifyType.info: Icons.info_outline,
       LinkSpecNotifyType.success: Icons.check_circle_outline,
+      LinkSpecNotifyType.error: Icons.error_outline,
     }[widget.type];
 
     final color = {
       LinkSpecNotifyType.warning: const Color(0xFF9A3412),
       LinkSpecNotifyType.info: const Color(0xFF075985),
       LinkSpecNotifyType.success: const Color(0xFF166534),
+      LinkSpecNotifyType.error: const Color(0xFF991B1B),
     }[widget.type];
 
-    return SafeArea(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 16),
-          child: Material(
-            color: Colors.transparent,
-            child: FadeTransition(
-              opacity: _fade,
-              child: SlideTransition(
-                position: _slide,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 24),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, color: color, size: 20),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Text(
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Material(
+          color: Colors.transparent,
+          child: FadeTransition(
+            opacity: _fade,
+            child: ScaleTransition(
+              scale: _scale,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 320, minWidth: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: color.withOpacity(0.1), width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 30,
+                          offset: const Offset(0, 15),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(icon, color: color, size: 28),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
                           widget.message,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             color: color,
-                            fontSize: 14,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            height: 1.3,
+                            letterSpacing: -0.2,
+                            height: 1.4,
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

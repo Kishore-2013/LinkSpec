@@ -6,6 +6,8 @@ import '../providers/theme_provider.dart';
 import '../services/supabase_service.dart';
 import '../providers/supabase_auth_provider.dart';
 import 'package:go_router/go_router.dart';
+import '../services/linkspec_notify.dart';
+import 'verification_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -105,12 +107,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showFeedback(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 1),
-      ),
+    LinkSpecNotify.show(
+      context, 
+      message, 
+      LinkSpecNotifyType.info
     );
   }
 
