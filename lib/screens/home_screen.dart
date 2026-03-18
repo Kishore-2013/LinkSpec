@@ -928,12 +928,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               );
               if (confirmed == true && mounted) {
                 try {
-                  // 1. Clear Supabase
-                  SupabaseService.clearCache();
-                  await Supabase.instance.client.auth.signOut();
-
+                  // 1. Comprehensive Sign Out
+                  await SupabaseService.signOut();
+                  
                   if (mounted) {
-                    context.go('/auth');
+                    context.go('/login');
                   }
                 } catch (e) {
                   debugPrint('Logout error: $e');

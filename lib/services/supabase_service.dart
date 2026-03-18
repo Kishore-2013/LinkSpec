@@ -4,6 +4,8 @@ import 'package:flutter/painting.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/supabase_config.dart';
+import '../api/session_cache.dart';
+import '../api/web_cache_manager.dart';
 
 
 // Diagnostic: Force filesystem update. Corrected unread counts.
@@ -39,6 +41,14 @@ class SupabaseService {
   static void clearCache() {
     _currentUserProfile = null;
     _myDomain = null;
+  }
+
+  /// Comprehensive sign out: clears all local/session caches and auth session.
+  static Future<void> signOut() async {
+    SessionCache.clearAll();
+    await WebCacheManager.clearCache();
+    clearCache();
+    await _client.auth.signOut();
   }
 
   /// Sign in with Microsoft (MS360 Professional Login)
@@ -282,7 +292,7 @@ class SupabaseService {
     } on AuthException catch (e) {
       // 422 usually means the session is invalid or stale.
       if (e.statusCode == '422' || e.message.contains('422')) {
-        await _client.auth.signOut();
+        await signOut();
       }
       debugPrint('SupabaseService: Auth error in getCurrentUserProfile: $e');
       rethrow; // Let the caller handle UI fallback

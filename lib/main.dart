@@ -118,6 +118,13 @@ final _router = GoRouter(
       path: '/reset-password',
       builder: (context, state) => const LinkSpecAuthScreen(),
     ),
+    GoRoute(
+      path: '/profile/:userId',
+      builder: (context, state) {
+        final userId = state.pathParameters['userId']!;
+        return ProfileScreen(userId: userId);
+      },
+    ),
   ],
 );
 

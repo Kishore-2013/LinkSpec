@@ -12,10 +12,15 @@ import '../providers/saved_posts_provider.dart';
 import '../services/verification_service.dart';
 import '../widgets/verification_viewer.dart';
 import 'dart:async';
+import 'dart:ui';
+import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart'; // for Clipboard if needed
+import 'package:go_router/go_router.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
+  final String? userId; // Optional; if null, defaults to current user
   final VoidCallback? onBack;
-  const ProfileScreen({Key? key, this.onBack}) : super(key: key);
+  const ProfileScreen({Key? key, this.userId, this.onBack}) : super(key: key);
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -28,6 +33,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isEditing = false;
   bool _isUploadingAvatar = false;
   bool _isUploadingCover = false;
+  bool _isOwnProfile = true;
+  bool _isGuestMode = false;
   final _bioController = TextEditingController();
   final _nameController = TextEditingController();
   int _followersCount = 0;
@@ -45,10 +52,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _setupProfileListener() {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
+    final currentUserId = SupabaseService.getCurrentUserId();
+    final targetUserId = widget.userId ?? currentUserId;
+    if (targetUserId == null) return;
 
-    _profileSubscription = SupabaseService.subscribeToProfileChanges(userId, (payload) {
+    _profileSubscription = SupabaseService.subscribeToProfileChanges(targetUserId, (payload) {
       if (mounted) {
         setState(() {
           if (_profile != null) {
@@ -71,8 +79,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _loadProfile() async {
     if (mounted) setState(() => _isLoading = true);
+    final currentUserId = SupabaseService.getCurrentUserId();
+    final targetUserId = widget.userId ?? currentUserId;
+
+    if (targetUserId == null) {
+      if (mounted) setState(() {
+        _isLoading = false;
+        _isGuestMode = true;
+        _isOwnProfile = false;
+      });
+      return;
+    }
+
+    _isOwnProfile = (targetUserId == currentUserId);
+    _isGuestMode = (currentUserId == null);
+
     try {
-      final profileData = await SupabaseService.getCurrentUserProfile(forceRefresh: true);
+      final profileData = await SupabaseService.getUserProfile(targetUserId);
       
       if (profileData == null) {
         if (mounted) setState(() => _isLoading = false);
@@ -103,6 +126,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _userPosts       = posts;
           _coverUrl        = profileData['cover_url'];
         });
+
+        // Set page title for Web SEO/Ux
+        if (kIsWeb) {
+          SystemChrome.setApplicationSwitcherDescription(
+            ApplicationSwitcherDescription(
+              label: '${profile.fullName} | LinkSpec Profile',
+              primaryColor: Theme.of(context).primaryColor.value,
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint('ProfileScreen: error loading profile: $e');
@@ -200,7 +233,74 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  void _addSkill() {
+  void _shareProfile() {
+    if (_profile == null) return;
+    final url = kIsWeb 
+        ? '${Uri.base.origin}/profile/${_profile!.id}'
+        : 'https://applywizz.com/profile/${_profile!.id}'; // Use generic URL for mobile
+    
+    Share.share('Check out ${_profile!.fullName}\'s professional profile on LinkSpec: $url');
+  }
+
+  Widget _buildRestrictedSection({required Widget child, required String message}) {
+    if (!_isGuestMode) return child;
+
+    return Stack(
+      children: [
+        AbsorbPointer(
+          child: ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+            child: child,
+          ),
+        ),
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white.withOpacity(0.3),
+                  Colors.white.withOpacity(0.8),
+                ],
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock_outline, size: 40, color: Colors.blue),
+                const SizedBox(height: 12),
+                Text(
+                  message,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => context.go('/login'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Sign In'),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: () => context.go('/login'),
+                      child: const Text('Sign Up'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
     final controller = TextEditingController();
     showDialog(
       context: context,
@@ -597,7 +697,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     children: [
                       // Cover area
                       GestureDetector(
-                        onTap: _pickCover,
+                        onTap: _isOwnProfile ? _pickCover : null,
                         child: Container(
                           height: 200,
                           width: double.infinity,
@@ -615,29 +715,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                           child: Stack(
                             children: [
-                              if (_isUploadingCover)
+                            if (_isUploadingCover)
                                 Container(
                                   color: Colors.black26,
                                   child: const Center(child: CircularProgressIndicator(color: Colors.white)),
                                 ),
-                              Positioned(
-                                bottom: 12,
-                                right: 12,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black45,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.camera_alt, color: Colors.white, size: 14),
-                                      SizedBox(width: 4),
-                                      Text('Change cover', style: TextStyle(color: Colors.white, fontSize: 12)),
-                                    ],
+                              if (_isOwnProfile)
+                                Positioned(
+                                  bottom: 12,
+                                  right: 12,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black45,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        Icon(Icons.camera_alt, color: Colors.white, size: 14),
+                                        SizedBox(width: 4),
+                                        Text('Change cover', style: TextStyle(color: Colors.white, fontSize: 12)),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
                             ],
                           ),
                         ),
@@ -689,15 +790,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                              ),
 
                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  _buildStat(_connectionsCount, 'Unites', onTap: _showConnectionsDialog),
-                                  const SizedBox(width: 24),
-                                  _buildStat(_followersCount, 'Followers'),
-                                  const SizedBox(width: 24),
-                                  _buildStat(_followingCount, 'Following'),
-                                ],
-                              ),
+                             _buildRestrictedSection(
+                               message: 'Sign in to view full stats',
+                               child: Row(
+                                 children: [
+                                   _buildStat(_connectionsCount, 'Unites', onTap: _isGuestMode ? null : _showConnectionsDialog),
+                                   const SizedBox(width: 24),
+                                   _buildStat(_followersCount, 'Followers'),
+                                   const SizedBox(width: 24),
+                                   _buildStat(_followingCount, 'Following'),
+                                 ],
+                               ),
+                             ),
                             const SizedBox(height: 16),
                             if (_isEditing) ...[
                               TextField(
@@ -751,11 +855,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
 
                   // 2. Avatar (TOP LAYER)
-                  Positioned(
+                   Positioned(
                     top: 140, // 200 cover - 60 offset
                     left: 20,
                     child: GestureDetector(
-                      onTap: _pickAvatar,
+                      onTap: _isOwnProfile ? _pickAvatar : null,
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
@@ -798,16 +902,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     right: 12,
                     child: Row(
                       children: [
-                        _buildFloatingAction(Icons.settings, () => Navigator.pushNamed(context, '/settings')),
-                        const SizedBox(width: 8),
-                        _buildFloatingAction(_isEditing ? Icons.check : Icons.edit, _isEditing ? _updateProfile : () => setState(() => _isEditing = true)),
-                        const SizedBox(width: 8),
-                        _buildFloatingAction(Icons.logout, () async {
-                           ViewTracker.clear();
-                           ref.read(savedPostsProvider.notifier).clear();
-                           await Supabase.instance.client.auth.signOut();
-                           if (mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
-                        }, color: Colors.redAccent),
+                        _buildFloatingAction(Icons.share, _shareProfile),
+                        if (_isOwnProfile) ...[
+                          const SizedBox(width: 8),
+                          _buildFloatingAction(Icons.settings, () => context.go('/settings')),
+                          const SizedBox(width: 8),
+                          _buildFloatingAction(_isEditing ? Icons.check : Icons.edit, _isEditing ? _updateProfile : () => setState(() => _isEditing = true)),
+                          const SizedBox(width: 8),
+                          _buildFloatingAction(Icons.logout, () async {
+                             ViewTracker.clear();
+                             ref.read(savedPostsProvider.notifier).clear();
+                             await SupabaseService.signOut();
+                             if (mounted) context.go('/login');
+                          }, color: Colors.redAccent),
+                        ],
                       ],
                     ),
                   ),
@@ -818,10 +926,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: _buildFloatingAction(Icons.arrow_back_ios_new_rounded, widget.onBack ?? () => Navigator.maybePop(context)),
                   ),
                   // 5. Absolute Get Verified Button
-                  Positioned(
+                   Positioned(
                     top: 260, // Level with name (200 cover + 60 padding)
                     right: 20,
-                    child: _buildGetVerifiedButton(),
+                    child: _isOwnProfile ? _buildGetVerifiedButton() : const SizedBox.shrink(),
                   ),
                   ],
                 ),
@@ -831,60 +939,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             // ── Activity ──────────────────────────────────────────────────
             SliverToBoxAdapter(
-              child: _buildSection(
-                title: 'Activity',
-                onHeaderTap: () {
-                  if (_profile != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => UserPostsInsightsScreen(userId: _profile!.id),
-                      ),
-                    );
-                  }
-                },
-                content: _userPosts.isEmpty
-                    ? const Text('No recent activity', style: TextStyle(color: Colors.grey))
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ..._userPosts.map((post) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(post['content'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14)),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Text('Posted ${post['created_at'].toString().substring(0, 10)}', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                                    const Spacer(),
-                                    Icon(Icons.bar_chart, size: 14, color: Colors.blue[300]),
-                                    const SizedBox(width: 4),
-                                    Text('${(post['views_count'] ?? 0)} impressions', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                                  ],
-                                ),
-                              ],
+              child: _buildRestrictedSection(
+                message: 'Sign in to view user activity',
+                child: _buildSection(
+                  title: 'Activity',
+                  onHeaderTap: _isGuestMode ? null : () {
+                    if (_profile != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => UserPostsInsightsScreen(userId: _profile!.id),
+                        ),
+                      );
+                    }
+                  },
+                  content: _userPosts.isEmpty
+                      ? const Text('No recent activity', style: TextStyle(color: Colors.grey))
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ..._userPosts.map((post) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(post['content'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14)),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Text('Posted ${post['created_at'].toString().substring(0, 10)}', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                                      const Spacer(),
+                                      Icon(Icons.bar_chart, size: 14, color: Colors.blue[300]),
+                                      const SizedBox(width: 4),
+                                      Text('${(post['views_count'] ?? 0)} impressions', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            )).toList(),
+                            const Divider(height: 24),
+                            Center(
+                              child: TextButton(
+                                onPressed: _isGuestMode ? null : () {
+                                  if (_profile != null) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => UserPostsInsightsScreen(userId: _profile!.id),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: const Text('Show all activity →', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
                             ),
-                          )).toList(),
-                          const Divider(height: 24),
-                          Center(
-                            child: TextButton(
-                              onPressed: () {
-                                if (_profile != null) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => UserPostsInsightsScreen(userId: _profile!.id),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text('Show all activity →', style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                ),
               ),
             ),
 
@@ -892,12 +1003,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             // ── Experience ────────────────────────────────────────────────
             SliverToBoxAdapter(
-              child: _buildSection(
-                title: 'Experience',
-                onAdd: _isEditing ? _addExperience : null,
-                content: _profile?.experience.isEmpty ?? true
-                    ? const Text('No experience added yet', style: TextStyle(color: Colors.grey))
-                    : Column(children: List.generate(_profile!.experience.length, (i) => _buildExpItem(_profile!.experience[i], i))),
+              child: _buildRestrictedSection(
+                message: 'Sign in to view full experience',
+                child: _buildSection(
+                  title: 'Experience',
+                  onAdd: _isEditing ? _addExperience : null,
+                  content: _profile?.experience.isEmpty ?? true
+                      ? const Text('No experience added yet', style: TextStyle(color: Colors.grey))
+                      : Column(children: List.generate(_profile!.experience.length, (i) => _buildExpItem(_profile!.experience[i], i))),
+                ),
               ),
             ),
 
@@ -905,12 +1019,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             // ── Education ─────────────────────────────────────────────────
             SliverToBoxAdapter(
-              child: _buildSection(
-                title: 'Education',
-                onAdd: _isEditing ? _addEducation : null,
-                content: _profile?.education.isEmpty ?? true
-                    ? const Text('No education added yet', style: TextStyle(color: Colors.grey))
-                    : Column(children: List.generate(_profile!.education.length, (i) => _buildEduItem(_profile!.education[i], i))),
+              child: _buildRestrictedSection(
+                message: 'Sign in to view education',
+                child: _buildSection(
+                  title: 'Education',
+                  onAdd: _isEditing ? _addEducation : null,
+                  content: _profile?.education.isEmpty ?? true
+                      ? const Text('No education added yet', style: TextStyle(color: Colors.grey))
+                      : Column(children: List.generate(_profile!.education.length, (i) => _buildEduItem(_profile!.education[i], i))),
+                ),
               ),
             ),
 
@@ -918,12 +1035,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             // ── Projects ──────────────────────────────────────────────────
             SliverToBoxAdapter(
-              child: _buildSection(
-                title: 'Projects',
-                onAdd: _isEditing ? _addProject : null,
-                content: _profile?.projects.isEmpty ?? true
-                    ? const Text('No projects added yet', style: TextStyle(color: Colors.grey))
-                    : Column(children: List.generate(_profile!.projects.length, (i) => _buildProjItem(_profile!.projects[i], i))),
+              child: _buildRestrictedSection(
+                message: 'Sign in to view projects',
+                child: _buildSection(
+                  title: 'Projects',
+                  onAdd: _isEditing ? _addProject : null,
+                  content: _profile?.projects.isEmpty ?? true
+                      ? const Text('No projects added yet', style: TextStyle(color: Colors.grey))
+                      : Column(children: List.generate(_profile!.projects.length, (i) => _buildProjItem(_profile!.projects[i], i))),
+                ),
               ),
             ),
 
@@ -931,33 +1051,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             // ── Skills ────────────────────────────────────────────────────
             SliverToBoxAdapter(
-              child: _buildSection(
-                title: 'Skills',
-                onAdd: _isEditing ? _addSkill : null,
-                content: _profile?.skills.isEmpty ?? true
-                    ? const Text('No skills added yet', style: TextStyle(color: Colors.grey))
-                    : Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: List.generate(_profile!.skills.length, (i) {
-                          final skill = _profile!.skills[i];
-                          return InputChip(
-                            label: Text(skill),
-                            backgroundColor: Colors.blue[50],
-                            labelStyle: const TextStyle(color: Colors.blue, fontSize: 12),
-                            side: BorderSide.none,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            onPressed: _isEditing ? null : () => _startVerification(skill: skill),
-                            onDeleted: _isEditing ? () {
-                              setState(() {
-                                final s = [..._profile!.skills];
-                                s.removeAt(i);
-                                _profile = _profile!.copyWith(skills: s);
-                              });
-                            } : null,
-                          );
-                        }),
-                      ),
+              child: _buildRestrictedSection(
+                message: 'Sign in to view skills',
+                child: _buildSection(
+                  title: 'Skills',
+                  onAdd: _isEditing ? _addSkill : null,
+                  content: _profile?.skills.isEmpty ?? true
+                      ? const Text('No skills added yet', style: TextStyle(color: Colors.grey))
+                      : Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: List.generate(_profile!.skills.length, (i) {
+                            final skill = _profile!.skills[i];
+                            return InputChip(
+                              label: Text(skill),
+                              backgroundColor: Colors.blue[50],
+                              labelStyle: const TextStyle(color: Colors.blue, fontSize: 12),
+                              side: BorderSide.none,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              onPressed: (_isEditing || _isGuestMode) ? null : () => _startVerification(skill: skill),
+                              onDeleted: _isEditing ? () {
+                                setState(() {
+                                  final s = [..._profile!.skills];
+                                  s.removeAt(i);
+                                  _profile = _profile!.copyWith(skills: s);
+                                });
+                              } : null,
+                            );
+                          }),
+                        ),
+                ),
               ),
             ),
 

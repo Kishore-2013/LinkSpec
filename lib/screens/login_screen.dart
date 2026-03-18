@@ -109,8 +109,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
                              sb.Supabase.instance.client.auth.currentSession != null;
       
       if (hasGhostIntent) {
-        SupabaseService.clearCache();
-        await sb.Supabase.instance.client.auth.signOut();
+        await SupabaseService.signOut();
       }
       
       if (_isSignUp) {

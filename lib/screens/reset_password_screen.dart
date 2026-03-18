@@ -66,7 +66,7 @@ class _LinkSpecAuthScreenState extends State<LinkSpecAuthScreen> {
       // If we land here but already have a session, we should check if they can actually go home
       // or if they are stuck in a recovery loop.
       // If it's a regular session that bypassed the reset, force sign out.
-      await sb.Supabase.instance.client.auth.signOut();
+      await SupabaseService.signOut();
       if (mounted) {
          LinkSpecNotify.show(context, "Session expired or reset required. Please sign in again.", LinkSpecNotifyType.info);
       }
