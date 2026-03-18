@@ -209,21 +209,6 @@ class _SearchScreenState extends State<SearchScreen>
                     color: const Color(0xFFF5F5F7),
                     child: _buildSearchResults(),
                   ),
-                Positioned(
-                  bottom: 80,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: _hasSearched ? 0.05 : 0.35,
-                      child: SvgPicture.asset(
-                        'assets/svg/undraw_searching_no1g.svg',
-                        height: 350,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                ),
                 if (_errorMsg != null)
                   Positioned(
                     top: 12,
