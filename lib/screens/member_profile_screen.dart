@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../models/user_profile.dart';
 import '../models/post.dart';
 import '../services/supabase_service.dart';

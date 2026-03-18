@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../models/job.dart';
 import '../services/supabase_service.dart';
 import '../api/job_service.dart';
