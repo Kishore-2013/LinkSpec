@@ -169,23 +169,25 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                 ),
               ),
 
-          // ── User list ─────────────────────────────────────────────
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _loadData,
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : filtered.isEmpty
-                      ? _buildEmpty()
-                      : ListView.separated(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, index) =>
-                              _buildUserTile(filtered[index]),
-                        ),
-            ),
+              // ── User list ─────────────────────────────────────────────
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : filtered.isEmpty
+                          ? _buildEmpty()
+                          : ListView.separated(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 10),
+                              itemBuilder: (context, index) =>
+                                  _buildUserTile(filtered[index]),
+                            ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
