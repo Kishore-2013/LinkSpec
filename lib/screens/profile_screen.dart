@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -301,6 +302,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ],
     );
   }
+  
+  void _addSkill() {
     final controller = TextEditingController();
     showDialog(
       context: context,

@@ -22,6 +22,7 @@ import 'screens/search_screen.dart';
 import 'screens/saved_items_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/otp_verification_screen.dart';
+import 'screens/profile_screen.dart';
 import 'providers/theme_provider.dart';
 import 'api/session_cache.dart';
 import 'api/web_lifecycle_stub.dart'
