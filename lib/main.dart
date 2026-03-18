@@ -32,6 +32,7 @@ import 'widgets/main_layout.dart';
 import 'models/job.dart';
 import 'screens/job_detail_screen.dart';
 import 'screens/jobs_page.dart';
+import 'screens/messages_list_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -131,7 +132,7 @@ final _router = GoRouter(
         ),
         GoRoute(
           path: '/messages',
-          builder: (context, state) => const MessagesListScreen(),
+          builder: (context, state) => MessagesListScreen(),
         ),
         GoRoute(
           path: '/jobs',

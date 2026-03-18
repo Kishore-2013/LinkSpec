@@ -247,8 +247,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       children: [
         _buildProfileCard(),
         const SizedBox(height: 24),
-        _buildSidebarItem(Icons.bookmark_active_rounded, 'Saved items', path: '/saved-items'),
-        _buildSidebarItem(Icons.settings_suggest_rounded, 'Settings', path: '/settings'),
+        _buildSidebarItem(Icons.bookmark_border_rounded, 'Saved items', path: '/saved-items'),
+        _buildSidebarItem(Icons.settings_outlined, 'Settings', path: '/settings'),
         const SizedBox(height: 24),
         _buildRecentActivity(),
       ],
