@@ -93,7 +93,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     });
 
     return Scaffold(
-      backgroundColor: Colors.transparent, // Let MainLayout background show through
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -110,35 +110,12 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
           ),
         ],
       ),
-      body: Stack(
+      body: Column(
         children: [
-          // Background Illustration
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: SvgPicture.asset(
-                    'assets/svg/undraw_text-messages_978a.svg',
-                    width: 450,
-                    // Use colorFilter instead of Opacity to avoid "grey mask" look
-                    colorFilter: ColorFilter.mode(
-                      Colors.blue.withOpacity(0.08),
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          Column(
-            children: [
-              // ── Search bar ────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Container(
+          // ── Search bar ────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardTheme.color ?? Colors.white,
                     borderRadius: BorderRadius.circular(14),
