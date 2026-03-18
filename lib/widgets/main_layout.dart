@@ -93,32 +93,44 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF5F5F7),
       drawer: isMobile ? Drawer(child: _buildLeftSideBar()) : null,
-      body: Column(
+      body: Stack(
         children: [
-          _buildHeader(isMobile, activeDomain),
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!isMobile)
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 300),
-                    child: _buildStickyPanel(_buildLeftSideBar()),
-                  ),
-                Expanded(
-                  child: widget.child,
+          Column(
+            children: [
+              _buildHeader(isMobile, activeDomain),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!isMobile)
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 300),
+                        child: _buildStickyPanel(_buildLeftSideBar()),
+                      ),
+                    Expanded(
+                      child: widget.child,
+                    ),
+                    if (isWide)
+                       ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 320),
+                        child: _buildStickyPanel(_buildRightSideBar(activeDomain)),
+                      ),
+                  ],
                 ),
-                if (isWide)
-                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 320),
-                    child: _buildStickyPanel(_buildRightSideBar(activeDomain)),
-                  ),
-              ],
+              ),
+            ],
+          ),
+          // Floating Bottom Nav Pill
+          Positioned(
+            bottom: 24,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _buildBottomNavPill(location),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: isMobile ? _buildBottomNav(location) : null,
     );
   }
 
@@ -152,19 +164,26 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             const Spacer(),
             // Domain Indicator
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.blue.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(
-                activeDomain,
-                style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0066CC), fontSize: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.auto_awesome_outlined, size: 14, color: Colors.blue[700]),
+                  const SizedBox(width: 6),
+                  Text(
+                    activeDomain,
+                    style: TextStyle(fontWeight: FontWeight.w700, color: Colors.blue[700], fontSize: 13),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             _buildHeaderIcon(Icons.notifications_none_rounded, badge: _unreadNotifications, onTap: () => context.go('/home')), 
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             _buildHeaderIcon(Icons.mail_outline_rounded, badge: _unreadMessages, onTap: () => context.go('/home')),
           ],
         ),
@@ -178,19 +197,20 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Icon(icon, color: const Color(0xFF1C1C1E)),
+          Icon(icon, color: const Color(0xFF1C1C1E), size: 26),
           if (badge > 0)
             Positioned(
-              right: -2,
-              top: -2,
+              right: -4,
+              top: -4,
               child: Container(
                 padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                child: Text(
-                  badge > 9 ? '9+' : '$badge',
-                  style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+                decoration: BoxDecoration(color: Colors.red[600], shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                child: Center(
+                  child: Text(
+                    badge > 9 ? '9+' : '$badge',
+                    style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ),
@@ -202,20 +222,20 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   Widget _buildStickyPanel(Widget child) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: Colors.grey.withOpacity(0.1), width: 0.5)),
+        color: Colors.transparent,
+        border: Border(right: BorderSide(color: Colors.grey.withOpacity(0.12), width: 1)),
       ),
       child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               child: child,
             ),
           ),
           const Padding(
-            padding: EdgeInsets.all(14),
-            child: Text('© 2026 linkspec', style: TextStyle(color: Colors.grey, fontSize: 11)),
+            padding: EdgeInsets.all(16),
+            child: Text('© 2026 linkspec', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500)),
           ),
         ],
       ),
@@ -226,13 +246,59 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     return Column(
       children: [
         _buildProfileCard(),
-        const SizedBox(height: 16),
-        _buildSidebarItem(Icons.home_outlined, 'Home', path: '/home'),
-        _buildSidebarItem(Icons.search_rounded, 'Search', path: '/search'),
-        _buildSidebarItem(Icons.work_outline_rounded, 'Jobs', path: '/jobs'),
-        _buildSidebarItem(Icons.bookmark_outline_rounded, 'Saved items', path: '/saved-items'),
-        _buildSidebarItem(Icons.settings_outlined, 'Settings', path: '/settings'),
+        const SizedBox(height: 24),
+        _buildSidebarItem(Icons.bookmark_active_rounded, 'Saved items', path: '/saved-items'),
+        _buildSidebarItem(Icons.settings_suggest_rounded, 'Settings', path: '/settings'),
+        const SizedBox(height: 24),
+        _buildRecentActivity(),
       ],
+    );
+  }
+
+  Widget _buildRecentActivity() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.show_chart_rounded, size: 18, color: Colors.blue[600]),
+              const SizedBox(width: 8),
+              const Text('Recent activity', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(6)),
+                child: const Icon(Icons.add, size: 14, color: Colors.grey),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildActivityItem(Icons.article_outlined, 'Latest posts'),
+          _buildActivityItem(Icons.bar_chart_rounded, 'Top weekly'),
+          _buildActivityItem(Icons.event_note_rounded, 'Upcoming events'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivityItem(IconData icon, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.grey[600]),
+          const SizedBox(width: 12),
+          Text(title, style: TextStyle(color: Colors.grey[800], fontSize: 13, fontWeight: FontWeight.w500)),
+        ],
+      ),
     );
   }
 
@@ -243,22 +309,22 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Trending for $activeDomain', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        const SizedBox(height: 12),
+        Text('Trending for $activeDomain', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, letterSpacing: -0.3)),
+        const SizedBox(height: 16),
         if (_sidebarSvc.isLoadingTags)
           const LinearProgressIndicator(),
         if (tags.isEmpty && !_sidebarSvc.isLoadingTags)
-           const Text('No tags yet.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+           const Text('No tags yet.', style: TextStyle(color: Colors.grey, fontSize: 13)),
         Wrap(
-          spacing: 6,
-          runSpacing: 6,
+          spacing: 8,
+          runSpacing: 8,
           children: tags.map((t) => _buildTag(t)).toList(),
         ),
-        const SizedBox(height: 24),
-        const Text('Suggested Discussions', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        const SizedBox(height: 12),
+        const SizedBox(height: 32),
+        const Text('Suggested Discussions', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, letterSpacing: -0.3)),
+        const SizedBox(height: 16),
         if (discussions.isEmpty)
-           const Text('No discussions yet.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+           const Text('No discussions yet.', style: TextStyle(color: Colors.grey, fontSize: 13)),
         ...discussions.map((d) => _buildDiscussionItem(d)),
       ],
     );
@@ -266,9 +332,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
   Widget _buildTag(String tag) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: Colors.blue.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
-      child: Text('#$tag', style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.w600)),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.blue.withOpacity(0.1)),
+      ),
+      child: Text('#$tag', style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.w700)),
     );
   }
 
@@ -276,33 +346,68 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final content = disc['content'] as String? ?? '';
     final count = disc['comment_count'] ?? 0;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(content, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
-          Text('$count comments', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          Text(content, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, height: 1.4)),
+          const SizedBox(height: 4),
+          Text('$count comments', style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 
   Widget _buildProfileCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: _currentUserProfile?.avatarUrl != null ? NetworkImage(_currentUserProfile!.avatarUrl!) : null,
-              child: _currentUserProfile?.avatarUrl == null ? const Icon(Icons.person) : null,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          // Cover Image
+          Container(
+            height: 90,
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: NetworkImage('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1000'),
+                fit: BoxFit.cover,
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(_currentUserProfile?.fullName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text('@${(_currentUserProfile?.fullName ?? 'user').replaceAll(' ', '').toLowerCase()}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          ],
-        ),
+          ),
+          Transform.translate(
+            offset: const Offset(0, -35),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 38,
+                  backgroundColor: Colors.white,
+                  child: CircleAvatar(
+                    radius: 34,
+                    backgroundImage: _currentUserProfile?.avatarUrl != null ? NetworkImage(_currentUserProfile!.avatarUrl!) : null,
+                    child: _currentUserProfile?.avatarUrl == null ? const Icon(Icons.person, size: 30) : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _currentUserProfile?.fullName ?? 'Kishore Chinthala', 
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: -0.2),
+                ),
+                Text(
+                  '@${(_currentUserProfile?.fullName ?? 'kishorechinthala').replaceAll(' ', '').toLowerCase()}', 
+                  style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -310,45 +415,88 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   Widget _buildSidebarItem(IconData icon, String label, {required String path}) {
     final curPath = GoRouterState.of(context).uri.path;
     final bool isActive = curPath == path;
-    return ListTile(
-      leading: Icon(icon, color: isActive ? Colors.blue : Colors.grey),
-      title: Text(label, style: TextStyle(color: isActive ? Colors.blue : Colors.black87, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
-      onTap: () {
-        if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
-        context.go(path);
-      },
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        leading: Icon(icon, color: isActive ? Colors.blue[700] : Colors.grey[700], size: 22),
+        title: Text(label, style: TextStyle(color: isActive ? Colors.blue[700] : Colors.black87, fontWeight: isActive ? FontWeight.w800 : FontWeight.w600, fontSize: 14)),
+        onTap: () {
+          if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+          context.go(path);
+        },
+        dense: true,
+        visualDensity: const VisualDensity(vertical: -1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 
-  Widget _buildBottomNav(String currentLocation) {
-    return BottomNavigationBar(
-      currentIndex: _getBottomNavIndex(currentLocation),
-      onTap: (index) {
-        switch (index) {
-          case 0: context.go('/home'); break;
-          case 1: context.go('/home'); break; // Network
-          case 2: context.go('/home'); break; // Post
-          case 3: context.go('/home'); break; // Message
-          case 4: context.go('/jobs'); break; 
+  Widget _buildBottomNavPill(String currentLocation) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(40),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildNavIcon(Icons.home_rounded, 'Home', '/home', currentLocation),
+              _buildNavIcon(Icons.search_rounded, 'Search', '/search', currentLocation),
+              _buildNavIcon(Icons.groups_rounded, 'Groups', '/groups', currentLocation),
+              _buildNavIcon(Icons.add_circle_outline_rounded, 'Post', '/home', currentLocation, isSpecial: true),
+              _buildNavIcon(Icons.chat_bubble_outline_rounded, 'Messages', '/messages', currentLocation),
+              _buildNavIcon(Icons.work_rounded, 'Jobs', '/jobs', currentLocation),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavIcon(IconData icon, String label, String path, String currentPath, {bool isSpecial = false}) {
+    final bool isSelected = currentPath == path;
+    return GestureDetector(
+      onTap: () {
+        if (isSpecial) {
+          showDialog(context: context, builder: (context) => const CreatePostDialog());
+        } else {
+          context.go(path);
         }
       },
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: Colors.blue,
-      unselectedItemColor: Colors.grey,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Network'),
-        BottomNavigationBarItem(icon: Icon(Icons.add_box_outlined), label: 'Post'),
-        BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Messages'),
-        BottomNavigationBarItem(icon: Icon(Icons.work_outline), label: 'Jobs'),
-      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon, 
+              color: isSpecial ? Colors.blue[700] : (isSelected ? Colors.blue[700] : Colors.grey[600]), 
+              size: isSpecial ? 28 : 24,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.blue[700] : Colors.grey[600],
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
-  }
-
-  int _getBottomNavIndex(String path) {
-    if (path == '/home') return 0;
-    if (path == '/jobs') return 4;
-    return 0;
   }
 }

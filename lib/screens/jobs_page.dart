@@ -285,9 +285,7 @@ class _JobsPageState extends ConsumerState<JobsPage> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () {
-                  context.push('/job/${job.id}', extra: job).then((_) => _loadInitialJobs());
-                },
+                onPressed: () => JobDetailScreen.show(context, job).then((_) => _loadInitialJobs()),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.blue, width: 1.5),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

@@ -525,7 +525,7 @@ class _PostCardState extends ConsumerState<PostCard> {
       final jobData = await JobService.fetchJobById(jobId);
       if (jobData != null && mounted) {
         final job = Job.fromJson(jobData);
-        context.push('/job/${job.id}', extra: job);
+        JobDetailScreen.show(context, job);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Job listing no longer available')),

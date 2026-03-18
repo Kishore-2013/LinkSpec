@@ -15,6 +15,55 @@ class JobDetailScreen extends StatefulWidget {
 
   const JobDetailScreen({Key? key, required this.job}) : super(key: key);
 
+  static Future<void> show(BuildContext context, Job job) {
+    final bool isDesktop = MediaQuery.of(context).size.width >= 900;
+    if (isDesktop) {
+      return showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'Close',
+        barrierColor: Colors.black26,
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, anim1, anim2) => Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            elevation: 16,
+            borderRadius: const BorderRadius.only(topLeft: Radius.circular(32), bottomLeft: Radius.circular(32)),
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.45,
+              constraints: const BoxConstraints(maxWidth: 800, minWidth: 500),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF5F5F7),
+                borderRadius: BorderRadius.only(topLeft: Radius.circular(32), bottomLeft: Radius.circular(32)),
+              ),
+              child: JobDetailScreen(job: job),
+            ),
+          ),
+        ),
+        transitionBuilder: (context, anim1, anim2, child) {
+          return SlideTransition(
+            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero).animate(anim1),
+            child: child,
+          );
+        },
+      );
+    } else {
+      return showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF5F5F7),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: JobDetailScreen(job: job),
+        ),
+      );
+    }
+  }
+
   @override
   State<JobDetailScreen> createState() => _JobDetailScreenState();
 }

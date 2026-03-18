@@ -130,6 +130,10 @@ final _router = GoRouter(
           },
         ),
         GoRoute(
+          path: '/messages',
+          builder: (context, state) => const MessagesListScreen(),
+        ),
+        GoRoute(
           path: '/jobs',
           builder: (context, state) => const JobsPage(),
         ),
