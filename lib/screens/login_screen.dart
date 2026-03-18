@@ -96,6 +96,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     super.dispose();
   }
 
+  bool _isValidEmail(String email) {
+    final regex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@(gmail|outlook|yahoo|hotmail|icloud)\.com$'
+    );
+    return regex.hasMatch(email);
+  }
+
   Future<void> _handleEmailAuth() async {
     if (!_formKey.currentState!.validate()) return;
     
@@ -369,7 +376,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
                 controller: _emailCtrl,
                 icon: Icons.alternate_email_rounded,
                 keyboardType: TextInputType.emailAddress,
-                validator: (v) => (v == null || !v.contains('@')) ? 'Valid email required' : null,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                onChanged: (v) {
+                   _emailCtrl.text = v.toLowerCase();
+                   _emailCtrl.selection = TextSelection.fromPosition(TextPosition(offset: _emailCtrl.text.length));
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return "Email is required";
+                  }
+                  if (!_isValidEmail(value)) {
+                    return "Enter a valid email (Gmail, Outlook, Yahoo, etc.)";
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
               _buildTextField(
@@ -444,12 +464,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     Widget? suffix,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    AutovalidateMode? autovalidateMode,
+    void Function(String)? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscure,
       keyboardType: keyboardType,
       validator: validator,
+      autovalidateMode: autovalidateMode,
+      onChanged: onChanged,
       style: const TextStyle(color: _textDark, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
