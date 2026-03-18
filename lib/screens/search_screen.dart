@@ -146,11 +146,29 @@ class _SearchScreenState extends State<SearchScreen>
                       controller: _searchController,
                       focusNode: _searchFocus,
                       autofocus: widget.autofocusSearch,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Search #hashtags or people...',
                         border: InputBorder.none,
-                        hintStyle: TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
+                        hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
+                        suffixIcon: _searchController.text.isNotEmpty 
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 20), 
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _hasSearched = false;
+                                  _postResults = [];
+                                  _peopleResults = [];
+                                });
+                              }
+                            ) 
+                          : null,
                       ),
+                      onChanged: (val) {
+                        if (val.isEmpty && _hasSearched) {
+                          setState(() => _hasSearched = false);
+                        }
+                      },
                       onSubmitted: _performSearch,
                     ),
                   ),
@@ -164,16 +182,18 @@ class _SearchScreenState extends State<SearchScreen>
               child: widget.searchOnlyConnections
                   ? TabBar(
                       controller: _tabController,
-                      labelColor: Colors.blue[800],
+                      labelColor: Colors.blue[700],
                       unselectedLabelColor: Colors.grey,
-                      indicatorColor: Colors.blue[800],
+                      indicatorColor: Colors.blue[700],
+                      indicatorWeight: 3,
                       tabs: const [Tab(text: 'Unites')],
                     )
                   : TabBar(
                       controller: _tabController,
-                      labelColor: Colors.blue[800],
+                      labelColor: Colors.blue[700],
                       unselectedLabelColor: Colors.grey,
-                      indicatorColor: Colors.blue[800],
+                      indicatorColor: Colors.blue[700],
+                      indicatorWeight: 3,
                       tabs: const [
                         Tab(text: 'Posts'),
                         Tab(text: 'People'),
@@ -183,16 +203,19 @@ class _SearchScreenState extends State<SearchScreen>
           Expanded(
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: _hasSearched ? _buildSearchResults() : _buildDiscoveryPane(),
-                ),
+                _buildDiscoveryPane(),
+                if (_hasSearched)
+                  Container(
+                    color: const Color(0xFFF5F5F7),
+                    child: _buildSearchResults(),
+                  ),
                 Positioned(
                   bottom: 80,
                   left: 0,
                   right: 0,
                   child: IgnorePointer(
                     child: Opacity(
-                      opacity: 0.35,
+                      opacity: _hasSearched ? 0.05 : 0.35,
                       child: SvgPicture.asset(
                         'assets/svg/undraw_searching_no1g.svg',
                         height: 350,
@@ -250,7 +273,7 @@ class _SearchScreenState extends State<SearchScreen>
                 spacing: 8,
                 runSpacing: 8,
                 children: _trendingTags
-                    .map((tag) => _TagChip(tag: tag, onTap: _onTagTap))
+                    .map((tag) => _StaticTagChip(tag: tag, onTap: _onTagTap))
                     .toList(),
               ),
             ),
@@ -275,12 +298,12 @@ class _SearchScreenState extends State<SearchScreen>
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: const [
-                _StaticTagChip(tag: '#Medical'),
-                _StaticTagChip(tag: '#Software'),
-                _StaticTagChip(tag: '#Legal'),
-                _StaticTagChip(tag: '#Engineering'),
-                _StaticTagChip(tag: '#Finance'),
+              children: [
+                _StaticTagChip(tag: '#Medical', onTap: _onTagTap),
+                _StaticTagChip(tag: '#Software', onTap: _onTagTap),
+                _StaticTagChip(tag: '#Legal', onTap: _onTagTap),
+                _StaticTagChip(tag: '#Engineering', onTap: _onTagTap),
+                _StaticTagChip(tag: '#Finance', onTap: _onTagTap),
               ],
             ),
           ),
@@ -303,31 +326,12 @@ class _SearchScreenState extends State<SearchScreen>
         if (!widget.searchOnlyConnections)
           _postResults.isEmpty
               ? _buildEmptyState('No posts found for "${_searchController.text}".\nTry a hashtag like #Medical')
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Trending tags extracted from results
-                    if (_trendingTags.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: _trendingTags
-                              .map((tag) => _TagChip(tag: tag, onTap: _onTagTap))
-                              .toList(),
-                        ),
-                      ),
-                    Expanded(
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _postResults.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 16),
-                        itemBuilder: (context, index) =>
-                            PostCard(post: _postResults[index]),
-                      ),
-                    ),
-                  ],
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _postResults.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) =>
+                      PostCard(post: _postResults[index]),
                 ),
 
         // People tab
@@ -437,10 +441,10 @@ class _SearchScreenState extends State<SearchScreen>
 
 // ── Reusable tag chip widgets ─────────────────────────────────────────────────
 
-class _TagChip extends StatelessWidget {
+class _StaticTagChip extends StatelessWidget {
   final String tag;
   final void Function(String) onTap;
-  const _TagChip({required this.tag, required this.onTap});
+  const _StaticTagChip({required this.tag, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -449,42 +453,16 @@ class _TagChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF0066CC).withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF0066CC).withOpacity(0.3)),
-        ),
-        child: Text(
-          tag,
-          style: const TextStyle(
-            color: Color(0xFF0066CC),
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Static chip used in the pre-search discovery pane.
-/// Needs its own stateful context to call the enclosing screen's search.
-class _StaticTagChip extends StatelessWidget {
-  final String tag;
-  const _StaticTagChip({required this.tag});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        // Navigate to a new SearchScreen with this tag pre-filled
-        context.push('/search', extra: {'initialQuery': tag});
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.grey.shade300),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Text(
           tag,
