@@ -349,59 +349,71 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final bool isDesktop = MediaQuery.of(context).size.width >= 900;
     final bool showApplicantsSide = isDesktop && _isHR;
 
-     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2EE),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF1A2740)),
-        title: Text(widget.job.company, style: const TextStyle(color: Color(0xFF1A2740))),
-        actions: [
-          if (!_isHR && !_hasApplied)
-            TextButton.icon(
-              onPressed: _scrollToForm,
-              icon: const Icon(Icons.edit_note, size: 20),
-              label: const Text('Apply Now', style: TextStyle(fontWeight: FontWeight.bold)),
-              style: TextButton.styleFrom(foregroundColor: Colors.blue[700]),
-            ),
-          IconButton(
-            icon: Icon(
-              _isSaved ? Icons.bookmark : Icons.bookmark_border,
-              color: Colors.blue,
-            ),
-            onPressed: _isLoading ? null : _toggleSave,
+    return Column(
+      children: [
+        // Internal Context Bar (Company name and Actions)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Colors.white,
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1A2740)),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              Expanded(
+                child: Text(
+                  widget.job.company,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A2740)),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (!_isHR && !_hasApplied)
+                TextButton.icon(
+                  onPressed: _scrollToForm,
+                  icon: const Icon(Icons.edit_note, size: 20),
+                  label: const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              IconButton(
+                icon: Icon(
+                  _isSaved ? Icons.bookmark : Icons.bookmark_border,
+                  color: Colors.blue,
+                ),
+                onPressed: _isLoading ? null : _toggleSave,
+              ),
+            ],
           ),
-        ],
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          if (showApplicantsSide) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Left Side: Job Details
-                Expanded(
-                  flex: 4,
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    child: _buildJobDetailContent(),
-                  ),
-                ),
-                const VerticalDivider(width: 1, color: Color(0xFFE5E5EA)),
-                // Right Side: Applicant list
-                Expanded(
-                  flex: 3,
-                  child: _buildApplicantsSidebar(),
-                ),
-              ],
-            );
-          }
-          return SingleChildScrollView(
-            controller: _scrollController,
-            child: _buildJobDetailContent(),
-          );
-        },
-      ),
+        ),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (showApplicantsSide) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        child: _buildJobDetailContent(),
+                      ),
+                    ),
+                    const VerticalDivider(width: 1, color: Color(0xFFE5E5EA)),
+                    Expanded(
+                      flex: 3,
+                      child: _buildApplicantsSidebar(),
+                    ),
+                  ],
+                );
+              }
+              return SingleChildScrollView(
+                controller: _scrollController,
+                child: _buildJobDetailContent(),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

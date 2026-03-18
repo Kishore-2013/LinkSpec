@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../models/post.dart';
 import '../services/supabase_service.dart';
 import '../widgets/post_card.dart';
@@ -44,15 +45,6 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Reload when the screen becomes active/visible
-    if (!_isLoading && _allPosts.isEmpty) {
-      _loadSavedPosts(reset: true);
-    }
   }
 
   Future<void> _loadSavedPosts({bool reset = false}) async {
@@ -104,43 +96,42 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width <= 700;
     
-    // Listen for changes in saved posts set to reload the list dynamically
     ref.listen(savedPostsProvider, (previous, next) {
       if (previous?.length != next.length) {
-        // If an item was unsaved, remove it from the list locally
         if (next.length < (previous?.length ?? 0)) {
           final removedIds = (previous ?? {}).difference(next);
           setState(() {
             _allPosts.removeWhere((p) => removedIds.contains(p.id));
           });
         } else {
-          // If a new item was saved, we might want to refresh the first page 
-          // but usually the user saves from the home feed and then visits here.
           _loadSavedPosts(reset: true);
         }
       }
     });
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0.5,
-        surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
-          onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
-        ),
-        title: Text(
-          'Saved items',
-          style: TextStyle(
-            color: Theme.of(context).textTheme.titleLarge?.color,
-            fontWeight: FontWeight.bold,
-            fontSize: isMobile ? 16 : 18,
-          ),
-        ),
-        actions: isMobile
-            ? [
+    return Column(
+      children: [
+        // Internal Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Colors.white,
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+                onPressed: widget.onBack ?? () => context.pop(),
+              ),
+              Expanded(
+                child: Text(
+                  'Saved items',
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.titleLarge?.color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: isMobile ? 16 : 18,
+                  ),
+                ),
+              ),
+              if (isMobile)
                 PopupMenuButton<int>(
                   icon: const Icon(Icons.filter_list, color: Colors.blue),
                   onSelected: (val) => setState(() => _selectedSection = val),
@@ -149,97 +140,65 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
                     const PopupMenuItem(value: 1, child: Text("Job tracker")),
                   ],
                 ),
-              ]
-            : null,
-      ),
-      body: SingleChildScrollView(
-        controller: _scrollController,
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 1000),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-              // ── Left nav panel (Desktop only) ──────────────────────────
-              if (!isMobile)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: SizedBox(
-                    width: 200,
-                    child: Column(
-                      children: [
-                        _buildNavTile(
-                          icon: Icons.bookmark,
-                          label: 'My items',
-                          index: 0,
-                        ),
-                        const Divider(height: 1),
-                        _buildNavTile(
-                          icon: Icons.work_outline,
-                          label: 'Job tracker',
-                          index: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              // ── Main content ─────────────────────────────
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(isMobile ? 8 : 0, 16, isMobile ? 8 : 16, 16),
-                  child: _selectedSection == 0
-                      ? _buildMyItems()
-                      : _buildJobTracker(),
-                ),
-              ),
             ],
           ),
         ),
-      ),
-    ),
-  );
-}
+        const Divider(height: 1),
+        Expanded(
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 1000),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!isMobile)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: SizedBox(
+                          width: 200,
+                          child: Column(
+                            children: [
+                              _buildNavTile(icon: Icons.bookmark, label: 'My items', index: 0),
+                              const Divider(height: 1),
+                              _buildNavTile(icon: Icons.work_outline, label: 'Job tracker', index: 1),
+                            ],
+                          ),
+                        ),
+                      ),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(isMobile ? 8 : 0, 16, isMobile ? 8 : 16, 16),
+                        child: _selectedSection == 0 ? _buildMyItems() : _buildJobTracker(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-  Widget _buildNavTile({
-    required IconData icon,
-    required String label,
-    required int index,
-  }) {
+  Widget _buildNavTile({required IconData icon, required String label, required int index}) {
     final bool selected = _selectedSection == index;
     return InkWell(
       onTap: () => setState(() => _selectedSection = index),
       child: Container(
         decoration: BoxDecoration(
-          color: selected ? Colors.blue.withOpacity(0.08) : Theme.of(context).cardTheme.color,
-          borderRadius: index == 0
-              ? const BorderRadius.only(
-                  topLeft: Radius.circular(8),
-                  topRight: Radius.circular(8),
-                )
-              : const BorderRadius.only(
-                  bottomLeft: Radius.circular(8),
-                  bottomRight: Radius.circular(8),
-                ),
-          border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
+          color: selected ? Colors.blue.withOpacity(0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.withOpacity(0.1)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 18,
-              color: selected ? Colors.blue : Theme.of(context).hintColor,
-            ),
+            Icon(icon, size: 18, color: selected ? Colors.blue : Colors.grey),
             const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: selected ? Colors.blue : Theme.of(context).textTheme.bodyLarge?.color,
-              ),
-            ),
+            Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: selected ? Colors.blue : Colors.black87)),
           ],
         ),
       ),
@@ -249,27 +208,20 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
   Widget _buildMyItems() {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.15)),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
             child: Row(
               children: [
-                const Text(
-                  'Saved Posts',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                const Text('Saved Posts', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const Spacer(),
-                if (!_isLoading && (_allPosts.isNotEmpty || _hasMore))
+                if (!_isLoading)
                   TextButton.icon(
                     onPressed: () => _loadSavedPosts(reset: true),
                     icon: const Icon(Icons.refresh, size: 16),
@@ -278,35 +230,18 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
               ],
             ),
           ),
-
-          // "All" filter pill
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0A66C2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'All',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
+              decoration: BoxDecoration(color: const Color(0xFF0066CC), borderRadius: BorderRadius.circular(20)),
+              child: const Text('All', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           ),
           const SizedBox(height: 12),
           const Divider(height: 1),
-
-          // Content
           if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(48),
-              child: Center(child: CircularProgressIndicator()),
-            )
+            const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
           else if (_allPosts.isEmpty)
             _buildEmptyState()
           else
@@ -317,19 +252,9 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, i) {
                 if (i == _allPosts.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
+                  return const Padding(padding: EdgeInsets.all(16.0), child: Center(child: CircularProgressIndicator()));
                 }
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: PostCard(
-                    post: _allPosts[i],
-                    // We don't need a full reload on delete, the provider listener handles removal
-                    onPostDeleted: () {}, 
-                  ),
-                );
+                return Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: PostCard(post: _allPosts[i]));
               },
             ),
         ],
@@ -342,55 +267,16 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
       padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
       child: Column(
         children: [
-          // Illustration
-          Container(
-            width: 160,
-            height: 160,
-            decoration: BoxDecoration(
-              color: Theme.of(context).dividerColor.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              Icons.bookmark_border_rounded,
-              size: 80,
-              color: Theme.of(context).hintColor.withOpacity(0.5),
-            ),
-          ),
+          Icon(Icons.bookmark_border_rounded, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 24),
-          const Text(
-            'Start saving posts',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          const Text('Start saving posts', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-            'Saved posts will show up here',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
+          Text('Saved posts will show up here', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
           const SizedBox(height: 20),
           OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFF0A66C2), width: 1.5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-            ),
-            onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
-            child: const Text(
-              'Go to Feed',
-              style: TextStyle(
-                color: Color(0xFF0A66C2),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            onPressed: widget.onBack ?? () => context.pop(),
+            child: const Text('Go to Feed'),
           ),
-          const SizedBox(height: 24),
         ],
       ),
     );
@@ -399,69 +285,24 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
   Widget _buildJobTracker() {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.15)),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Job Tracker',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
+          const Text('Job Tracker', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-            'Track jobs you\'ve applied to, saved, or are interested in.',
-            style: TextStyle(color: Colors.grey[600], fontSize: 14),
-          ),
+          Text('Track jobs you\'ve applied to or saved.', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
           const SizedBox(height: 32),
           Center(
             child: Column(
               children: [
-                Icon(Icons.work_outline, size: 72, color: Colors.grey[300]),
+                Icon(Icons.work_outline, size: 72, color: Colors.grey[200]),
                 const SizedBox(height: 16),
-                const Text(
-                  'No tracked jobs yet',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Jobs you save from the Jobs tab will appear here.',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(
-                        color: Color(0xFF0A66C2), width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 10),
-                  ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Coming soon'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                  child: const Text(
-                    'Browse Jobs',
-                    style: TextStyle(
-                      color: Color(0xFF0A66C2),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                const Text('No tracked jobs yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ],
             ),
           ),

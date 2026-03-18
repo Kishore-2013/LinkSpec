@@ -28,6 +28,10 @@ import 'api/session_cache.dart';
 import 'api/web_lifecycle_stub.dart'
     if (dart.library.html) 'api/web_lifecycle.dart';
 import 'widgets/auth_wrapper.dart';
+import 'widgets/main_layout.dart';
+import 'models/job.dart';
+import 'screens/job_detail_screen.dart';
+import 'screens/jobs_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -91,40 +95,56 @@ final _router = GoRouter(
         return DomainSelectionScreen(fullName: fullName);
       },
     ),
-    GoRoute(
-      path: '/home',
-      builder: (context, state) => HomeScreen(),
-    ),
-    GoRoute(
-      path: '/settings',
-      builder: (context, state) => const SettingsScreen(),
-    ),
-    GoRoute(
-      path: '/groups',
-      builder: (context, state) => const GroupsScreen(),
-    ),
-    GoRoute(
-      path: '/events',
-      builder: (context, state) => const EventsScreen(),
-    ),
-    GoRoute(
-      path: '/search',
-      builder: (context, state) => const SearchScreen(),
-    ),
-    GoRoute(
-      path: '/saved-items',
-      builder: (context, state) => const SavedItemsScreen(),
-    ),
-    GoRoute(
-      path: '/reset-password',
-      builder: (context, state) => const LinkSpecAuthScreen(),
-    ),
-    GoRoute(
-      path: '/profile/:userId',
-      builder: (context, state) {
-        final userId = state.pathParameters['userId']!;
-        return ProfileScreen(userId: userId);
-      },
+    ShellRoute(
+      builder: (context, state, child) => MainLayout(child: child),
+      routes: [
+        GoRoute(
+          path: '/home',
+          builder: (context, state) => HomeScreen(),
+        ),
+        GoRoute(
+          path: '/settings',
+          builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: '/groups',
+          builder: (context, state) => const GroupsScreen(),
+        ),
+        GoRoute(
+          path: '/events',
+          builder: (context, state) => const EventsScreen(),
+        ),
+        GoRoute(
+          path: '/search',
+          builder: (context, state) => const SearchScreen(),
+        ),
+        GoRoute(
+          path: '/saved-items',
+          builder: (context, state) => const SavedItemsScreen(),
+        ),
+        GoRoute(
+          path: '/profile/:userId',
+          builder: (context, state) {
+            final userId = state.pathParameters['userId']!;
+            return ProfileScreen(userId: userId);
+          },
+        ),
+        GoRoute(
+          path: '/jobs',
+          builder: (context, state) => const JobsPage(),
+        ),
+        GoRoute(
+          path: '/job/:id',
+          builder: (context, state) {
+            final job = state.extra as Job;
+            return JobDetailScreen(job: job);
+          },
+        ),
+        GoRoute(
+          path: '/reset-password',
+          builder: (context, state) => const LinkSpecAuthScreen(),
+        ),
+      ],
     ),
   ],
 );

@@ -681,14 +681,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading && _profile == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Center(child: CircularProgressIndicator());
     }
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: RefreshIndicator(
-        onRefresh: _loadProfile,
-        child: CustomScrollView(
+    return Column(
+      children: [
+        // Optional Back Context Bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Colors.white,
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+                onPressed: () => context.pop(),
+              ),
+              const Text('Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadProfile,
+            child: CustomScrollView(
           slivers: [
             // ── Full header: cover + avatar + info in ONE stack ──────────
             SliverToBoxAdapter(
@@ -1091,6 +1106,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ],
         ),
       ),
+    ),
+      ],
     );
   }
 

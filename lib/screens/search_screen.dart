@@ -122,35 +122,43 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        titleSpacing: 0,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
-          onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
-        ),
-        title: ClayContainer(
-          borderRadius: 12,
-          emboss: true,
-          margin: const EdgeInsets.only(right: 16, top: 4, bottom: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: TextField(
-            controller: _searchController,
-            focusNode: _searchFocus,
-            autofocus: widget.autofocusSearch,
-            decoration: const InputDecoration(
-              hintText: 'Search #hashtags or people...',
-              border: InputBorder.none,
-              hintStyle: TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
-            ),
-            onSubmitted: _performSearch,
+    return Column(
+      children: [
+        // Internal Search Header (Since it's functional)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Colors.white,
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+                onPressed: widget.onBack ?? () => Navigator.of(context).pop(), // Changed pop method
+              ),
+              Expanded(
+                child: ClayContainer(
+                  borderRadius: 12,
+                  emboss: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocus,
+                    autofocus: widget.autofocusSearch,
+                    decoration: const InputDecoration(
+                      hintText: 'Search #hashtags or people...',
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
+                    ),
+                    onSubmitted: _performSearch,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        bottom: _hasSearched
-            ? (widget.searchOnlyConnections
+        if (_hasSearched)
+          Container(
+            color: Colors.white,
+            child: widget.searchOnlyConnections
                 ? TabBar(
                     controller: _tabController,
                     labelColor: Colors.blue[800],
@@ -167,52 +175,46 @@ class _SearchScreenState extends State<SearchScreen>
                       Tab(text: 'Posts'),
                       Tab(text: 'People'),
                     ],
-                  ))
-            : null,
-      ),
-      body: Stack(
-        children: [
-          // ── Content (fills the full stack so Stack knows screen height) ──
-          Positioned.fill(
-            child: _hasSearched ? _buildSearchResults() : _buildDiscoveryPane(),
+                  ),
           ),
-
-          // ── SVG pinned to screen bottom, drawn BEHIND content ──
-          // (Stack children are painted in order; this renders first = behind)
-          // We need it before content so we reorder: SVG first paints behind.
-          // To achieve: use IgnorePointer so taps pass through.
-          Positioned(
-            bottom: 80, // above the bottom nav bar
-            left: 0,
-            right: 0,
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: 0.35,
-                child: SvgPicture.asset(
-                  'assets/svg/undraw_searching_no1g.svg',
-                  height: 350,
-                  fit: BoxFit.contain,
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: _hasSearched ? _buildSearchResults() : _buildDiscoveryPane(),
+              ),
+              Positioned(
+                bottom: 80,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: 0.35,
+                    child: SvgPicture.asset(
+                      'assets/svg/undraw_searching_no1g.svg',
+                      height: 350,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-
-          // ── Error banner ──
-          if (_errorMsg != null)
-            Positioned(
-              top: 8,
-              left: 20,
-              right: 20,
-              child: Material(
-                color: Colors.transparent,
-                child: Text(
-                  _errorMsg!,
-                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+              if (_errorMsg != null)
+                Positioned(
+                  top: 8,
+                  left: 20,
+                  right: 20,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Text(
+                      _errorMsg!,
+                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-        ],
-      ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
