@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/post.dart';
@@ -173,12 +174,7 @@ class _PostCardState extends ConsumerState<PostCard> {
                         width: 32,
                         height: 32,
                         child: GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => MemberProfileScreen(userId: widget.post.authorId),
-                            ),
-                          ),
+                          onTap: () => context.push('/profile/${widget.post.authorId}'),
                           child: CircleAvatar(
                             radius: 16,
                             backgroundColor: Theme.of(context).dividerColor.withOpacity(0.1),
@@ -529,10 +525,7 @@ class _PostCardState extends ConsumerState<PostCard> {
       final jobData = await JobService.fetchJobById(jobId);
       if (jobData != null && mounted) {
         final job = Job.fromJson(jobData);
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
-        );
+        context.push('/job/${job.id}', extra: job);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Job listing no longer available')),

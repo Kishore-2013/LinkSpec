@@ -670,10 +670,7 @@ extension on _MemberProfileScreenState {
                              return;
                           }
                           Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => MemberProfileScreen(userId: conn['id'])),
-                          );
+                          context.push('/profile/${conn['id']}');
                         },
                       );
                     },

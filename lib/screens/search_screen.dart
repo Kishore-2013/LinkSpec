@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import '../api/search_manager.dart';
 import '../models/post.dart';
 import '../widgets/post_card.dart';
@@ -122,99 +123,103 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Internal Search Header (Since it's functional)
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: Colors.white,
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
-                onPressed: widget.onBack ?? () => Navigator.of(context).pop(), // Changed pop method
-              ),
-              Expanded(
-                child: ClayContainer(
-                  borderRadius: 12,
-                  emboss: true,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TextField(
-                    controller: _searchController,
-                    focusNode: _searchFocus,
-                    autofocus: widget.autofocusSearch,
-                    decoration: const InputDecoration(
-                      hintText: 'Search #hashtags or people...',
-                      border: InputBorder.none,
-                      hintStyle: TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
-                    ),
-                    onSubmitted: _performSearch,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (_hasSearched)
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F7),
+      body: Column(
+        children: [
+          // Internal Search Header (Since it's functional)
           Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             color: Colors.white,
-            child: widget.searchOnlyConnections
-                ? TabBar(
-                    controller: _tabController,
-                    labelColor: Colors.blue[800],
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: Colors.blue[800],
-                    tabs: const [Tab(text: 'Unites')],
-                  )
-                : TabBar(
-                    controller: _tabController,
-                    labelColor: Colors.blue[800],
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: Colors.blue[800],
-                    tabs: const [
-                      Tab(text: 'Posts'),
-                      Tab(text: 'People'),
-                    ],
-                  ),
-          ),
-        Expanded(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: _hasSearched ? _buildSearchResults() : _buildDiscoveryPane(),
-              ),
-              Positioned(
-                bottom: 80,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Opacity(
-                    opacity: 0.35,
-                    child: SvgPicture.asset(
-                      'assets/svg/undraw_searching_no1g.svg',
-                      height: 350,
-                      fit: BoxFit.contain,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+                  onPressed: widget.onBack ?? () => Navigator.of(context).pop(),
+                ),
+                Expanded(
+                  child: ClayContainer(
+                    borderRadius: 12,
+                    emboss: true,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: _searchController,
+                      focusNode: _searchFocus,
+                      autofocus: widget.autofocusSearch,
+                      decoration: const InputDecoration(
+                        hintText: 'Search #hashtags or people...',
+                        border: InputBorder.none,
+                        hintStyle: TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
+                      ),
+                      onSubmitted: _performSearch,
                     ),
                   ),
                 ),
-              ),
-              if (_errorMsg != null)
+              ],
+            ),
+          ),
+          if (_hasSearched)
+            Container(
+              color: Colors.white,
+              child: widget.searchOnlyConnections
+                  ? TabBar(
+                      controller: _tabController,
+                      labelColor: Colors.blue[800],
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: Colors.blue[800],
+                      tabs: const [Tab(text: 'Unites')],
+                    )
+                  : TabBar(
+                      controller: _tabController,
+                      labelColor: Colors.blue[800],
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: Colors.blue[800],
+                      tabs: const [
+                        Tab(text: 'Posts'),
+                        Tab(text: 'People'),
+                      ],
+                    ),
+            ),
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: _hasSearched ? _buildSearchResults() : _buildDiscoveryPane(),
+                ),
                 Positioned(
-                  top: 8,
-                  left: 20,
-                  right: 20,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Text(
-                      _errorMsg!,
-                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                  bottom: 80,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: 0.35,
+                      child: SvgPicture.asset(
+                        'assets/svg/undraw_searching_no1g.svg',
+                        height: 350,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 ),
-            ],
+                if (_errorMsg != null)
+                  Positioned(
+                    top: 12,
+                    left: 20,
+                    right: 20,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(8)),
+                      child: Text(
+                        _errorMsg!,
+                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -335,12 +340,7 @@ class _SearchScreenState extends State<SearchScreen>
                 itemBuilder: (context, index) {
                   final person = _peopleResults[index];
                   return GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) =>
-                              MemberProfileScreen(userId: person['id'])),
-                    ),
+                    onTap: () => context.push('/profile/${person['id']}'),
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -477,15 +477,7 @@ class _StaticTagChip extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         // Navigate to a new SearchScreen with this tag pre-filled
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SearchScreen(
-              initialQuery: tag,
-              autofocusSearch: false,
-              onBack: () => Navigator.of(context).pop(),
-            ),
-          ),
-        );
+        context.push('/search', extra: {'initialQuery': tag});
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

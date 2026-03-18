@@ -285,10 +285,7 @@ class _JobsPageState extends ConsumerState<JobsPage> {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
-                  ).then((_) => _loadInitialJobs());
+                  context.push('/job/${job.id}', extra: job).then((_) => _loadInitialJobs());
                 },
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.blue, width: 1.5),

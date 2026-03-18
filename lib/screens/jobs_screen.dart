@@ -291,12 +291,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> {
   Widget _buildResponsiveJobCard(Job job) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => JobDetailScreen(job: job),
-          ),
-        );
+        context.push('/job/${job.id}', extra: job);
       },
       child: ClayContainer(
         borderRadius: 14,
