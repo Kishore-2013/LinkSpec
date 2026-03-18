@@ -108,10 +108,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _feedCtrl.loadInitial(onUpdate: () {
       if (mounted) setState(() {});
     });
+    // Enable real-time for the post window
+    _feedCtrl.subscribe(() {
+      if (mounted) setState(() {});
+    });
+
     _loadGroups();
     _loadBadgeCounts();
     _loadSyncBadgeCounts();
     _loadSidebarData();
+
+    // Subscribe to profile changes for the UI
+    final myUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (myUserId != null) {
+      SupabaseService.subscribeToProfileChanges(myUserId, (profile) {
+        if (mounted) {
+          setState(() {
+            _currentUserProfile = UserProfile.fromJson(profile);
+          });
+        }
+      });
+    }
 
     bool _sidebarStartupComplete = false;
     Future.delayed(const Duration(milliseconds: 500), () {
@@ -219,6 +236,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _jobsSub?.cancel();
     _applicationsSub?.cancel();
     _sidebarSvc.dispose();
+    _feedCtrl.unsubscribe();
     _scrollController.dispose();
     super.dispose();
   }
@@ -444,7 +462,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       SupabaseService.optimizeMemory();
       setState(() => _isSwitchingDomain = true);
       _sidebarSvc.dispose(); // Cleanup old real-time channels
+      _feedCtrl.unsubscribe(); // Stop old sub
+
       _feedCtrl = PostWindowManager(domain: d, mode: mode);
+      _feedCtrl.subscribe(() {
+        if (mounted) setState(() {});
+      });
+
       _sidebarSvc = SidebarDataService(domain: d)
         ..subscribeRealtime(onUpdate: () {
           if (mounted) {

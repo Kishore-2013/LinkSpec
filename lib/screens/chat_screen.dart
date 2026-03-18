@@ -45,9 +45,32 @@ class _ChatScreenState extends State<ChatScreen> {
   void _setupSubscription() {
     _subscription = SupabaseService.subscribeToMessages(
       onNewMessage: (msg) {
-        if ((msg['sender_id'] == widget.otherUser['id'] && msg['receiver_id'] == _myId) ||
-            (msg['sender_id'] == _myId && msg['receiver_id'] == widget.otherUser['id'])) {
-          _fetchMessages();
+        // Is this message part of our active conversation?
+        final isRelevant = (msg['sender_id'] == widget.otherUser['id'] && msg['receiver_id'] == _myId) ||
+                           (msg['sender_id'] == _myId && msg['receiver_id'] == widget.otherUser['id']);
+        
+        if (isRelevant && mounted) {
+          setState(() {
+            // 1. Remove ANY optimistic duplicate from THIS conversation
+            _messages.removeWhere((m) {
+              final isOptimistic = m['is_optimistic'] == true;
+              final sameContent  = m['content'] == msg['content'];
+              final sameSender   = m['sender_id'] == msg['sender_id'];
+              return isOptimistic && sameContent && sameSender;
+            });
+
+            // 2. Only add if not already present
+            if (!_messages.any((m) => m['id'] == msg['id'])) {
+              _messages.add(msg);
+              _messages.sort((a, b) {
+                final ta = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(0);
+                final tb = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(0);
+                return ta.compareTo(tb);
+              });
+            }
+          });
+          _scrollToBottom();
+          
           if (msg['sender_id'] == widget.otherUser['id']) {
             SupabaseService.markMessagesAsRead(widget.otherUser['id']);
           }
@@ -87,17 +110,39 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
+    final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+    final optimisticMsg = {
+      'id': tempId,
+      'sender_id': _myId,
+      'receiver_id': widget.otherUser['id'],
+      'content': text,
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+      'is_optimistic': true, // helps UI show pending status
+    };
+
+    setState(() {
+      _messages.add(optimisticMsg);
+    });
+    _scrollToBottom();
     _messageController.clear();
+
     try {
       await SupabaseService.sendMessage(
         receiverId: widget.otherUser['id'],
         content: text,
       );
-      _fetchMessages();
+      // We don't need to manually remove optimisticMsg because 
+      // setupSubscription's any() check will allow the REAL message
+      // with its real ID. We should however remove the temp one once real arrives.
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to send: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        setState(() {
+          _messages.removeWhere((m) => m['id'] == tempId);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 

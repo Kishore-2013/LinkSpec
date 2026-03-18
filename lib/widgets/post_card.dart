@@ -62,6 +62,8 @@ class _PostCardState extends ConsumerState<PostCard> {
   bool _isExpanded = false; // For Read More
   double? _imageAspectRatio; // Loaded from actual image dimensions
   Uint8List? _cachedImageBytes;
+  RealtimeChannel? _likeSub;
+  RealtimeChannel? _commentSub;
 
   @override
   void initState() {
@@ -82,6 +84,40 @@ class _PostCardState extends ConsumerState<PostCard> {
       _resolveImageAspectRatio(widget.post.imageUrl!);
       _loadCachedImageBytes(widget.post.imageUrl!);
     }
+
+    _setupRealtimeEngagements();
+  }
+
+  void _setupRealtimeEngagements() {
+    // Like subscription
+    _likeSub = SupabaseService.subscribeToPostLikes(
+      postId: widget.post.id,
+      onLike: (data) {
+        if (mounted && data['user_id'] != Supabase.instance.client.auth.currentUser?.id) {
+          setState(() => _likeCount++);
+        }
+      },
+      onUnlike: (data) {
+        if (mounted && data['user_id'] != Supabase.instance.client.auth.currentUser?.id) {
+          setState(() => _likeCount = (_likeCount - 1).clamp(0, 999999));
+        }
+      },
+    );
+
+    // Comment subscription
+    _commentSub = SupabaseService.subscribeToPostComments(
+      postId: widget.post.id,
+      onNewComment: (data) {
+        if (mounted && data['author_id'] != Supabase.instance.client.auth.currentUser?.id) {
+          setState(() => _commentCount++);
+        }
+      },
+      onDeletedComment: (data) {
+        if (mounted) {
+          setState(() => _commentCount = (_commentCount - 1).clamp(0, 999999));
+        }
+      },
+    );
   }
 
   Future<void> _loadCachedImageBytes(String url) async {
@@ -89,6 +125,13 @@ class _PostCardState extends ConsumerState<PostCard> {
     if (bytes != null && mounted) {
       setState(() => _cachedImageBytes = bytes);
     }
+  }
+
+  @override
+  void dispose() {
+    _likeSub?.unsubscribe();
+    _commentSub?.unsubscribe();
+    super.dispose();
   }
 
   void _resolveImageAspectRatio(String url) {

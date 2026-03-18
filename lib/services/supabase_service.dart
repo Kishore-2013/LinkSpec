@@ -1254,23 +1254,19 @@ class SupabaseService {
   // REALTIME SUBSCRIPTIONS
   // ============================================================================
 
-  /// Subscribe to new posts in the user's domain
-  static RealtimeChannel subscribeToNewPosts({
-    required void Function(Map<String, dynamic> post) onNewPost,
+  /// Subscribe to posts in the user's domain (all events)
+  static RealtimeChannel subscribeToPosts({
+    required void Function(PostgresChangePayload payload) callback,
   }) {
     return _client
         .channel('public:posts')
         .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
+          event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'posts',
-          callback: (payload) {
-            onNewPost(payload.newRecord);
-          },
+          callback: callback,
         )
-        .subscribe((RealtimeSubscribeStatus status, Object? error) {
-          // Silently handle WebSocket failures
-        });
+        .subscribe();
   }
 
   /// Subscribe to likes on a specific post
@@ -1307,9 +1303,40 @@ class SupabaseService {
             onUnlike(payload.oldRecord);
           },
         )
-        .subscribe((RealtimeSubscribeStatus status, Object? error) {
-          // Silently handle WebSocket failures
-        });
+        .subscribe();
+  }
+
+  /// Subscribe to comments on a specific post
+  static RealtimeChannel subscribeToPostComments({
+    required String postId,
+    required void Function(Map<String, dynamic> comment) onNewComment,
+    void Function(Map<String, dynamic> comment)? onDeletedComment,
+  }) {
+    return _client
+        .channel('public:comments:$postId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'comments',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'post_id',
+            value: postId,
+          ),
+          callback: (payload) => onNewComment(payload.newRecord),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: 'comments',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'post_id',
+            value: postId,
+          ),
+          callback: (payload) => onDeletedComment?.call(payload.oldRecord),
+        )
+        .subscribe();
   }
 
   /// Get jobs for the user's domain (Optimized)

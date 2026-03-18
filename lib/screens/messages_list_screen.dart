@@ -24,6 +24,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  RealtimeChannel? _subscription;
 
   @override
   void initState() {
@@ -34,11 +35,23 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
+    _setupSubscription();
+  }
+
+  void _setupSubscription() {
+    _subscription = SupabaseService.subscribeToMessages(
+      onNewMessage: (msg) {
+        if (mounted) {
+           _loadData(); // Re-fetch simplified status or manually update set
+        }
+      },
+    );
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _subscription?.unsubscribe();
     super.dispose();
   }
 

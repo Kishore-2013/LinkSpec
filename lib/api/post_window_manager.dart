@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import '../models/post.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import 'post_service.dart';
 import 'session_cache.dart';
@@ -63,6 +64,74 @@ class PostWindowManager {
   /// True when the user has scrolled down enough that there are evicted pages
   /// above the current window that can be pulled back.
   bool get hasMoreNewer => _firstPage > 0;
+
+  RealtimeChannel? _subscription;
+
+  // ── Subscription Management ───────────────────────────────────
+
+  void subscribe(void Function() onUpdate) {
+    if (_subscription != null) return;
+
+    _subscription = SupabaseService.subscribeToPosts(
+      callback: (payload) {
+        if (!onUpdate.toString().contains('mounted') || true) { // simplified check
+           _handleRealtimePayload(payload, onUpdate);
+        }
+      },
+    );
+  }
+
+  void unsubscribe() {
+    _subscription?.unsubscribe();
+    _subscription = null;
+  }
+
+  void _handleRealtimePayload(PostgresChangePayload payload, void Function() onUpdate) {
+    final event = payload.eventType;
+    final data = event == PostgresChangeEvent.delete ? payload.oldRecord : payload.newRecord;
+
+    // Filter by domain
+    if (domain != 'Global' && domain != 'All' && data['domain_id'] != domain) {
+      return;
+    }
+
+    if (event == PostgresChangeEvent.insert) {
+      // New post: In chronological mode, we could prepend it.
+      // For now, let's just mark that there's new data or handled in UI.
+      // But user wants "Feed auto-refreshes", so let's prepend if we are at page 0.
+      if (mode == FeedMode.chronological && _firstPage == 0) {
+        final newPost = Post.fromJson(data);
+        // Only prepend if it's not already there (prevent double insertion if fetch happened)
+        if (!_window.any((p) => p.id == newPost.id)) {
+          _window.insert(0, newPost);
+          if (_window.length > maxWindowSize) {
+             _evictBottom();
+          }
+          onUpdate();
+        }
+      }
+    } else if (event == PostgresChangeEvent.update) {
+      final postId = data['id'] as String;
+      final index = _window.indexWhere((p) => p.id == postId);
+      if (index != -1) {
+        final updatedPost = _window[index].copyWith(
+          likeCount: (data['like_count'] as num?)?.toInt() ?? _window[index].likeCount,
+          commentCount: (data['comment_count'] as num?)?.toInt() ?? _window[index].commentCount,
+          content: data['content'] ?? _window[index].content,
+          imageUrl: data['image_url'] ?? _window[index].imageUrl,
+        );
+        _window[index] = updatedPost;
+        onUpdate();
+      }
+    } else if (event == PostgresChangeEvent.delete) {
+      final postId = data['id'] as String;
+      final index = _window.indexWhere((p) => p.id == postId);
+      if (index != -1) {
+        _window.removeAt(index);
+        onUpdate();
+      }
+    }
+  }
 
   // ── Public API ────────────────────────────────────────────────
 
