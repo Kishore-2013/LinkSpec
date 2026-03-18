@@ -93,7 +93,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     });
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Colors.transparent, // Let MainLayout background show through
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -110,41 +110,64 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // ── Search bar ────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardTheme.color ?? Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+          // Background Illustration
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: SvgPicture.asset(
+                    'assets/svg/undraw_text-messages_978a.svg',
+                    width: 450,
+                    // Use colorFilter instead of Opacity to avoid "grey mask" look
+                    colorFilter: ColorFilter.mode(
+                      Colors.blue.withOpacity(0.08),
+                      BlendMode.srcIn,
+                    ),
                   ),
-                ],
-              ),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search people...',
-                  hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
-                  prefixIcon: const Icon(Icons.search, color: Colors.blue, size: 20),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
-                          onPressed: () => _searchController.clear(),
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               ),
             ),
           ),
+
+          Column(
+            children: [
+              // ── Search bar ────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardTheme.color ?? Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search people...',
+                      hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
+                      prefixIcon: const Icon(Icons.search, color: Colors.blue, size: 20),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                              onPressed: () => _searchController.clear(),
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
 
           // ── User list ─────────────────────────────────────────────
           Expanded(
