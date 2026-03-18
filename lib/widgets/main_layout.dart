@@ -26,8 +26,15 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   @override
   void initState() {
     super.initState();
-    _sidebarSvc = SidebarDataService();
+    final initialDomain = ref.read(currentDomainProvider);
+    _sidebarSvc = SidebarDataService(domain: initialDomain);
     _loadInitialData();
+  }
+
+  @override
+  void dispose() {
+    _sidebarSvc.dispose();
+    super.dispose();
   }
 
   Future<void> _loadInitialData() async {
@@ -38,10 +45,17 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       });
     }
     _loadBadgeCounts();
+    _loadSidebarData();
+  }
+
+  Future<void> _loadSidebarData() async {
+    await Future.wait([
+      _sidebarSvc.loadTrendingTags(onUpdate: () { if (mounted) setState(() {}); }),
+      _sidebarSvc.loadSuggestedDiscussions(onUpdate: () { if (mounted) setState(() {}); }),
+    ]);
   }
 
   Future<void> _loadBadgeCounts() async {
-    // Simplified badge loading for the shell
     try {
       final results = await Future.wait([
         SupabaseService.getUnreadNotificationCount(),
@@ -61,8 +75,19 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   @override
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
+    final bool isWide = MediaQuery.of(context).size.width > 1200;
     final activeDomain = ref.watch(currentDomainProvider);
     final String location = GoRouterState.of(context).uri.path;
+
+    ref.listen(currentDomainProvider, (prev, next) {
+      if (prev != next) {
+        _sidebarSvc.dispose();
+        setState(() {
+          _sidebarSvc = SidebarDataService(domain: next);
+        });
+        _loadSidebarData();
+      }
+    });
 
     return Scaffold(
       key: _scaffoldKey,
@@ -78,11 +103,16 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 if (!isMobile)
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 300),
-                    child: _buildStickyLeftColumn(),
+                    child: _buildStickyPanel(_buildLeftSideBar()),
                   ),
                 Expanded(
                   child: widget.child,
                 ),
+                if (isWide)
+                   ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 320),
+                    child: _buildStickyPanel(_buildRightSideBar(activeDomain)),
+                  ),
               ],
             ),
           ),
@@ -133,7 +163,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               ),
             ),
             const SizedBox(width: 12),
-            _buildHeaderIcon(Icons.notifications_none_rounded, badge: _unreadNotifications, onTap: () => context.go('/home')), // Navigation placeholder
+            _buildHeaderIcon(Icons.notifications_none_rounded, badge: _unreadNotifications, onTap: () => context.go('/home')), 
             const SizedBox(width: 8),
             _buildHeaderIcon(Icons.mail_outline_rounded, badge: _unreadMessages, onTap: () => context.go('/home')),
           ],
@@ -169,7 +199,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     );
   }
 
-  Widget _buildStickyLeftColumn() {
+  Widget _buildStickyPanel(Widget child) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -180,7 +210,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              child: _buildLeftSideBar(),
+              child: child,
             ),
           ),
           const Padding(
@@ -199,10 +229,61 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         const SizedBox(height: 16),
         _buildSidebarItem(Icons.home_outlined, 'Home', path: '/home'),
         _buildSidebarItem(Icons.search_rounded, 'Search', path: '/search'),
-        _buildSidebarItem(Icons.work_outline_rounded, 'Jobs', path: '/home'), // Placeholder
+        _buildSidebarItem(Icons.work_outline_rounded, 'Jobs', path: '/jobs'),
         _buildSidebarItem(Icons.bookmark_outline_rounded, 'Saved items', path: '/saved-items'),
         _buildSidebarItem(Icons.settings_outlined, 'Settings', path: '/settings'),
       ],
+    );
+  }
+
+  Widget _buildRightSideBar(String activeDomain) {
+    final tags = _sidebarSvc.trendingTags;
+    final discussions = _sidebarSvc.suggestedDiscussions;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Trending for $activeDomain', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 12),
+        if (_sidebarSvc.isLoadingTags)
+          const LinearProgressIndicator(),
+        if (tags.isEmpty && !_sidebarSvc.isLoadingTags)
+           const Text('No tags yet.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: tags.map((t) => _buildTag(t)).toList(),
+        ),
+        const SizedBox(height: 24),
+        const Text('Suggested Discussions', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 12),
+        if (discussions.isEmpty)
+           const Text('No discussions yet.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+        ...discussions.map((d) => _buildDiscussionItem(d)),
+      ],
+    );
+  }
+
+  Widget _buildTag(String tag) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: Colors.blue.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+      child: Text('#$tag', style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.w600)),
+    );
+  }
+
+  Widget _buildDiscussionItem(Map<String, dynamic> disc) {
+    final content = disc['content'] as String? ?? '';
+    final count = disc['comment_count'] ?? 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(content, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+          Text('$count comments', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+        ],
+      ),
     );
   }
 
@@ -227,7 +308,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   }
 
   Widget _buildSidebarItem(IconData icon, String label, {required String path}) {
-    final bool isActive = GoRouterState.of(context).uri.path == path;
+    final curPath = GoRouterState.of(context).uri.path;
+    final bool isActive = curPath == path;
     return ListTile(
       leading: Icon(icon, color: isActive ? Colors.blue : Colors.grey),
       title: Text(label, style: TextStyle(color: isActive ? Colors.blue : Colors.black87, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
@@ -248,7 +330,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           case 1: context.go('/home'); break; // Network
           case 2: context.go('/home'); break; // Post
           case 3: context.go('/home'); break; // Message
-          case 4: context.go('/home'); break; // Jobs
+          case 4: context.go('/jobs'); break; 
         }
       },
       type: BottomNavigationBarType.fixed,
@@ -266,6 +348,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
   int _getBottomNavIndex(String path) {
     if (path == '/home') return 0;
+    if (path == '/jobs') return 4;
     return 0;
   }
 }
