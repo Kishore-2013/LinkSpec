@@ -17,7 +17,7 @@ class JobService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return [];
 
-    // Base query including join with saved_jobs and job_applications to get status flags
+    // Base query including join with saved_jobs and job_applications_fact to get status flags
     var selectStr = '*, saved_jobs_fact(id), job_applications_fact(id)';
     
     var request = _client
@@ -259,3 +259,5 @@ class JobService {
         .limit(1);
   }
 }
+
+
