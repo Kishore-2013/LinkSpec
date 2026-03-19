@@ -221,85 +221,120 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Label with required asterisk
         Row(
           children: [
             Icon(Icons.public, size: 15, color: Colors.grey[600]),
             const SizedBox(width: 6),
-            Text(
-              'Post audience domain',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            RichText(
+              text: TextSpan(
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+                children: const [
+                  TextSpan(text: 'Post audience domain '),
+                  TextSpan(
+                    text: '*',
+                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: domains.map((domain) {
-            final isSelected = _targetDomain == domain;
-            final isMyDomain = domain == _myDomain;
-            final domainColor = domainColors[domain] ?? Colors.blue;
-            final icon = domainIcons[domain] ?? Icons.work;
+        // Chips container with red border highlight when invalid
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: _domainError != null ? const EdgeInsets.all(8) : EdgeInsets.zero,
+          decoration: _domainError != null
+              ? BoxDecoration(
+                  border: Border.all(color: Colors.red.shade300, width: 1.5),
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.red.shade50,
+                )
+              : null,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: domains.map((domain) {
+              final isSelected = _targetDomain == domain;
+              final isMyDomain = domain == _myDomain;
+              final domainColor = domainColors[domain] ?? Colors.blue;
+              final icon = domainIcons[domain] ?? Icons.work;
 
-            // Green when own domain is selected, domain color for cross-domain
-            final selectedColor = (isSelected && isMyDomain)
-                ? const Color(0xFF2E7D32) // dark green
-                : domainColor;
+              // Green when own domain is selected, domain color for cross-domain
+              final selectedColor = (isSelected && isMyDomain)
+                  ? const Color(0xFF2E7D32) // dark green
+                  : domainColor;
 
-            return GestureDetector(
-              onTap: () => setState(() {
-                _targetDomain = domain;
-                _domainError = null; // clear error when user picks a domain
-              }),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: isSelected ? selectedColor.withValues(alpha: 0.12) : Colors.transparent,
-                  border: Border.all(
-                    color: isSelected ? selectedColor : Colors.grey[350]!,
-                    width: isSelected ? 2.0 : 1.0,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 14, color: isSelected ? selectedColor : Colors.grey[500]),
-                    const SizedBox(width: 5),
-                    Text(
-                      domain,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected ? selectedColor : Colors.grey[600],
-                      ),
+              return GestureDetector(
+                onTap: () => setState(() {
+                  _targetDomain = domain;
+                  _domainError = null; // clear error when user picks a domain
+                }),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isSelected ? selectedColor.withValues(alpha: 0.12) : Colors.transparent,
+                    border: Border.all(
+                      color: isSelected ? selectedColor : Colors.grey[350]!,
+                      width: isSelected ? 2.0 : 1.0,
                     ),
-                    if (isMyDomain) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: (isSelected ? const Color(0xFF2E7D32) : Colors.blue).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 14, color: isSelected ? selectedColor : Colors.grey[500]),
+                      const SizedBox(width: 5),
+                      Text(
+                        domain,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? selectedColor : Colors.grey[600],
                         ),
-                        child: Text(
-                          'Mine',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: isSelected ? const Color(0xFF2E7D32) : Colors.blue[700],
-                            fontWeight: FontWeight.bold,
+                      ),
+                      if (isMyDomain) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: (isSelected ? const Color(0xFF2E7D32) : Colors.blue).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Mine',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: isSelected ? const Color(0xFF2E7D32) : Colors.blue[700],
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            );
-
-          }).toList(),
+              );
+            }).toList(),
+          ),
         ),
+        // Inline error message directly below chips
+        if (_domainError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline, size: 13, color: Colors.red[700]),
+                const SizedBox(width: 4),
+                Text(
+                  'Please select a domain for your post',
+                  style: TextStyle(fontSize: 12, color: Colors.red[700], fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
         if (_targetDomain != null && _targetDomain != _myDomain)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -608,29 +643,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
               ),
               const SizedBox(height: 12),
 
-              // Inline domain error banner
-              if (_domainError != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    border: Border.all(color: Colors.red.shade300),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.error_outline, size: 16, color: Colors.red.shade700),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _domainError!,
-                          style: TextStyle(color: Colors.red.shade700, fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              // Domain error is now shown inline inside _buildDomainPicker()
 
               // Submit Button
               ElevatedButton(
