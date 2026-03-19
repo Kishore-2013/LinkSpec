@@ -499,14 +499,14 @@ class _PostCardState extends ConsumerState<PostCard> {
       if (_isLiked) {
         await Supabase.instance.client.from('likes_fact').upsert({
           'post_id': widget.post.id,
-          'user_id': userId,
+          'user_id': currentUserId,
         }, onConflict: 'post_id,user_id');
       } else {
         await Supabase.instance.client
             .from('likes_fact')
             .delete()
             .eq('post_id', widget.post.id)
-            .eq('user_id', userId);
+            .eq('user_id', currentUserId);
       }
     } on PostgrestException catch (e) {
       if (e.code != '23505') {
