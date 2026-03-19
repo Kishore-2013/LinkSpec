@@ -18,7 +18,7 @@ class JobService {
     if (userId == null) return [];
 
     // Base query including join with saved_jobs and job_applications to get status flags
-    var selectStr = '*, saved_jobs(id), job_applications(id)';
+    var selectStr = '*, saved_jobs_fact(id), job_applications_fact(id)';
     
     var request = _client
         .from('jobs_dim')
@@ -49,8 +49,8 @@ class JobService {
 
     // Map the relational data to simplified boolean flags
     return data.map((job) {
-      final savedList = job['saved_jobs'] as List?;
-      final appliedList = job['job_applications'] as List?;
+      final savedList = job['saved_jobs_fact'] as List?;
+      final appliedList = job['job_applications_fact'] as List?;
       
       return {
         ...job,
