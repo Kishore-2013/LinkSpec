@@ -78,10 +78,12 @@ class JobService {
       final savedIds = results[0] as Set<String>;
       final appliedIds = results[1] as Set<String>;
 
+      final enrichedJobs = jobs.map((job) {
+        final jobId = job['id'] as String;
         return {
           ...job,
-          'is_saved': savedIds.contains(id),
-          'has_applied': appliedIds.contains(id),
+          'is_saved': savedIds.contains(jobId),
+          'has_applied': appliedIds.contains(jobId),
         };
       }).toList();
 

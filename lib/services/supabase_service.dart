@@ -1499,15 +1499,15 @@ class SupabaseService {
           ),
           likes:comment_likes_fact(user_id)
         ''')
-        .eq('post_id', postId)
-        .order('created_at', ascending: false)
-        .limit(limit + 1);
+        .eq('post_id', postId);
 
     if (before != null) {
       query = query.lt('created_at', before.toIso8601String());
     }
 
-    final response = await query;
+    final response = await query
+        .order('created_at', ascending: false)
+        .limit(limit + 1);
     final rows = List<Map<String, dynamic>>.from(response);
     final hasMore = rows.length > limit;
     
@@ -1924,15 +1924,15 @@ class SupabaseService {
             )
           )
         ''')
-        .or('and(sender_id.eq.$myId,receiver_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,receiver_id.eq.$myId)')
-        .order('created_at', ascending: false)
-        .limit(limit + 1);
+        .or('and(sender_id.eq.$myId,receiver_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,receiver_id.eq.$myId)');
 
     if (before != null) {
       query = query.lt('created_at', before.toIso8601String());
     }
 
-    final response = await query;
+    final response = await query
+        .order('created_at', ascending: false)
+        .limit(limit + 1);
     final rows = List<Map<String, dynamic>>.from(response);
     final hasMore = rows.length > limit;
 
