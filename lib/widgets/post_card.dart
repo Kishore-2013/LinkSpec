@@ -4,6 +4,7 @@ import '../services/linkspec_notify.dart';
 import '../services/supabase_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../models/post.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';

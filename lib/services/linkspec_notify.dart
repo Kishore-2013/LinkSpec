@@ -6,7 +6,12 @@ enum LinkSpecNotifyType { warning, info, success, error }
 /// Global Notification System with a 'Supportive Assistant' tone.
 class LinkSpecNotify {
   /// Displays a floating, centered notification card.
-  static void show(BuildContext context, String message, LinkSpecNotifyType type) {
+  static void show(
+    BuildContext context, 
+    String message, 
+    LinkSpecNotifyType type,
+    {VoidCallback? onAction, String? actionLabel}
+  ) {
     final overlay = Overlay.of(context);
     if (overlay == null) return;
 
@@ -16,6 +21,8 @@ class LinkSpecNotify {
       builder: (context) => _NotifyCard(
         message: message,
         type: type,
+        onAction: onAction,
+        actionLabel: actionLabel,
         onDismiss: () => entry.remove(),
       ),
     );
@@ -78,11 +85,15 @@ class _NotifyCard extends StatefulWidget {
   final String message;
   final LinkSpecNotifyType type;
   final VoidCallback onDismiss;
+  final VoidCallback? onAction;
+  final String? actionLabel;
 
   const _NotifyCard({
     required this.message,
     required this.type,
     required this.onDismiss,
+    this.onAction,
+    this.actionLabel,
   });
 
   @override
@@ -99,7 +110,7 @@ class _NotifyCardState extends State<_NotifyCard> with SingleTickerProviderState
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
-    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.backOut);
+    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack);
 
     _ctrl.forward();
 
@@ -123,7 +134,7 @@ class _NotifyCardState extends State<_NotifyCard> with SingleTickerProviderState
       LinkSpecNotifyType.info: const Color(0xFFE0F2FE).withOpacity(0.85),
       LinkSpecNotifyType.success: const Color(0xFFDCFCE7).withOpacity(0.85),
       LinkSpecNotifyType.error: const Color(0xFFFEE2E2).withOpacity(0.85),
-    }[widget.type];
+    }[widget.type] ?? Colors.white.withOpacity(0.85);
 
     final icon = {
       LinkSpecNotifyType.warning: Icons.lightbulb_outline,
@@ -137,7 +148,7 @@ class _NotifyCardState extends State<_NotifyCard> with SingleTickerProviderState
       LinkSpecNotifyType.info: const Color(0xFF075985),
       LinkSpecNotifyType.success: const Color(0xFF166534),
       LinkSpecNotifyType.error: const Color(0xFF991B1B),
-    }[widget.type];
+    }[widget.type] ?? const Color(0xFF1C1C1E);
 
     return Center(
       child: Padding(
@@ -190,6 +201,29 @@ class _NotifyCardState extends State<_NotifyCard> with SingleTickerProviderState
                             height: 1.4,
                           ),
                         ),
+                        if (widget.onAction != null && widget.actionLabel != null) ...[
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                widget.onDismiss();
+                                widget.onAction!();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: color,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: Text(
+                                widget.actionLabel!,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
