@@ -78,7 +78,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _saveProfile() async {
-    setState(() => _isSavingProfile = true);
+    if (_firstNameController.text.trim().isEmpty || _lastNameController.text.trim().isEmpty) {
+      _showFeedback('First and Last name are required');
+      setState(() => _isSavingProfile = false);
+      return;
+    }
+    
     try {
       final fullName = '${_firstNameController.text} ${_lastNameController.text}'.trim();
       final userId = Supabase.instance.client.auth.currentUser!.id;

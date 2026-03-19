@@ -489,6 +489,9 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                           if (val == null || val.trim().isEmpty) {
                             return 'Please enter some content';
                           }
+                          if (val.trim().length < AppConstants.minPostLength) {
+                            return 'Post is too short (min ${AppConstants.minPostLength} characters)';
+                          }
                           return null;
                         },
                         onChanged: (_) => setState(() => _contentError = null),

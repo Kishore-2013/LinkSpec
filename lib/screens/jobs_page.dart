@@ -429,7 +429,33 @@ class _JobsPageState extends ConsumerState<JobsPage> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () async {
-                      if (titleCtrl.text.isEmpty || companyCtrl.text.isEmpty) return;
+                      // ── STRICT VALIDATION ────────────────────────────
+                      if (titleCtrl.text.trim().isEmpty) {
+                        LinkSpecNotify.show(context, 'Please enter a job title', LinkSpecNotifyType.warning);
+                        return;
+                      }
+                      if (companyCtrl.text.trim().isEmpty) {
+                        LinkSpecNotify.show(context, 'Please enter the company name', LinkSpecNotifyType.warning);
+                        return;
+                      }
+                      if (locCtrl.text.trim().isEmpty) {
+                        LinkSpecNotify.show(context, 'Please specify the job location', LinkSpecNotifyType.warning);
+                        return;
+                      }
+                      if (salaryCtrl.text.trim().isEmpty) {
+                        LinkSpecNotify.show(context, 'Please provide a salary range or "Competitive"', LinkSpecNotifyType.warning);
+                        return;
+                      }
+                      if (descCtrl.text.trim().isEmpty) {
+                        LinkSpecNotify.show(context, 'A job description is required', LinkSpecNotifyType.warning);
+                        return;
+                      }
+                      if (descCtrl.text.trim().length < 50) {
+                        LinkSpecNotify.show(context, 'Job description is too short. Please provide more details (min 50 chars)', LinkSpecNotifyType.warning);
+                        return;
+                      }
+                      // ──────────────────────────────────────────────────
+                      
                       try {
                         await JobService.createJob(
                           title: titleCtrl.text,

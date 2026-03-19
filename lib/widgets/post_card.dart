@@ -470,8 +470,18 @@ class _PostCardState extends ConsumerState<PostCard> {
   Future<void> _handleLike() async {
     if (_isLikeProcessing) return;
     
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (currentUserId == null) return;
+    
+    // Safety Guard: Prevent users from liking their own posts (matches DB trigger)
+    if (currentUserId == widget.post.authorId) {
+      LinkSpecNotify.show(
+        context, 
+        'Ohh! You cannot like your own post, let the community appreciate your work!', 
+        LinkSpecNotifyType.info
+      );
+      return;
+    }
 
     setState(() {
       _isLikeProcessing = true;
