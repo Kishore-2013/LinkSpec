@@ -100,10 +100,15 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     final filtered = _filteredUsers;
     // Sort: existing conversations first, then alphabetically
     filtered.sort((a, b) {
-      final aHas = _existingConversationIds.contains(a['id']) ? 0 : 1;
-      final bHas = _existingConversationIds.contains(b['id']) ? 0 : 1;
+      final aId = a['id'] as String? ?? '';
+      final bId = b['id'] as String? ?? '';
+      final aHas = _existingConversationIds.contains(aId) ? 0 : 1;
+      final bHas = _existingConversationIds.contains(bId) ? 0 : 1;
       if (aHas != bHas) return aHas.compareTo(bHas);
-      return (a['full_name'] as String).compareTo(b['full_name'] as String);
+      
+      final aName = (a['full_name'] as String? ?? '').toLowerCase();
+      final bName = (b['full_name'] as String? ?? '').toLowerCase();
+      return aName.compareTo(bName);
     });
 
     return Scaffold(
@@ -125,8 +130,12 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.white,
+        child: Column(
+          children: [
           // ── Search bar ────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -175,6 +184,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
               ),
             ],
           ),
+        ),
     );
   }
 
@@ -206,10 +216,10 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
             CircleAvatar(
               radius: 24,
               backgroundColor: Colors.blue[50],
-              backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-              child: avatarUrl == null
+              backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) ? NetworkImage(avatarUrl) : null,
+              child: (avatarUrl == null || avatarUrl.isEmpty)
                   ? Text(
-                      name[0].toUpperCase(),
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
                       style: const TextStyle(
                           color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 18),
                     )
