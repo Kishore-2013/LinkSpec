@@ -78,7 +78,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     // Use a TIMEOUT so we never hang forever on slow networks.
     try {
       final profile = await Supabase.instance.client
-          .from('profiles')
+          .from('profiles_dim')
           .select()
           .eq('id', session.user.id)
           .maybeSingle()

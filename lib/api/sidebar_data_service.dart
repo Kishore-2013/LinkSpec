@@ -48,7 +48,7 @@ class SidebarDataService {
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
-          table: 'posts',
+          table: 'posts_dim',
           callback: (_) {
             // Bust both caches so the next load fetches fresh data
             SessionCache.invalidate(_tagsKey);
@@ -61,7 +61,7 @@ class SidebarDataService {
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
-          table: 'comments',
+          table: 'comments_fact',
           callback: (_) {
             SessionCache.invalidate(_discussionsKey);
             _discussionsLoadedAt = null;

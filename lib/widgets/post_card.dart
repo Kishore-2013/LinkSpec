@@ -486,13 +486,13 @@ class _PostCardState extends ConsumerState<PostCard> {
 
     try {
       if (_isLiked) {
-        await Supabase.instance.client.from('likes').upsert({
+        await Supabase.instance.client.from('likes_fact').upsert({
           'post_id': widget.post.id,
           'user_id': userId,
         }, onConflict: 'post_id,user_id');
       } else {
         await Supabase.instance.client
-            .from('likes')
+            .from('likes_fact')
             .delete()
             .eq('post_id', widget.post.id)
             .eq('user_id', userId);
@@ -532,7 +532,7 @@ class _PostCardState extends ConsumerState<PostCard> {
       // Refresh comment count when sheet closes
       try {
         final res = await Supabase.instance.client
-            .from('comments')
+            .from('comments_fact')
             .select()
             .eq('post_id', widget.post.id);
         if (mounted) setState(() => _commentCount = (res as List).length);

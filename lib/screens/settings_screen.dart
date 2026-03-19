@@ -81,10 +81,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _isSavingProfile = true);
     try {
       final fullName = '${_firstNameController.text} ${_lastNameController.text}'.trim();
-      await SupabaseService.updateProfile(
-        fullName: fullName,
-        bio: _headlineController.text,
-      );
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      await Supabase.instance.client.from('profiles_dim').update({
+        'full_name': fullName,
+        'bio': _headlineController.text,
+      }).eq('id', userId);
       
       if (mounted) {
         _showFeedback('Profile updated successfully');
@@ -474,7 +475,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 try {
                   final userId = Supabase.instance.client.auth.currentUser?.id;
                   if (userId != null) {
-                    await Supabase.instance.client.from('profiles').update({
+                    await Supabase.instance.client.from('profiles_dim').update({
                       'disability_status': disabilityController.text.trim(),
                     }).eq('id', userId);
                     // Update local state so next open reflects saved values

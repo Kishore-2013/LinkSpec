@@ -105,7 +105,7 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
       }
 
       // 2. SAVE PROFILE with professional sync
-      await client.from('profiles').upsert({
+      await client.from('profiles_dim').upsert({
         'id': user.id,
         'full_name': _fullNameController.text.trim(),
         'mother_domain': _selectedDomain,

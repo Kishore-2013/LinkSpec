@@ -78,7 +78,7 @@ class SupabaseService {
       throw Exception('User not authenticated');
     }
 
-    await _client.from('profiles').insert({
+    await _client.from('profiles_dim').insert({
       'id': userId,
       'full_name': fullName,
       // mother_domain: permanent home domain set at registration.
@@ -119,7 +119,7 @@ class SupabaseService {
 
     if (updates.isNotEmpty) {
       await _client
-          .from('profiles')
+          .from('profiles_dim')
           .update(updates)
           .eq('id', userId);
       
@@ -143,7 +143,7 @@ class SupabaseService {
     if (userId == null) throw Exception('User not authenticated');
 
     await _client
-        .from('profiles')
+        .from('profiles_dim')
         .update({
           'domain_id': newDomain,
           'industry': newDomain,
@@ -163,7 +163,7 @@ class SupabaseService {
   /// status: 'none' | 'pending' | 'verified'
   static Future<void> updateVerificationStatus(String userId, String status) async {
     await _client
-        .from('profiles')
+        .from('profiles_dim')
         .update({'verification_status': status})
         .eq('id', userId);
     
@@ -177,11 +177,11 @@ class SupabaseService {
   /// Subscribe to profile changes for the current user
   static RealtimeChannel subscribeToProfileChanges(String userId, void Function(Map<String, dynamic> payload) onUpdate) {
     return _client
-        .channel('public:profiles:$userId')
+        .channel('public:profiles_dim:$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
-          table: 'profiles',
+          table: 'profiles_dim',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'id',
@@ -217,7 +217,7 @@ class SupabaseService {
       ),
     );
     final url = _client.storage.from(profileBucket).getPublicUrl(path);
-    await _client.from('profiles').update({'avatar_url': url}).eq('id', userId);
+    await _client.from('profiles_dim').update({'avatar_url': url}).eq('id', userId);
     return url;
   }
 
@@ -246,7 +246,7 @@ class SupabaseService {
       ),
     );
     final url = _client.storage.from(profileBucket).getPublicUrl(path);
-    await _client.from('profiles').update({'cover_url': url}).eq('id', userId);
+    await _client.from('profiles_dim').update({'cover_url': url}).eq('id', userId);
     return url;
   }
 
@@ -306,7 +306,7 @@ class SupabaseService {
   static Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     try {
       final response = await _client
-          .from('profiles')
+          .from('profiles_dim')
           .select()
           .eq('id', userId)
           .maybeSingle();
@@ -321,7 +321,7 @@ class SupabaseService {
   /// Get total post count for a user
   static Future<int> getUserPostCount(String userId) async {
     final response = await _client
-        .from('posts')
+        .from('posts_dim')
         .select('id')
         .eq('author_id', userId)
         .count(CountOption.exact);
@@ -343,7 +343,7 @@ class SupabaseService {
     if (domain == null) return [];
 
     var query = _client
-        .from('profiles')
+        .from('profiles_dim')
         .select()
         .eq('domain_id', domain);
         
@@ -369,7 +369,7 @@ class SupabaseService {
     if (myId == null) return [];
 
     var query = _client
-        .from('profiles')
+        .from('profiles_dim')
         .select()
         .neq('id', myId); // exclude self
 
@@ -419,17 +419,17 @@ class SupabaseService {
     final filter = '#$tagWord';
 
     final response = await _client
-        .from('posts')
+        .from('posts_dim')
         .select('''
           *,
-          profiles:author_id (
+          profiles:profiles_dim!author_id (
             full_name,
             avatar_url,
             domain_id,
             verification_status
           ),
-          likes:likes(count),
-          comments:comments(count)
+          likes:likes_fact(count),
+          comments:comments_fact(count)
         ''')
         .ilike('content', '%$filter%')
         .order('created_at', ascending: false)
@@ -489,7 +489,7 @@ class SupabaseService {
   /// Global search for people across all domains
   static Future<List<Map<String, dynamic>>> searchProfiles(String query) async {
     final response = await _client
-        .from('profiles')
+        .from('profiles_dim')
         .select()
         .or('full_name.ilike.%$query%,bio.ilike.%$query%')
         .limit(20);
@@ -505,7 +505,7 @@ class SupabaseService {
     try {
       // 1. Get IDs of accepted connections
       final requests = await _client
-          .from('connection_requests')
+          .from('connection_requests_fact')
           .select('sender_id, receiver_id')
           .eq('status', 'accepted')
           .or('sender_id.eq.$myId,receiver_id.eq.$myId');
@@ -518,7 +518,7 @@ class SupabaseService {
 
       // 2. Search profiles among these IDs
       final response = await _client
-          .from('profiles')
+          .from('profiles_dim')
           .select()
           .inFilter('id', connectionIds)
           .or('full_name.ilike.%$query%,bio.ilike.%$query%')
@@ -555,7 +555,7 @@ class SupabaseService {
     String? domainId = targetDomainId;
     if (domainId == null) {
       final profile = await _client
-          .from('profiles')
+          .from('profiles_dim')
           .select('domain_id')
           .eq('id', userId)
           .maybeSingle();
@@ -575,7 +575,7 @@ class SupabaseService {
     debugPrint('DEBUG: Creating post with payload: $payload');
 
     final response = await _client
-        .from('posts')
+        .from('posts_dim')
         .insert(payload)
         .select()
         .single();
@@ -627,7 +627,7 @@ class SupabaseService {
     if (userId == null || postIds.isEmpty) return {};
 
     final response = await _client
-        .from('likes')
+        .from('likes_fact')
         .select('post_id')
         .eq('user_id', userId)
         .inFilter('post_id', postIds);
@@ -642,16 +642,16 @@ class SupabaseService {
     int offset = 0,
   }) async {
     final response = await _client
-        .from('posts')
+        .from('posts_dim')
         .select('''
           *,
-          profiles:author_id (
+          profiles:profiles_dim!author_id (
             full_name,
             avatar_url,
             domain_id
           ),
-          likes:likes(count),
-          comments:comments(count)
+          likes:likes_fact(count),
+          comments:comments_fact(count)
         ''')
         .eq('author_id', userId)
         .order('created_at', ascending: false)
@@ -667,7 +667,7 @@ class SupabaseService {
     required String content,
   }) async {
     await _client
-        .from('posts')
+        .from('posts_dim')
         .update({'content': content})
         .eq('id', postId);
   }
@@ -675,7 +675,7 @@ class SupabaseService {
   /// Delete a post
   static Future<void> deletePost(String postId) async {
     await _client
-        .from('posts')
+        .from('posts_dim')
         .delete()
         .eq('id', postId);
   }
@@ -685,16 +685,16 @@ class SupabaseService {
     if (postIds.isEmpty) return [];
 
     final response = await _client
-        .from('posts')
+        .from('posts_dim')
         .select('''
           *,
-          profiles:author_id (
+          profiles:profiles_dim!author_id (
             full_name,
             avatar_url,
             domain_id
           ),
-          likes:likes(count),
-          comments:comments(count)
+          likes:likes_fact(count),
+          comments:comments_fact(count)
         ''')
         .filter('id', 'in', postIds);
 
@@ -709,8 +709,8 @@ class SupabaseService {
     } catch (_) {
       // Fallback if RPC not defined
       try {
-        await _client.from('posts').update({
-          'views_count': (await _client.from('posts').select('views_count').eq('id', postId).single())['views_count'] + 1
+        await _client.from('posts_dim').update({
+          'views_count': (await _client.from('posts_dim').select('views_count').eq('id', postId).single())['views_count'] + 1
         }).eq('id', postId);
       } catch (e) {
         print('Error incrementing views: $e');
@@ -725,8 +725,8 @@ class SupabaseService {
     } catch (_) {
       // Fallback
       try {
-        await _client.from('posts').update({
-          'shares_count': (await _client.from('posts').select('shares_count').eq('id', postId).single())['shares_count'] + 1
+        await _client.from('posts_dim').update({
+          'shares_count': (await _client.from('posts_dim').select('shares_count').eq('id', postId).single())['shares_count'] + 1
         }).eq('id', postId);
       } catch (e) {
         print('Error incrementing shares: $e');
@@ -746,7 +746,7 @@ class SupabaseService {
       throw Exception('User not authenticated');
     }
 
-    await _client.from('likes').insert({
+    await _client.from('likes_fact').insert({
       'post_id': postId,
       'user_id': userId,
     });
@@ -761,7 +761,7 @@ class SupabaseService {
     }
 
     await _client
-        .from('likes')
+        .from('likes_fact')
         .delete()
         .eq('post_id', postId)
         .eq('user_id', userId);
@@ -776,7 +776,7 @@ class SupabaseService {
     }
 
     final response = await _client
-        .from('likes')
+        .from('likes_fact')
         .select()
         .eq('post_id', postId)
         .eq('user_id', userId)
@@ -798,7 +798,7 @@ class SupabaseService {
     final senderId = _client.auth.currentUser?.id;
     if (senderId == null) throw Exception('User not authenticated');
 
-    await _client.from('messages').insert({
+    await _client.from('messages_fact').insert({
       'sender_id': senderId,
       'receiver_id': receiverId,
       'content': content,
@@ -811,12 +811,12 @@ class SupabaseService {
     if (myId == null) return [];
 
     final response = await _client
-        .from('messages')
+        .from('messages_fact')
         .select('''
           *,
-          posts:post_id (
+          posts:posts_dim!post_id (
             *,
-            profiles:author_id (
+            profiles:profiles_dim!author_id (
               full_name,
               avatar_url
             )
@@ -850,7 +850,7 @@ class SupabaseService {
     if (userId == null) return 0;
     try {
       final response = await _client
-          .from('messages')
+          .from('messages_fact')
           .select('id')
           .eq('receiver_id', userId)
           .or('is_read.eq.false,is_read.is.null')
@@ -869,7 +869,7 @@ class SupabaseService {
     if (userId == null) return {};
     try {
       final response = await _client
-          .from('messages')
+          .from('messages_fact')
           .select('sender_id')
           .eq('receiver_id', userId)
           .or('is_read.eq.false,is_read.is.null');
@@ -888,7 +888,7 @@ class SupabaseService {
     if (userId == null) return;
     try {
       await _client
-          .from('messages')
+          .from('messages_fact')
           .update({'is_read': true})
           .eq('receiver_id', userId)
           .eq('sender_id', otherUserId)
@@ -907,7 +907,7 @@ class SupabaseService {
       // Simplest approach: mark all where we are the receiver as read.
       // This bypasses any NULL vs false logic issues.
       await _client
-          .from('messages')
+          .from('messages_fact')
           .update({'is_read': true})
           .eq('receiver_id', userId);
     } catch (e) {
@@ -922,12 +922,12 @@ class SupabaseService {
 
     // Fetch all messages involving the user
     final response = await _client
-        .from('messages')
+        .from('messages_fact')
         .select('''
           sender_id,
           receiver_id,
-          sender:profiles!sender_id (id, full_name, avatar_url, domain_id),
-          receiver:profiles!receiver_id (id, full_name, avatar_url, domain_id)
+          sender:profiles_dim!sender_id (id, full_name, avatar_url, domain_id),
+          receiver:profiles_dim!receiver_id (id, full_name, avatar_url, domain_id)
         ''')
         .or('sender_id.eq.$myId,receiver_id.eq.$myId')
         .order('created_at', ascending: false);
@@ -952,11 +952,11 @@ class SupabaseService {
     final myId = _client.auth.currentUser?.id;
     
     return _client
-        .channel('public:messages')
+        .channel('public:messages_fact')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
-          table: 'messages',
+          table: 'messages_fact',
           callback: (payload) {
             final msg = payload.newRecord;
             if (msg['receiver_id'] == myId || msg['sender_id'] == myId) {
@@ -981,7 +981,7 @@ class SupabaseService {
       throw Exception('User not authenticated');
     }
 
-    await _client.from('connections').insert({
+    await _client.from('connections_fact').insert({
       'follower_id': userId,
       'following_id': followingId,
     });
@@ -996,7 +996,7 @@ class SupabaseService {
     }
 
     await _client
-        .from('connections')
+        .from('connections_fact')
         .delete()
         .eq('follower_id', userId)
         .eq('following_id', followingId);
@@ -1008,7 +1008,7 @@ class SupabaseService {
     if (userId == null) return false;
 
     final response = await _client
-        .from('connections')
+        .from('connections_fact')
         .select()
         .eq('follower_id', userId)
         .eq('following_id', followingId)
@@ -1023,7 +1023,7 @@ class SupabaseService {
     if (userId == null || targetUserIds.isEmpty) return {};
 
     final response = await _client
-        .from('connections')
+        .from('connections_fact')
         .select('following_id')
         .eq('follower_id', userId)
         .inFilter('following_id', targetUserIds);
@@ -1037,8 +1037,8 @@ class SupabaseService {
     int limit = 50,
   }) async {
     final response = await _client
-        .from('connections')
-        .select('follower_id, profiles!connections_follower_id_fkey(*)')
+        .from('connections_fact')
+        .select('follower_id, profiles:profiles_dim!connections_follower_id_fkey(*)')
         .eq('following_id', userId)
         .limit(limit);
 
@@ -1051,8 +1051,8 @@ class SupabaseService {
     int limit = 50,
   }) async {
     final response = await _client
-        .from('connections')
-        .select('following_id, profiles!connections_following_id_fkey(*)')
+        .from('connections_fact')
+        .select('following_id, profiles:profiles_dim!connections_following_id_fkey(*)')
         .eq('follower_id', userId)
         .limit(limit);
 
@@ -1063,13 +1063,13 @@ class SupabaseService {
   static Future<Map<String, int>> getConnectionCounts(String userId) async {
     // Count followers
     final followersData = await _client
-        .from('connections')
+        .from('connections_fact')
         .select('id')
         .eq('following_id', userId);
     
     // Count following
     final followingData = await _client
-        .from('connections')
+        .from('connections_fact')
         .select('id')
         .eq('follower_id', userId);
 
@@ -1089,7 +1089,7 @@ class SupabaseService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
 
-    await _client.from('connection_requests').insert({
+    await _client.from('connection_requests_fact').insert({
       'sender_id': userId,
       'receiver_id': targetUserId,
       'status': 'pending',
@@ -1102,7 +1102,7 @@ class SupabaseService {
     if (userId == null) throw Exception('User not authenticated');
 
     await _client
-        .from('connection_requests')
+        .from('connection_requests_fact')
         .delete()
         .eq('sender_id', userId)
         .eq('receiver_id', targetUserId);
@@ -1114,7 +1114,7 @@ class SupabaseService {
     if (userId == null) throw Exception('User not authenticated');
 
     await _client
-        .from('connection_requests')
+        .from('connection_requests_fact')
         .update({'status': 'accepted'})
         .eq('sender_id', senderUserId)
         .eq('receiver_id', userId);
@@ -1127,7 +1127,7 @@ class SupabaseService {
 
     // Remove in both directions
     await _client
-        .from('connection_requests')
+        .from('connection_requests_fact')
         .delete()
         .or('and(sender_id.eq.$userId,receiver_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,receiver_id.eq.$userId)');
   }
@@ -1141,7 +1141,7 @@ class SupabaseService {
     try {
       // Check if we sent a request
       final sent = await _client
-          .from('connection_requests')
+          .from('connection_requests_fact')
           .select('status')
           .eq('sender_id', userId)
           .eq('receiver_id', otherUserId)
@@ -1153,7 +1153,7 @@ class SupabaseService {
 
       // Check if they sent us a request
       final received = await _client
-          .from('connection_requests')
+          .from('connection_requests_fact')
           .select('status')
           .eq('sender_id', otherUserId)
           .eq('receiver_id', userId)
@@ -1177,7 +1177,7 @@ class SupabaseService {
 
     try {
       final List<dynamic> response = await _client
-          .from('connection_requests')
+          .from('connection_requests_fact')
           .select()
           .or('sender_id.eq.$userId,receiver_id.eq.$userId');
 
@@ -1212,7 +1212,7 @@ class SupabaseService {
       final myId = _client.auth.currentUser?.id;
       if (myId == null) return 0;
       final data = await _client
-          .from('connection_requests')
+          .from('connection_requests_fact')
           .select('id')
           .or('sender_id.eq.$userId,receiver_id.eq.$userId')
           .eq('status', 'accepted');
@@ -1226,8 +1226,8 @@ class SupabaseService {
   static Future<List<Map<String, dynamic>>> getAcceptedConnections(String userId) async {
     try {
       final response = await _client
-          .from('connection_requests')
-          .select('sender_id, receiver_id, sender:profiles!connection_requests_sender_id_fkey(*), receiver:profiles!connection_requests_receiver_id_fkey(*)')
+          .from('connection_requests_fact')
+          .select('sender_id, receiver_id, sender:profiles_dim!connection_requests_sender_id_fkey(*), receiver:profiles_dim!connection_requests_receiver_id_fkey(*)')
           .or('sender_id.eq.$userId,receiver_id.eq.$userId')
           .eq('status', 'accepted');
       
@@ -1259,11 +1259,11 @@ class SupabaseService {
     required void Function(PostgresChangePayload payload) callback,
   }) {
     return _client
-        .channel('public:posts')
+        .channel('public:posts_dim')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'posts',
+          table: 'posts_dim',
           callback: callback,
         )
         .subscribe();
@@ -1276,11 +1276,11 @@ class SupabaseService {
     required void Function(Map<String, dynamic> like) onUnlike,
   }) {
     return _client
-        .channel('public:likes:$postId')
+        .channel('public:likes_fact:$postId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
-          table: 'likes',
+          table: 'likes_fact',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'post_id',
@@ -1293,7 +1293,7 @@ class SupabaseService {
         .onPostgresChanges(
           event: PostgresChangeEvent.delete,
           schema: 'public',
-          table: 'likes',
+          table: 'likes_fact',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'post_id',
@@ -1313,11 +1313,11 @@ class SupabaseService {
     void Function(Map<String, dynamic> comment)? onDeletedComment,
   }) {
     return _client
-        .channel('public:comments:$postId')
+        .channel('public:comments_fact:$postId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
-          table: 'comments',
+          table: 'comments_fact',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'post_id',
@@ -1328,7 +1328,7 @@ class SupabaseService {
         .onPostgresChanges(
           event: PostgresChangeEvent.delete,
           schema: 'public',
-          table: 'comments',
+          table: 'comments_fact',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'post_id',
@@ -1349,7 +1349,7 @@ class SupabaseService {
       await getCurrentUserProfile();
     }
 
-    var query = _client.from('jobs').select('*, saved_jobs(id)');
+    var query = _client.from('jobs_dim').select('*, saved_jobs_fact(id)');
     
     // Filter by domain if available
     final domain = _myDomain;
@@ -1378,7 +1378,7 @@ class SupabaseService {
       await getCurrentUserProfile();
     }
 
-    final query = _client.from('groups').select();
+    final query = _client.from('groups_dim').select();
     
     final domain = _myDomain;
     if (domain != null) {
@@ -1400,7 +1400,7 @@ class SupabaseService {
 
     // Fetch the freshest domain directly from the profile to ensure RLS compliance
     final profile = await _client
-        .from('profiles')
+        .from('profiles_dim')
         .select('domain_id')
         .eq('id', userId)
         .maybeSingle();
@@ -1408,7 +1408,7 @@ class SupabaseService {
     final domainId = profile?['domain_id'];
     if (domainId == null) throw Exception('User domain not found. Please complete your profile.');
 
-    await _client.from('groups').insert({
+    await _client.from('groups_dim').insert({
       'name': name,
       'description': description,
       'domain_id': domainId,
@@ -1424,7 +1424,7 @@ class SupabaseService {
       await getCurrentUserProfile();
     }
 
-    final query = _client.from('events').select();
+    final query = _client.from('events_dim').select();
     
     final domain = _myDomain;
     if (domain != null) {
@@ -1442,7 +1442,7 @@ class SupabaseService {
     if (userId == null) return false;
 
     final response = await _client
-        .from('saved_jobs')
+        .from('saved_jobs_fact')
         .select()
         .eq('user_id', userId)
         .eq('job_id', jobId)
@@ -1456,7 +1456,7 @@ class SupabaseService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
 
-    await _client.from('saved_jobs').insert({
+    await _client.from('saved_jobs_fact').insert({
       'user_id': userId,
       'job_id': jobId,
     });
@@ -1468,7 +1468,7 @@ class SupabaseService {
     if (userId == null) throw Exception('User not authenticated');
 
     await _client
-        .from('saved_jobs')
+        .from('saved_jobs_fact')
         .delete()
         .eq('user_id', userId)
         .eq('job_id', jobId);
@@ -1486,11 +1486,29 @@ class SupabaseService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('User not authenticated');
 
-    await _client.from('comments').insert({
+    await _client.from('comments_fact').insert({
       'post_id': postId,
       'author_id': userId,
       'content': content,
       'parent_id': parentId,
+    });
+  }
+
+  /// Create a new notification
+  static Future<void> createNotification({
+    required String userId,
+    required String actorId,
+    required String type,
+    String? postId,
+    String? commentId,
+  }) async {
+    await _client.from('notifications_fact').insert({
+      'user_id': userId,
+      'actor_id': actorId,
+      'type': type,
+      'post_id': postId,
+      'comment_id': commentId,
+      'is_read': false,
     });
   }
 
@@ -1499,14 +1517,14 @@ class SupabaseService {
     final userId = _client.auth.currentUser?.id;
     
     final response = await _client
-        .from('comments')
+        .from('comments_fact')
         .select('''
           *,
-          profiles:author_id (
+          profiles:profiles_dim!author_id (
             full_name,
             avatar_url
           ),
-          likes:comment_likes(user_id)
+          likes:comment_likes_fact(user_id)
         ''')
         .eq('post_id', postId)
         .order('created_at', ascending: true);
@@ -1534,7 +1552,7 @@ class SupabaseService {
     try {
       // Check if already liked
       final existing = await _client
-          .from('comment_likes')
+          .from('comment_likes_fact')
           .select()
           .eq('comment_id', commentId)
           .eq('user_id', userId)
@@ -1543,14 +1561,14 @@ class SupabaseService {
       if (existing != null) {
         // Unlike
         await _client
-            .from('comment_likes')
+            .from('comment_likes_fact')
             .delete()
             .eq('comment_id', commentId)
             .eq('user_id', userId);
         return false; // Now unliked
       } else {
         // Like
-        await _client.from('comment_likes').insert({
+        await _client.from('comment_likes_fact').insert({
           'comment_id': commentId,
           'user_id': userId,
         });
@@ -1565,7 +1583,7 @@ class SupabaseService {
   /// Get comment count for a post
   static Future<int> getCommentCount(String postId) async {
     final response = await _client
-        .from('comments')
+        .from('comments_fact')
         .select('id')
         .eq('post_id', postId);
     
@@ -1582,7 +1600,7 @@ class SupabaseService {
     if (userId == null) return 0;
     try {
       final response = await _client
-          .from('notifications')
+          .from('notifications_fact')
           .select('id')
           .eq('user_id', userId)
           .eq('is_read', false)
@@ -1600,10 +1618,10 @@ class SupabaseService {
     if (userId == null) return [];
 
     final response = await _client
-        .from('notifications')
+        .from('notifications_fact')
         .select('''
           *,
-          actor:profiles!actor_id (
+          actor:profiles_dim!actor_id (
             full_name,
             avatar_url
           )
@@ -1625,9 +1643,17 @@ class SupabaseService {
   /// Mark notification as read
   static Future<void> markNotificationAsRead(String notificationId) async {
     await _client
-        .from('notifications')
+        .from('notifications_fact')
         .update({'is_read': true})
         .eq('id', notificationId);
+  }
+
+  /// Mark all notifications for the current user as read
+  static Future<void> markNotificationsAsRead(String userId) async {
+    await _client
+        .from('notifications_fact')
+        .update({'is_read': true})
+        .eq('user_id', userId);
   }
 
   // Inflight guard — prevents concurrent callers from stacking up identical
@@ -1644,7 +1670,7 @@ class SupabaseService {
     try {
       // 1. Get IDs of all unread notifications first
       final unreadResponse = await _client
-          .from('notifications')
+          .from('notifications_fact')
           .select('id')
           .eq('user_id', userId)
           .neq('is_read', true);
@@ -1656,7 +1682,7 @@ class SupabaseService {
 
       // 2. Update them specifically by ID (more reliable with RLS)
       await _client
-          .from('notifications')
+          .from('notifications_fact')
           .update({'is_read': true})
           .filter('id', 'in', ids);
     } catch (e) {
@@ -1673,7 +1699,7 @@ class SupabaseService {
     
     try {
       final response = await _client
-          .from('notifications')
+          .from('notifications_fact')
           .delete()
           .eq('id', id)
           .eq('user_id', userId)
@@ -1699,7 +1725,7 @@ class SupabaseService {
 
     // Use a combined approach: Realtime for fast updates, but error handling for reliability
     return _client
-        .from('notifications')
+        .from('notifications_fact')
         .stream(primaryKey: ['id'])
         .eq('user_id', userId)
         .order('created_at', ascending: false)
@@ -1719,7 +1745,7 @@ class SupabaseService {
     int limit = 5,
   }) async {
     final rows = await _client
-        .from('posts')
+        .from('posts_dim')
         .select('content')
         .eq('domain_id', domain)
         .order('created_at', ascending: false)
@@ -1767,7 +1793,7 @@ class SupabaseService {
     } catch (_) {
       // Fallback: query posts directly if view unavailable
       final rows = await _client
-          .from('posts')
+          .from('posts_dim')
           .select('id, content, created_at')
           .eq('domain_id', domain)
           .order('created_at', ascending: false)
@@ -1783,7 +1809,7 @@ class SupabaseService {
     try {
       final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
       final rows = await _client
-          .from('events')
+          .from('events_dim')
           .select('id, title, date, location')
           .gte('date', today)
           .order('date', ascending: true)
@@ -1806,9 +1832,9 @@ class SupabaseService {
 
     // Run all fetches in parallel
     final results = await Future.wait([
-      _client.from('posts').select('id, content, created_at').eq('author_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
-      _client.from('comments').select('id, content, created_at, post_id').eq('author_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
-      _client.from('likes').select('id, created_at, post_id').eq('user_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
+      _client.from('posts_dim').select('id, content, created_at').eq('author_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
+      _client.from('comments_fact').select('id, content, created_at, post_id').eq('author_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
+      _client.from('likes_fact').select('id, created_at, post_id').eq('user_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
     ]);
 
     final List<dynamic> myPosts = results[0];
@@ -1863,7 +1889,7 @@ class SupabaseService {
   // ============================================================================
   static Stream<List<Map<String, dynamic>>> getLatestPostsStream({int limit = 10}) {
     return _client
-        .from('posts')
+        .from('posts_dim')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
         .limit(limit)

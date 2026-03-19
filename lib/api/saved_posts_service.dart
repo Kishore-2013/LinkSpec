@@ -13,7 +13,7 @@ class SavedPostsService {
 
     // 1. Check if already saved
     final existing = await _client
-        .from('saved_posts')
+        .from('saved_posts_fact')
         .select()
         .eq('user_id', userId)
         .eq('post_id', postId)
@@ -22,14 +22,14 @@ class SavedPostsService {
     if (existing != null) {
       // 2. Remove if exists
       await _client
-          .from('saved_posts')
+          .from('saved_posts_fact')
           .delete()
           .eq('user_id', userId)
           .eq('post_id', postId);
       return false;
     } else {
       // 3. Add if not exists
-      await _client.from('saved_posts').insert({
+      final response = await _client.from('saved_posts_fact').insert({
         'user_id': userId,
         'post_id': postId,
       });
@@ -45,7 +45,7 @@ class SavedPostsService {
 
     try {
       final response = await _client
-          .from('saved_posts')
+          .from('saved_posts_fact')
           .select('post_id')
           .eq('user_id', userId);
 
@@ -66,7 +66,7 @@ class SavedPostsService {
     try {
       // 1. Get the IDs for this page
       final savedResponse = await _client
-          .from('saved_posts')
+          .from('saved_posts_fact')
           .select('post_id')
           .eq('user_id', userId)
           .order('created_at', ascending: false)

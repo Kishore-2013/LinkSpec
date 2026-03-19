@@ -24,7 +24,7 @@ class AuthService {
       final user = _supabase.auth.currentUser;
       if (user != null && user.email != null) {
         await _supabase
-            .from('profiles')
+            .from('profiles_dim')
             .update({
               'email': user.email,
               'full_name': user.userMetadata?['full_name'] ?? user.email?.split('@').first,

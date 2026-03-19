@@ -39,7 +39,7 @@ class CreatePostExample {
     // Step 2: Insert post with ONLY author_id and content
     // The domain_id will be automatically set by the database trigger!
     final response = await _client
-        .from('posts')
+        .from('posts_dim')
         .insert({
           'author_id': userId,  // ← Current user's ID
           'content': content,   // ← Post content
@@ -89,7 +89,7 @@ class CreatePostExample {
 
     // ❌ EXTRA QUERY: Fetch user's profile to get domain_id
     final profile = await _client
-        .from('profiles')
+        .from('profiles_dim')
         .select('domain_id')
         .eq('id', userId)
         .single();
@@ -98,7 +98,7 @@ class CreatePostExample {
 
     // Insert post with manually fetched domain_id
     final response = await _client
-        .from('posts')
+        .from('posts_dim')
         .insert({
           'author_id': userId,
           'content': content,
@@ -122,13 +122,13 @@ class CreatePostExample {
   /// RETURNS TRIGGER AS $$
   /// BEGIN
   ///   -- Fetch the author's domain_id from their profile
-  ///   NEW.domain_id := (SELECT domain_id FROM profiles WHERE id = NEW.author_id);
+  ///   NEW.domain_id := (SELECT domain_id FROM profiles_dim WHERE id = NEW.author_id);
   ///   RETURN NEW;
   /// END;
   /// $$ LANGUAGE plpgsql SECURITY DEFINER;
   /// 
   /// CREATE TRIGGER trigger_set_post_domain
-  ///   BEFORE INSERT ON posts
+  ///   BEFORE INSERT ON posts_dim
   ///   FOR EACH ROW
   ///   EXECUTE FUNCTION set_post_domain();
   /// ```
@@ -199,7 +199,7 @@ class CreatePostExample {
     // 3. Verify it matches the user's profile domain
     final userId = _client.auth.currentUser?.id;
     final profile = await _client
-        .from('profiles')
+        .from('profiles_dim')
         .select('domain_id')
         .eq('id', userId!)
         .single();
@@ -225,7 +225,7 @@ class CreatePostExample {
   ///     ↓
   /// Flutter: createPost(content: "Hello!")
   ///     ↓
-  /// Supabase Client: INSERT INTO posts (author_id, content)
+  /// Supabase Client: INSERT INTO posts_dim (author_id, content)
   ///     ↓
   /// PostgreSQL: BEFORE INSERT trigger fires
   ///     ↓
@@ -423,7 +423,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 ///   }
 /// 
 ///   final response = await _client
-///       .from('posts')
+///       .from('posts_dim')
 ///       .insert({
 ///         'author_id': userId,
 ///         'content': content,

@@ -21,7 +21,7 @@ class JobService {
     var selectStr = '*, saved_jobs(id), job_applications(id)';
     
     var request = _client
-        .from('jobs')
+        .from('jobs_dim')
         .select(selectStr);
 
     // Filter by domain. If not provided, fetch current user's domain to enforce restriction.
@@ -67,15 +67,15 @@ class JobService {
     if (userId == null) return null;
 
     final response = await _client
-        .from('jobs')
-        .select('*, saved_jobs(id), job_applications(id)')
+        .from('jobs_dim')
+        .select('*, saved_jobs_fact(id), job_applications_fact(id)')
         .eq('id', jobId)
         .maybeSingle();
 
     if (response == null) return null;
 
-    final savedList = response['saved_jobs'] as List?;
-    final appliedList = response['job_applications'] as List?;
+    final savedList = response['saved_jobs_fact'] as List?;
+    final appliedList = response['job_applications_fact'] as List?;
 
     return {
       ...response,
@@ -122,7 +122,7 @@ class JobService {
     final String finalDomain = domainId.isNotEmpty ? domainId : (profile?['domain_id'] ?? 'IT/Software');
 
     // 2. Insert job and get the created job data
-    final jobResponse = await _client.from('jobs').insert({
+    final jobResponse = await _client.from('jobs_dim').insert({
       'title': title,
       'company': company,
       'location': location,
@@ -162,7 +162,7 @@ class JobService {
   static Future<List<Map<String, dynamic>>> fetchApplicantsForJob(String jobId) async {
     try {
       final response = await _client
-          .from('job_applications')
+          .from('job_applications_fact')
           .select('''
             *,
             profiles:user_id (
@@ -192,8 +192,8 @@ class JobService {
     try {
       // 1. Check if already applied
       final existing = await _client
-          .from('job_applications')
-          .select()
+          .from('job_applications_fact')
+          .select('*, profiles:profiles_dim!job_applications_user_id_fkey(*)')
           .eq('user_id', userId)
           .eq('job_id', jobId)
           .maybeSingle();
@@ -201,7 +201,7 @@ class JobService {
       if (existing != null) return true; // Already applied
 
       // 2. Insert application
-      await _client.from('job_applications').insert({
+      await _client.from('job_applications_fact').insert({
         'user_id': userId,
         'job_id': jobId,
         'answers_json': answers ?? {},
@@ -221,7 +221,7 @@ class JobService {
 
     try {
       // The Supabase RLS policy "Jobs are deletable by poster" handles the safety.
-      await _client.from('jobs').delete().eq('id', jobId).eq('posted_by', userId);
+      await _client.from('jobs_dim').delete().eq('id', jobId).eq('posted_by', userId);
     } catch (e) {
       print('JobService error (deleteJob): $e');
       rethrow;
@@ -231,7 +231,7 @@ class JobService {
   /// Get real-time stream of new jobs for "New" badge implementation.
   static Stream<List<Map<String, dynamic>>> getLatestJobsStream({int limit = 1}) {
     return _client
-        .from('jobs')
+        .from('jobs_dim')
         .stream(primaryKey: ['id'])
         .order('posted_at', ascending: false)
         .limit(limit);
@@ -244,7 +244,7 @@ class JobService {
 
     // 1. Get job IDs created by this HR user
     final jobs = await _client
-        .from('jobs')
+        .from('jobs_dim')
         .select('id')
         .eq('posted_by', userId);
     
@@ -253,10 +253,9 @@ class JobService {
 
     // 2. Return stream of applications for those IDs
     return _client
-        .from('job_applications')
+        .from('job_applications_fact')
         .stream(primaryKey: ['id'])
-        .order('applied_at', ascending: false)
+        .order('created_at', ascending: false)
         .limit(1);
   }
 }
-

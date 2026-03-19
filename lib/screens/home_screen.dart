@@ -186,7 +186,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'messages',
+          table: 'messages_fact',
           callback: (_) => _loadBadgeCounts(),
         )
         .subscribe((RealtimeSubscribeStatus status, Object? error) {});
@@ -197,7 +197,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           .onPostgresChanges(
             event: PostgresChangeEvent.insert,
             schema: 'public',
-            table: 'notifications',
+            table: 'notifications_fact',
             filter: PostgresChangeFilter(
               type: PostgresChangeFilterType.eq,
               column: 'user_id',
