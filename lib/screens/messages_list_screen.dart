@@ -107,10 +107,11 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     });
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
           onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
@@ -131,15 +132,9 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Container(
                   decoration: BoxDecoration(
-                    color: Theme.of(context).cardTheme.color ?? Colors.white,
+                    color: Colors.grey[50],
                     borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    border: Border.all(color: Colors.grey[200]!),
                   ),
                   child: TextField(
                     controller: _searchController,
@@ -192,7 +187,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     final avatarUrl      = user['avatar_url'] as String?;
 
     return Card(
-      color: (Theme.of(context).cardTheme.color ?? Colors.white).withOpacity(0.85),
+      color: Colors.white,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
