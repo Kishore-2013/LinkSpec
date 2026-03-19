@@ -74,7 +74,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
     } catch (e) {
       LinkSpecNotify.show(
         context,
-        'Error adding comment',
+        'Error adding comment: $e',
         LinkSpecNotifyType.error,
       );
     } finally {
