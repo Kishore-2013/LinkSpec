@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import 'post_service.dart';
@@ -31,8 +32,9 @@ class JobService {
       domainToUse = profile?['domain_id'];
     }
 
+    // Case-insensitive match: 'Medical', 'medical', 'MEDICAL' all work
     if (domainToUse != null && domainToUse.isNotEmpty) {
-      request = request.eq('domain_id', domainToUse);
+      request = request.ilike('domain_id', domainToUse);
     }
 
     // Filter by search query (title or company)
@@ -46,6 +48,7 @@ class JobService {
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
     final data = List<Map<String, dynamic>>.from(response);
+    debugPrint('DEBUG fetchJobs: domain=$domainToUse, returned ${data.length} jobs');
 
     // Map the relational data to simplified boolean flags
     return data.map((job) {
