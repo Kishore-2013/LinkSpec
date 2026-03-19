@@ -8,7 +8,6 @@ import 'post_service.dart';
 class JobService {
   static final _client = Supabase.instance.client;
 
-  /// Fetch jobs with pagination, filtering, and search.
   static Future<List<Map<String, dynamic>>> fetchJobs({
     int page = 0,
     int pageSize = 10,
@@ -18,50 +17,70 @@ class JobService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return [];
 
-    // Base query including join with saved_jobs and job_applications_fact to get status flags
-    var selectStr = '*, saved_jobs_fact(id), job_applications_fact(id)';
-    
-    var request = _client
-        .from('jobs_dim')
-        .select(selectStr);
+    try {
+      // Filter by domain. If not provided, fetch current user's domain.
+      String? domainToUse = domain;
+      if (domainToUse == null || domainToUse.isEmpty) {
+        final profile = await SupabaseService.getCurrentUserProfile();
+        domainToUse = profile?['domain_id'] as String?;
+      }
 
-    // Filter by domain. If not provided, fetch current user's domain to enforce restriction.
-    String? domainToUse = domain;
-    if (domainToUse == null || domainToUse.isEmpty) {
-      final profile = await SupabaseService.getCurrentUserProfile();
-      domainToUse = profile?['domain_id'];
+      // ── Step 1: Fetch jobs (NO joins — avoids FK errors blocking results) ──
+      var request = _client.from('jobs_dim').select('*');
+
+      // Case-insensitive domain filter
+      if (domainToUse != null && domainToUse.isNotEmpty) {
+        request = request.ilike('domain_id', domainToUse);
+      }
+
+      if (query != null && query.isNotEmpty) {
+        request = request.or('title.ilike.%$query%,company.ilike.%$query%');
+      }
+
+      final response = await request
+          .order('posted_at', ascending: false)
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      final jobs = List<Map<String, dynamic>>.from(response);
+      debugPrint('DEBUG fetchJobs: domain=$domainToUse, returned ${jobs.length} jobs');
+
+      if (jobs.isEmpty) return [];
+
+      // ── Step 2: Fetch saved & applied flags in parallel ──
+      final jobIds = jobs.map((j) => j['id'] as String).toList();
+
+      final results = await Future.wait([
+        _client
+            .from('saved_jobs_fact')
+            .select('job_id')
+            .eq('user_id', userId)
+            .inFilter('job_id', jobIds)
+            .then((r) => (r as List).map((e) => e['job_id'] as String).toSet())
+            .catchError((_) => <String>{}),
+        _client
+            .from('job_applications_fact')
+            .select('job_id')
+            .eq('user_id', userId)
+            .inFilter('job_id', jobIds)
+            .then((r) => (r as List).map((e) => e['job_id'] as String).toSet())
+            .catchError((_) => <String>{}),
+      ]);
+
+      final savedIds = results[0] as Set<String>;
+      final appliedIds = results[1] as Set<String>;
+
+      return jobs.map((job) {
+        final id = job['id'] as String;
+        return {
+          ...job,
+          'is_saved': savedIds.contains(id),
+          'has_applied': appliedIds.contains(id),
+        };
+      }).toList();
+    } catch (e, st) {
+      debugPrint('ERROR fetchJobs: $e\n$st');
+      return [];
     }
-
-    // Case-insensitive match: 'Medical', 'medical', 'MEDICAL' all work
-    if (domainToUse != null && domainToUse.isNotEmpty) {
-      request = request.ilike('domain_id', domainToUse);
-    }
-
-    // Filter by search query (title or company)
-    if (query != null && query.isNotEmpty) {
-      request = request.or('title.ilike.%$query%,company.ilike.%$query%');
-    }
-
-    // Pagination & Order
-    final response = await request
-        .order('posted_at', ascending: false)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-
-    final data = List<Map<String, dynamic>>.from(response);
-    debugPrint('DEBUG fetchJobs: domain=$domainToUse, returned ${data.length} jobs');
-
-    // Map the relational data to simplified boolean flags
-    return data.map((job) {
-      final savedList = job['saved_jobs_fact'] as List?;
-      final appliedList = job['job_applications_fact'] as List?;
-      
-      return {
-        ...job,
-        'is_saved': savedList != null && savedList.isNotEmpty,
-        'has_applied': appliedList != null && appliedList.isNotEmpty,
-        'posted_by': job['posted_by'],
-      };
-    }).toList();
   }
 
   /// Fetch a single job by ID.
