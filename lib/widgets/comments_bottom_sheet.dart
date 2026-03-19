@@ -16,37 +16,100 @@ class CommentsBottomSheet extends StatefulWidget {
 class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _commentFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
+  
   List<Comment> _comments = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
   bool _isSubmitting = false;
+  bool _hasMore = true;
+  DateTime? _lastTimestamp;
   Comment? _replyingTo;
 
   @override
   void initState() {
     super.initState();
     _loadComments();
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _commentController.dispose();
     _commentFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMore) {
+        _loadMoreComments();
+      }
+    }
+  }
+
   Future<void> _loadComments() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _comments = [];
+      _hasMore = true;
+      _lastTimestamp = null;
+    });
+    
     try {
-      final data = await SupabaseService.getComments(widget.postId);
+      final result = await SupabaseService.getCommentsPaged(
+        postId: widget.postId,
+        limit: 20,
+      );
+      
       if (mounted) {
         setState(() {
+          final List<dynamic> data = result['comments'];
           _comments = data.map((c) => Comment.fromJson(c)).toList();
+          _hasMore = result['hasMore'] as bool;
+          _lastTimestamp = result['lastTimestamp'] as DateTime?;
           _isLoading = false;
         });
       }
     } catch (e) {
       debugPrint('Error loading comments: $e');
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadMoreComments() async {
+    if (_isLoadingMore || !_hasMore) return;
+    
+    setState(() => _isLoadingMore = true);
+    try {
+      final result = await SupabaseService.getCommentsPaged(
+        postId: widget.postId,
+        before: _lastTimestamp,
+        limit: 20,
+      );
+      
+      if (mounted) {
+        setState(() {
+          final List<dynamic> data = result['comments'];
+          final newComments = data.map((c) => Comment.fromJson(c)).toList();
+          
+          // Use a set to prevent duplicates if any overlapping occurs (safety check)
+          final existingIds = _comments.map((c) => c.id).toSet();
+          for (var comment in newComments) {
+            if (!existingIds.contains(comment.id)) {
+              _comments.add(comment);
+            }
+          }
+          
+          _hasMore = result['hasMore'] as bool;
+          _lastTimestamp = result['lastTimestamp'] as DateTime?;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading more comments: $e');
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -167,9 +230,23 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                         ),
                       )
                     : ListView.builder(
+                        controller: _scrollController,
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        itemCount: threadedComments.length,
+                        itemCount: threadedComments.length + (_isLoadingMore ? 1 : 0),
                         itemBuilder: (context, index) {
+                          if (index == threadedComments.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 32),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                            );
+                          }
+                          
                           final comment = threadedComments[index];
                           final isReply = comment.parentId != null;
                           

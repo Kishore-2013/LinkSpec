@@ -25,15 +25,26 @@ class _ChatScreenState extends State<ChatScreen> {
   final _scrollController = ScrollController();
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
+  bool _isLoadingOlder = false;
+  bool _hasMore = true;
+  DateTime? _lastTimestamp;
   RealtimeChannel? _subscription;
   final String _myId = Supabase.instance.client.auth.currentUser!.id;
 
   @override
   void initState() {
     super.initState();
-    _fetchMessages();
+    _fetchInitialMessages();
     _setupSubscription();
     SupabaseService.markMessagesAsRead(widget.otherUser['id']);
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    // When scrolling to the top, load more older messages
+    if (_scrollController.position.pixels <= 100 && !_isLoadingOlder && _hasMore) {
+      _fetchOlderMessages();
+    }
   }
 
   @override
@@ -81,18 +92,63 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Future<void> _fetchMessages() async {
+  Future<void> _fetchInitialMessages() async {
     try {
-      final messages = await SupabaseService.getMessages(widget.otherUser['id']);
+      final result = await SupabaseService.getMessagesPaged(
+        otherUserId: widget.otherUser['id'],
+        limit: 30,
+      );
+      
       if (mounted) {
         setState(() {
-          _messages = messages;
+          _messages = result['messages'];
+          _hasMore = result['hasMore'];
+          _lastTimestamp = result['lastTimestamp'];
           _isLoading = false;
         });
         _scrollToBottom();
       }
     } catch (e) {
-      print('Error fetching messages: $e');
+      print('Error fetching initial messages: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchOlderMessages() async {
+    if (_isLoadingOlder || !_hasMore) return;
+    
+    setState(() => _isLoadingOlder = true);
+    final previousOffset = _scrollController.position.maxScrollExtent;
+    
+    try {
+      final result = await SupabaseService.getMessagesPaged(
+        otherUserId: widget.otherUser['id'],
+        before: _lastTimestamp,
+        limit: 30,
+      );
+      
+      if (mounted) {
+        final List<Map<String, dynamic>> olderMessages = result['messages'];
+        
+        setState(() {
+          // Prepend older messages and sort just in case
+          _messages.insertAll(0, olderMessages);
+          _hasMore = result['hasMore'];
+          _lastTimestamp = result['lastTimestamp'];
+          _isLoadingOlder = false;
+        });
+
+        // Try to maintain scroll position so it doesn't jump
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            final newOffset = _scrollController.position.maxScrollExtent;
+            _scrollController.jumpTo(newOffset - previousOffset);
+          }
+        });
+      }
+    } catch (e) {
+      print('Error fetching older messages: $e');
+      if (mounted) setState(() => _isLoadingOlder = false);
     }
   }
 
@@ -211,9 +267,20 @@ class _ChatScreenState extends State<ChatScreen> {
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
+                    itemCount: _messages.length + (_hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
-                      final msg = _messages[index];
+                      if (_hasMore && index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24.0),
+                          child: Center(
+                            child: _isLoadingOlder 
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                : Text('Scroll up to see history', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                          ),
+                        );
+                      }
+                      
+                      final msg = _messages[_hasMore ? index - 1 : index];
                       final isMe = msg['sender_id'] == _myId;
                       final postData = msg['posts'];
                       

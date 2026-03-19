@@ -21,7 +21,7 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   final List<Job> _jobs = [];
   bool _isLoading = true;
   bool _isLoadingMore = false;
-  int _currentPage = 0;
+  DateTime? _lastTimestamp;
   bool _hasNextPage = true;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
@@ -43,13 +43,13 @@ class _JobsPageState extends ConsumerState<JobsPage> {
       final results = await Future.wait([
         SupabaseService.getCurrentUserProfile(),
         JobService.fetchJobs(
-          page: 0,
           query: _searchController.text,
         ),
       ]);
 
       final profile = results[0] as Map<String, dynamic>?;
-      final jobData = results[1] as List<Map<String, dynamic>>;
+      final jobResult = results[1] as Map<String, dynamic>;
+      final List<Map<String, dynamic>> jobData = jobResult['jobs'];
 
       if (mounted) {
         setState(() {
@@ -59,8 +59,8 @@ class _JobsPageState extends ConsumerState<JobsPage> {
           }
           _jobs.clear();
           _jobs.addAll(jobData.map((e) => Job.fromJson(e)));
-          _currentPage = 0;
-          _hasNextPage = jobData.length == 10;
+          _lastTimestamp = jobResult['lastTimestamp'] as DateTime?;
+          _hasNextPage = jobResult['hasMore'] as bool;
           _isLoading = false;
         });
       }
@@ -86,23 +86,25 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   Future<void> _loadInitialJobs() async {
     setState(() {
       _isLoading = true;
-      _currentPage = 0;
+      _lastTimestamp = null;
       _jobs.clear();
       _hasNextPage = true;
     });
 
     try {
-      final results = await JobService.fetchJobs(
-        page: 0,
+      final result = await JobService.fetchJobs(
         query: _searchController.text,
         domain: _currentDomain,
       );
+
+      final List<Map<String, dynamic>> jobData = result['jobs'];
       
       if (mounted) {
         setState(() {
-          _jobs.addAll(results.map((e) => Job.fromJson(e)));
+          _jobs.addAll(jobData.map((e) => Job.fromJson(e)));
+          _lastTimestamp = result['lastTimestamp'] as DateTime?;
+          _hasNextPage = result['hasMore'] as bool;
           _isLoading = false;
-          _hasNextPage = results.length == 10;
         });
       }
     } catch (e) {
@@ -117,18 +119,20 @@ class _JobsPageState extends ConsumerState<JobsPage> {
     setState(() => _isLoadingMore = true);
 
     try {
-      _currentPage++;
-      final results = await JobService.fetchJobs(
-        page: _currentPage,
+      final result = await JobService.fetchJobs(
+        before: _lastTimestamp,
         query: _searchController.text,
         domain: _currentDomain,
       );
 
+      final List<Map<String, dynamic>> jobData = result['jobs'];
+
       if (mounted) {
         setState(() {
-          _jobs.addAll(results.map((e) => Job.fromJson(e)));
+          _jobs.addAll(jobData.map((e) => Job.fromJson(e)));
+          _lastTimestamp = result['lastTimestamp'] as DateTime?;
+          _hasNextPage = result['hasMore'] as bool;
           _isLoadingMore = false;
-          _hasNextPage = results.length == 10;
         });
       }
     } catch (e) {

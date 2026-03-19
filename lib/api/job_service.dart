@@ -8,14 +8,14 @@ import 'post_service.dart';
 class JobService {
   static final _client = Supabase.instance.client;
 
-  static Future<List<Map<String, dynamic>>> fetchJobs({
-    int page = 0,
+  static Future<Map<String, dynamic>> fetchJobs({
+    DateTime? before,
     int pageSize = 10,
     String? query,
     String? domain,
   }) async {
     final userId = _client.auth.currentUser?.id;
-    if (userId == null) return [];
+    if (userId == null) return {'jobs': [], 'hasMore': false};
 
     try {
       // Filter by domain. If not provided, fetch current user's domain.
@@ -37,14 +37,23 @@ class JobService {
         request = request.or('title.ilike.%$query%,company.ilike.%$query%');
       }
 
+      if (before != null) {
+        request = request.lt('posted_at', before.toIso8601String());
+      }
+
       final response = await request
           .order('posted_at', ascending: false)
-          .range(page * pageSize, (page + 1) * pageSize - 1);
+          .limit(pageSize + 1);
 
       final jobs = List<Map<String, dynamic>>.from(response);
-      debugPrint('DEBUG fetchJobs: domain=$domainToUse, returned ${jobs.length} jobs');
+      final hasMore = jobs.length > pageSize;
+      if (hasMore) {
+        jobs.removeLast();
+      }
 
-      if (jobs.isEmpty) return [];
+      debugPrint('DEBUG fetchJobs: domain=$domainToUse, returned ${jobs.length} jobs (hasMore: $hasMore)');
+
+      if (jobs.isEmpty) return {'jobs': [], 'hasMore': false};
 
       // ── Step 2: Fetch saved & applied flags in parallel ──
       final jobIds = jobs.map((j) => j['id'] as String).toList();
@@ -69,17 +78,21 @@ class JobService {
       final savedIds = results[0] as Set<String>;
       final appliedIds = results[1] as Set<String>;
 
-      return jobs.map((job) {
-        final id = job['id'] as String;
         return {
           ...job,
           'is_saved': savedIds.contains(id),
           'has_applied': appliedIds.contains(id),
         };
       }).toList();
+
+      return {
+        'jobs': enrichedJobs,
+        'hasMore': hasMore,
+        'lastTimestamp': jobs.isNotEmpty ? DateTime.parse(jobs.last['posted_at'] as String) : null,
+      };
     } catch (e, st) {
       debugPrint('ERROR fetchJobs: $e\n$st');
-      return [];
+      return {'jobs': [], 'hasMore': false};
     }
   }
 

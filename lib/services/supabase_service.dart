@@ -807,39 +807,8 @@ class SupabaseService {
   }
 
   static Future<List<Map<String, dynamic>>> getMessages(String otherUserId) async {
-    final myId = _client.auth.currentUser?.id;
-    if (myId == null) return [];
-
-    final response = await _client
-        .from('messages_fact')
-        .select('''
-          *,
-          posts:posts_dim!post_id (
-            *,
-            profiles:profiles_dim!author_id (
-              full_name,
-              avatar_url
-            )
-          )
-        ''')
-        .or('and(sender_id.eq.$myId,receiver_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,receiver_id.eq.$myId)')
-        .order('created_at', ascending: true);
-
-    final messages = List<Map<String, dynamic>>.from(response);
-    
-    // Flatten post author info so Post.fromJson works correctly
-    return messages.map((msg) {
-      if (msg['posts'] != null) {
-        final post = Map<String, dynamic>.from(msg['posts']);
-        final profile = post['profiles'];
-        if (profile != null) {
-          post['author_name'] = profile['full_name'];
-          post['author_avatar'] = profile['avatar_url'];
-        }
-        msg['posts'] = post;
-      }
-      return msg;
-    }).toList();
+    final result = await getMessagesPaged(otherUserId: otherUserId, limit: 100);
+    return List<Map<String, dynamic>>.from(result['messages']);
   }
 
   /// Get count of unread messages for current user.
@@ -1512,11 +1481,15 @@ class SupabaseService {
     });
   }
 
-  /// Get comments for a specific post (including like info)
-  static Future<List<Map<String, dynamic>>> getComments(String postId) async {
+  /// Get comments for a specific post with cursor-based pagination
+  static Future<Map<String, dynamic>> getCommentsPaged({
+    required String postId,
+    DateTime? before,
+    int limit = 20,
+  }) async {
     final userId = _client.auth.currentUser?.id;
     
-    final response = await _client
+    var query = _client
         .from('comments_fact')
         .select('''
           *,
@@ -1527,10 +1500,22 @@ class SupabaseService {
           likes:comment_likes_fact(user_id)
         ''')
         .eq('post_id', postId)
-        .order('created_at', ascending: true);
+        .order('created_at', ascending: false)
+        .limit(limit + 1);
 
-    final comments = List<Map<String, dynamic>>.from(response);
-    return comments.map((comment) {
+    if (before != null) {
+      query = query.lt('created_at', before.toIso8601String());
+    }
+
+    final response = await query;
+    final rows = List<Map<String, dynamic>>.from(response);
+    final hasMore = rows.length > limit;
+    
+    if (hasMore) {
+      rows.removeLast();
+    }
+
+    final comments = rows.map((comment) {
       final profile = comment['profiles'];
       final likes = comment['likes'] as List? ?? [];
       
@@ -1542,6 +1527,18 @@ class SupabaseService {
         'is_liked': userId != null && likes.any((l) => l['user_id'] == userId),
       };
     }).toList();
+
+    return {
+      'comments': comments.reversed.toList(), // Oldest first in the batch for display
+      'hasMore': hasMore,
+      'lastTimestamp': rows.isNotEmpty ? DateTime.parse(rows.last['created_at']) : null,
+    };
+  }
+
+  /// Get comments for a specific post (legacy - kept for backward compatibility)
+  static Future<List<Map<String, dynamic>>> getComments(String postId) async {
+    final result = await getCommentsPaged(postId: postId, limit: 100);
+    return List<Map<String, dynamic>>.from(result['comments']);
   }
 
   /// Toggle like on a comment
@@ -1900,10 +1897,70 @@ class SupabaseService {
   // AUTH SECURITY INTEGRATION
   // ============================================================================
   
-  /// Hash and update custom secondary password. Delegate to AuthService.
+  /// Update custom secondary password. Delegate to AuthService.
   static Future<void> updateCustomPassword(String rawPassword) async {
     // Note: Project expects AuthService for complex hashing.
     // Using simple stub here, but typically this triggers the crypto logic.
+  }
+
+  /// Get messages for a chat with cursor-based pagination
+  static Future<Map<String, dynamic>> getMessagesPaged({
+    required String otherUserId,
+    DateTime? before,
+    int limit = 30,
+  }) async {
+    final myId = _client.auth.currentUser?.id;
+    if (myId == null) return {'messages': [], 'hasMore': false};
+
+    var query = _client
+        .from('messages_fact')
+        .select('''
+          *,
+          posts:posts_dim!post_id (
+            *,
+            profiles:profiles_dim!author_id (
+              full_name,
+              avatar_url
+            )
+          )
+        ''')
+        .or('and(sender_id.eq.$myId,receiver_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,receiver_id.eq.$myId)')
+        .order('created_at', ascending: false)
+        .limit(limit + 1);
+
+    if (before != null) {
+      query = query.lt('created_at', before.toIso8601String());
+    }
+
+    final response = await query;
+    final rows = List<Map<String, dynamic>>.from(response);
+    final hasMore = rows.length > limit;
+
+    if (hasMore) {
+      rows.removeLast();
+    }
+
+    final messages = rows.map((m) {
+      if (m['posts'] != null) {
+        final p = m['posts'];
+        final actor = p['profiles'];
+        return {
+          ...m,
+          'posts': {
+            ...p,
+            'author_name': actor?['full_name'],
+            'author_avatar': actor?['avatar_url'],
+          }
+        };
+      }
+      return m;
+    }).toList();
+
+    return {
+      'messages': messages.reversed.toList(), // Chronological for chat UI
+      'hasMore': hasMore,
+      'lastTimestamp': rows.isNotEmpty ? DateTime.parse(rows.last['created_at']) : null,
+    };
   }
 }
 
