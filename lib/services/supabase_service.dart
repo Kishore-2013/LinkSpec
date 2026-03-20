@@ -226,6 +226,7 @@ class SupabaseService {
       fileOptions: FileOptions(
         upsert: true, 
         contentType: _getMimeType(extension),
+        cacheControl: AppConstants.defaultCacheControl,
       ),
     );
     final url = _client.storage.from(profileBucket).getPublicUrl(path);
@@ -267,6 +268,7 @@ class SupabaseService {
       fileOptions: FileOptions(
         upsert: true, 
         contentType: _getMimeType(ext),
+        cacheControl: AppConstants.defaultCacheControl,
       ),
     );
     final url = _client.storage.from(profileBucket).getPublicUrl(path);

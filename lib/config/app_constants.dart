@@ -47,6 +47,7 @@ class AppConstants {
   static const int maxMediaSize = 10 * 1024 * 1024; // 10MB
   static const List<String> allowedImageExtensions = ['jpg', 'jpeg', 'png'];
   static const List<String> allowedVideoExtensions = ['mp4'];
+  static const String defaultCacheControl = '3600';
   
   // UI
   static const double defaultPadding = 16.0;

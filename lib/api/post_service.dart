@@ -180,6 +180,7 @@ class PostService {
       fileOptions: FileOptions(
         contentType: _getMimeType(ext),
         upsert: true,
+        cacheControl: AppConstants.defaultCacheControl,
       ),
     );
     
