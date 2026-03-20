@@ -4,7 +4,8 @@ import '../models/post.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import '../providers/domain_provider.dart';
-import 'home_screen.dart';
+import '../screens/home_screen.dart';
+import 'post_service.dart';
 import 'session_cache.dart';
 import 'web_cache_manager.dart';
 
@@ -147,7 +148,7 @@ class PostWindowManager {
     String? cachedJson;
 
     if (showStale) {
-      cachedJson = await WebCacheManager.getJson(cacheKey);
+      cachedJson = await WebCacheManager.getCachedJson(cacheKey);
       if (cachedJson != null) {
         try {
           final List<dynamic> list = jsonDecode(cachedJson);

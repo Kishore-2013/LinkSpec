@@ -15,6 +15,7 @@ fi
 export FLUTTER_HOME="$(pwd)/flutter"
 export PATH="$FLUTTER_HOME/bin:$PATH"
 export RUN_FLUTTER_AS_ROOT=true
+export FLUTTER_ALLOW_ROOT=true
 export CHROME_EXECUTABLE=$(which google-chrome || which chromium-browser || echo "/usr/bin/google-chrome")
 
 
