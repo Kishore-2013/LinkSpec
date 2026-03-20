@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/supabase_config.dart';
 import '../api/session_cache.dart';
 import '../api/web_cache_manager.dart';
+import '../config/app_constants.dart';
 
 
 // Diagnostic: Force filesystem update. Corrected unread counts.
@@ -217,15 +218,14 @@ class SupabaseService {
       }
     }();
 
-    final ext = fileName.split('.').last.toLowerCase();
-    final path = 'avatars/$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final path = 'avatars/$userId/${DateTime.now().millisecondsSinceEpoch}.$extension';
     
     await _client.storage.from(profileBucket).uploadBinary(
       path,
       bytes,
       fileOptions: FileOptions(
         upsert: true, 
-        contentType: _getMimeType(ext),
+        contentType: _getMimeType(extension),
       ),
     );
     final url = _client.storage.from(profileBucket).getPublicUrl(path);
