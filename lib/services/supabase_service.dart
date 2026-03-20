@@ -334,19 +334,20 @@ class SupabaseService {
     int limit = 20,
     int offset = 0,
     String? searchQuery,
+    String? domain,
   }) async {
     if (_myDomain == null) {
       await getCurrentUserProfile();
     }
     
-    final domain = _myDomain;
+    final effectiveDomain = domain ?? _myDomain;
     
     var query = _client
         .from('profiles_dim')
         .select();
         
-    if (domain != null && domain != 'Global' && domain != 'All') {
-      query = query.eq('domain_id', domain);
+    if (effectiveDomain != null && effectiveDomain != 'Global' && effectiveDomain != 'All') {
+      query = query.eq('domain_id', effectiveDomain);
     }
         
     if (searchQuery != null && searchQuery.isNotEmpty) {

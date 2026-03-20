@@ -1899,44 +1899,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _buildNavIcon(Icons.home_filled, 0, label: 'Home'),
             _buildNavIcon(Icons.search, 1, label: 'Search'),
             _buildNavIcon(Icons.people_alt_outlined, 2, label: 'Network'),
-            // Create Post Button - Prominent CTA
+            // Create Post Button - Normal style
             GestureDetector(
               onTap: () => _showCreatePostDialog(),
               child: Container(
-                padding: EdgeInsets.all(isMobile ? 2 : 4),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).primaryColor.withOpacity(0.15),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 10 : 16,
+                  vertical: 8,
                 ),
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 8 : 12,
-                    vertical: 8,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.add_circle, // Filled icon
-                        color: Theme.of(context).primaryColor,
-                        size: isMobile ? 28 : 32, // More prominent
-                      ),
-                      if (!isMobile)
-                        Text('Post',
-                            style: TextStyle(
-                                color: Theme.of(context).primaryColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.add_circle_outline,
+                      color: Theme.of(context).hintColor,
+                      size: isMobile ? 22 : 26,
+                    ),
+                    if (!isMobile)
+                      Text('Post',
+                          style: TextStyle(
+                              color: Theme.of(context).hintColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600)),
+                  ],
                 ),
               ),
             ),

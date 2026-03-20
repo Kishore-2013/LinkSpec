@@ -34,10 +34,19 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
 
   Future<void> _loadNetwork() async {
     debugPrint('NetworkScreen: _loadNetwork called');
-    if (mounted) setState(() => _isLoading = true);
+    final activeDomain = ref.read(currentDomainProvider);
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _profiles = []; // Clear old data immediately
+      });
+    }
     try {
       // 1. Get other profiles in the same domain
-      final profiles = await SupabaseService.getProfilesInSameDomain(limit: 50);
+      final profiles = await SupabaseService.getProfilesInSameDomain(
+        limit: 50,
+        domain: activeDomain,
+      );
       
       final myId = SupabaseService.getCurrentUserId();
       
