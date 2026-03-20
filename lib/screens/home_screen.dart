@@ -36,7 +36,6 @@ import '../api/sidebar_data_service.dart';
 import '../api/post_service.dart';
 import '../api/web_cache_manager.dart';
 import '../providers/domain_provider.dart';
-import '../providers/user_profile_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -1274,32 +1273,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                           ],
                         ),
-                        child: ref.watch(userProfileProvider).when(
-                          data: (profile) => CircleAvatar(
-                            radius: 40,
-                            backgroundColor: Colors.blue[50],
-                            backgroundImage: profile?.avatarUrl != null
-                                ? CachedNetworkImageProvider(
-                                    profile!.avatarUrl!,
-                                    // Cache-busting via key/tag logic or just relying on profile update
-                                  )
-                                : null,
-                            key: ValueKey('sidebar_avatar_${profile?.updatedAt.millisecondsSinceEpoch}'),
-                            child: profile?.avatarUrl == null
-                                ? Text(
-                                    (profile?.fullName ?? 'U')[0]
-                                        .toUpperCase(),
-                                    style: const TextStyle(
-                                      fontSize: 30,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue,
-                                    ),
-                                  )
-                                : null,
-                          ),
-                          loading: () => const CircleAvatar(radius: 40, child: CircularProgressIndicator()),
-                          error: (_, __) => const CircleAvatar(radius: 40, child: Icon(Icons.error)),
-                        ),
+                        child: _currentUserProfile != null
+                            ? CircleAvatar(
+                                radius: 40,
+                                backgroundColor: Colors.blue[50],
+                                backgroundImage: _currentUserProfile!.avatarUrl != null
+                                    ? CachedNetworkImageProvider(
+                                        _currentUserProfile!.avatarUrl!,
+                                      )
+                                    : null,
+                                child: _currentUserProfile!.avatarUrl == null
+                                    ? Text(
+                                        (_currentUserProfile!.fullName ?? 'U')[0]
+                                            .toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 30,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue,
+                                        ),
+                                      )
+                                    : null,
+                              )
+                            : const CircleAvatar(
+                                radius: 40,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
                       ),
                     ),
                   ),
