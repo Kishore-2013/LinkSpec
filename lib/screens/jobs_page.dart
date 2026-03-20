@@ -331,12 +331,26 @@ class _JobsPageState extends ConsumerState<JobsPage> {
     final typeCtrl = TextEditingController(text: 'Full-time');
     final descCtrl = TextEditingController();
     final activeDomain = ref.read(currentDomainProvider);
-    String selectedDomain = activeDomain.isNotEmpty ? activeDomain : 'IT/Software';
+    String selectedDomain = activeDomain.isNotEmpty ? activeDomain : 'Software Development';
     final List<String> customQuestions = [];
     final questionCtrl = TextEditingController();
 
     final List<String> availableDomains = [
-      'Medical', 'IT/Software', 'Civil Engineering', 'Law', 'Business', 'Global'
+      'Software Development',
+      'AI, Data & Analytics',
+      'Data Engineering & Databases',
+      'Cloud, DevOps & Infrastructure',
+      'Cybersecurity & Risk',
+      'Networking & IT Support',
+      'Business, Product & Management',
+      'Finance, Risk & Compliance',
+      'Healthcare & Life Sciences',
+      'Core Engineering',
+      'Agriculture & Environmental',
+      'Design & Creative',
+      'Sales, Marketing & CRM',
+      'ERP & Enterprise Systems',
+      'HR, Operations & Support',
     ];
 
     showModalBottomSheet(

@@ -1379,14 +1379,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final userId = SupabaseService.getCurrentUserId();
     if (userId == null) return;
 
-    // Domain to Fermion Env mapping
+    // Domain to Fermion Env mapping (new 15-domain system)
     final Map<String, String> domainToEnv = {
-      'Medical': 'medc1',
-      'IT/Software': 'sde1',
-      'Civil Engineering': 'de2',
-      'Law': 'bie2',
-      'Business': 'ba2',
-      'Global': 'default',
+      'Healthcare & Life Sciences':    'medc1',
+      'Software Development':          'sde1',
+      'AI, Data & Analytics':          'sde1',
+      'Data Engineering & Databases':  'sde1',
+      'Cloud, DevOps & Infrastructure':'sde1',
+      'Cybersecurity & Risk':          'sde1',
+      'Networking & IT Support':       'sde1',
+      'Core Engineering':              'de2',
+      'Finance, Risk & Compliance':    'bie2',
+      'Business, Product & Management':'ba2',
+      // Legacy fallbacks (for existing users with old domain values)
+      'Medical':          'medc1',
+      'IT/Software':      'sde1',
+      'Civil Engineering':'de2',
+      'Law':              'bie2',
+      'Business':         'ba2',
     };
 
     final env = domainToEnv[_profile!.domainId] ?? 'default';

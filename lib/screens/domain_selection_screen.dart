@@ -31,14 +31,23 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
   late final AnimationController _fadeCtrl;
   late final Animation<double> _fadeAnim;
 
-  // Domains matching the DB CHECK constraint
+  // Domains matching the 15-domain system
   final List<Map<String, dynamic>> _domains = [
-    {'id': 'Medical',          'icon': Icons.local_hospital,  'color': const Color(0xFFE53935)},
-    {'id': 'IT/Software',      'icon': Icons.computer,        'color': const Color(0xFF1565C0)},
-    {'id': 'Civil Engineering','icon': Icons.engineering,     'color': const Color(0xFFE65100)},
-    {'id': 'Law',              'icon': Icons.gavel,           'color': const Color(0xFF6A1B9A)},
-    {'id': 'Business',         'icon': Icons.business_center, 'color': const Color(0xFF00897B)},
-    {'id': 'Global',           'icon': Icons.public_rounded,  'color': const Color(0xFF00BFA5)},
+    {'id': 'Software Development',           'icon': Icons.code,                  'color': const Color(0xFF1565C0)},
+    {'id': 'AI, Data & Analytics',           'icon': Icons.auto_awesome,          'color': const Color(0xFF6A1B9A)},
+    {'id': 'Data Engineering & Databases',   'icon': Icons.storage,               'color': const Color(0xFF00838F)},
+    {'id': 'Cloud, DevOps & Infrastructure', 'icon': Icons.cloud_queue,           'color': const Color(0xFF0277BD)},
+    {'id': 'Cybersecurity & Risk',           'icon': Icons.security,              'color': const Color(0xFFC62828)},
+    {'id': 'Networking & IT Support',        'icon': Icons.router,                'color': const Color(0xFF00695C)},
+    {'id': 'Business, Product & Management', 'icon': Icons.business_center,       'color': const Color(0xFF558B2F)},
+    {'id': 'Finance, Risk & Compliance',     'icon': Icons.account_balance,       'color': const Color(0xFF2E7D32)},
+    {'id': 'Healthcare & Life Sciences',     'icon': Icons.local_hospital,        'color': const Color(0xFFE53935)},
+    {'id': 'Core Engineering',               'icon': Icons.engineering,           'color': const Color(0xFFE65100)},
+    {'id': 'Agriculture & Environmental',    'icon': Icons.eco,                   'color': const Color(0xFF388E3C)},
+    {'id': 'Design & Creative',              'icon': Icons.palette,               'color': const Color(0xFFAD1457)},
+    {'id': 'Sales, Marketing & CRM',         'icon': Icons.campaign,              'color': const Color(0xFFFF6F00)},
+    {'id': 'ERP & Enterprise Systems',       'icon': Icons.hub,                   'color': const Color(0xFF4527A0)},
+    {'id': 'HR, Operations & Support',       'icon': Icons.people,                'color': const Color(0xFF00897B)},
   ];
 
   @override

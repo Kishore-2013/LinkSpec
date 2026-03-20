@@ -8,32 +8,59 @@ class AppConstants {
   
   // Domains
   static const List<String> domains = [
-    'Medical',
-    'IT/Software',
-    'Civil Engineering',
-    'Law',
-    'Business',
-    'Global',
+    'Software Development',
+    'AI, Data & Analytics',
+    'Data Engineering & Databases',
+    'Cloud, DevOps & Infrastructure',
+    'Cybersecurity & Risk',
+    'Networking & IT Support',
+    'Business, Product & Management',
+    'Finance, Risk & Compliance',
+    'Healthcare & Life Sciences',
+    'Core Engineering',
+    'Agriculture & Environmental',
+    'Design & Creative',
+    'Sales, Marketing & CRM',
+    'ERP & Enterprise Systems',
+    'HR, Operations & Support',
   ];
   
   // Domain Icons
   static const Map<String, IconData> domainIcons = {
-    'Medical': Icons.local_hospital,
-    'IT/Software': Icons.computer,
-    'Civil Engineering': Icons.engineering,
-    'Law': Icons.gavel,
-    'Business': Icons.business_center,
-    'Global': Icons.public_rounded,
+    'Software Development':          Icons.code,
+    'AI, Data & Analytics':          Icons.auto_awesome,
+    'Data Engineering & Databases':  Icons.storage,
+    'Cloud, DevOps & Infrastructure':Icons.cloud_queue,
+    'Cybersecurity & Risk':          Icons.security,
+    'Networking & IT Support':       Icons.router,
+    'Business, Product & Management':Icons.business_center,
+    'Finance, Risk & Compliance':    Icons.account_balance,
+    'Healthcare & Life Sciences':    Icons.local_hospital,
+    'Core Engineering':              Icons.engineering,
+    'Agriculture & Environmental':   Icons.eco,
+    'Design & Creative':             Icons.palette,
+    'Sales, Marketing & CRM':        Icons.campaign,
+    'ERP & Enterprise Systems':      Icons.hub,
+    'HR, Operations & Support':      Icons.people,
   };
   
   // Domain Colors
   static const Map<String, Color> domainColors = {
-    'Medical': Color(0xFFE53935),
-    'IT/Software': Color(0xFF1E88E5),
-    'Civil Engineering': Color(0xFFFB8C00),
-    'Law': Color(0xFF8E24AA),
-    'Business': Color(0xFF00897B),
-    'Global': Color(0xFF00BFA5), // Teal for global
+    'Software Development':          Color(0xFF1565C0),
+    'AI, Data & Analytics':          Color(0xFF6A1B9A),
+    'Data Engineering & Databases':  Color(0xFF00838F),
+    'Cloud, DevOps & Infrastructure':Color(0xFF0277BD),
+    'Cybersecurity & Risk':          Color(0xFFC62828),
+    'Networking & IT Support':       Color(0xFF00695C),
+    'Business, Product & Management':Color(0xFF558B2F),
+    'Finance, Risk & Compliance':    Color(0xFF2E7D32),
+    'Healthcare & Life Sciences':    Color(0xFFE53935),
+    'Core Engineering':              Color(0xFFE65100),
+    'Agriculture & Environmental':   Color(0xFF388E3C),
+    'Design & Creative':             Color(0xFFAD1457),
+    'Sales, Marketing & CRM':        Color(0xFFFF6F00),
+    'ERP & Enterprise Systems':      Color(0xFF4527A0),
+    'HR, Operations & Support':      Color(0xFF00897B),
   };
   
   // Validation
