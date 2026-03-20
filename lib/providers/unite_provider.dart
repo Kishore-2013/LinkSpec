@@ -33,4 +33,9 @@ class UniteNotifier extends StateNotifier<Map<String, String>> {
     await SupabaseService.acceptUniteRequest(userId);
     setUniteStatus(userId, 'connected');
   }
+
+  Future<void> rejectRequest(String userId) async {
+    await SupabaseService.rejectUniteRequest(userId);
+    setUniteStatus(userId, 'none');
+  }
 }

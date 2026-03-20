@@ -126,6 +126,26 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
       }
     }
   }
+  Future<void> _handleReject(String targetUserId) async {
+    try {
+      await ref.read(uniteProvider.notifier).rejectRequest(targetUserId);
+      if (mounted) {
+        LinkSpecNotify.show(
+          context,
+          'Request rejected.',
+          LinkSpecNotifyType.info,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        LinkSpecNotify.show(
+          context,
+          'Action failed: $e',
+          LinkSpecNotifyType.error,
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

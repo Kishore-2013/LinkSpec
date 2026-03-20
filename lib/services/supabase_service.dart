@@ -1089,6 +1089,18 @@ class SupabaseService {
         .eq('receiver_id', userId);
   }
 
+  /// Reject a unite request from another user
+  static Future<void> rejectUniteRequest(String senderUserId) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    await _client
+        .from('connection_requests_fact')
+        .update({'status': 'rejected'})
+        .eq('sender_id', senderUserId)
+        .eq('receiver_id', userId);
+  }
+
   /// Disconnect (remove accepted connection)
   static Future<void> removeConnection(String otherUserId) async {
     final userId = _client.auth.currentUser?.id;

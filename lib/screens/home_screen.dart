@@ -1012,13 +1012,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       )
                     : !_hasNextPage
                         ? Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: Center(
-                              child: Text(
-                                "You're all caught up 🎉",
-                                style: TextStyle(
-                                    color: Colors.grey[500], fontSize: 13),
-                              ),
+                            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(child: Divider(color: Colors.grey[300])),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      child: Text(
+                                        'End of feed',
+                                        style: TextStyle(
+                                          color: Colors.grey[500],
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(child: Divider(color: Colors.grey[300])),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'No more posts to show.',
+                                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                                ),
+                              ],
                             ),
                           )
                         : const SizedBox(height: 20),
