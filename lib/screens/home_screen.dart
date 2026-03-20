@@ -60,7 +60,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool get _hasNextPage => _feedCtrl.hasMoreOlder;
   bool get _hasPrevPage => _feedCtrl.hasMoreNewer;
 
-  // Removed local _currentUserProfile to use global userProfileProvider
+  // Profile for the "Start a post" box avatar
+  UserProfile? _currentUserProfile;
 
   List<Group> _sidebarGroups = [];
 
@@ -1865,8 +1866,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           size: 12, color: Colors.grey[400]),
                       const SizedBox(width: 4),
                       Text(stats,
-                          style:
-                                void _showDomainSwitcher(String activeDomain) {
+                          style: TextStyle(
+                              color: Colors.grey[500], fontSize: 11)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.favorite_border, size: 18, color: Colors.grey[400]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDomainSwitcher(String activeDomain) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1921,9 +1936,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 itemBuilder: (context, index) {
                   final domain = _mainDomains[index];
-                  // If we wanted to know which "main domain" the active backend domain belongs to:
                   final isSelected = _selectedFeedDomain == domain;
-
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                     title: Text(
@@ -1931,14 +1944,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected 
-                          ? Theme.of(context).primaryColor 
-                          : Theme.of(context).textTheme.bodyLarge?.color,
+                        color: isSelected
+                            ? Theme.of(context).primaryColor
+                            : Theme.of(context).textTheme.bodyLarge?.color,
                       ),
                     ),
-                    trailing: isSelected 
-                      ? Icon(Icons.check_circle, color: Theme.of(context).primaryColor, size: 20)
-                      : const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+                    trailing: isSelected
+                        ? Icon(Icons.check_circle, color: Theme.of(context).primaryColor, size: 20)
+                        : const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
                     onTap: () {
                       setState(() {
                         _selectedFeedDomain = domain;
@@ -1951,21 +1964,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 20),
           ],
-        ),
-      ),
-    );
-  }
-                             fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
         ),
       ),
     );
