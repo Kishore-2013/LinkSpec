@@ -97,9 +97,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
   }
 
   bool _isValidEmail(String email) {
-    final regex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@(gmail|outlook|yahoo|hotmail|icloud|Applywizz)\.com$'
-    );
+    // Scalable Regex: Supports all professional and corporate domains (e.g., applywizz.com)
+    final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
     return regex.hasMatch(email);
   }
 
@@ -386,7 +385,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
                     return "Email is required";
                   }
                   if (!_isValidEmail(value)) {
-                    return "Enter a valid email (Gmail, Outlook, Yahoo, etc.)";
+                    return "Enter a valid email (Gmail, Outlook, Yahoo, applywizz.com, etc.)";
                   }
                   return null;
                 },
