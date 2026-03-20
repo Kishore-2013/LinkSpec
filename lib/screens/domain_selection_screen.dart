@@ -113,9 +113,24 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
         return;
       }
 
-      // 2. SAVE PROFILE with professional sync
+      // 2. VALIDATE email — profiles_dim.email is NOT NULL
+      final email = user.email;
+      if (email == null || email.isEmpty) {
+        if (mounted) {
+          LinkSpecNotify.show(
+            context,
+            'Ohh! no, we couldn\'t find your email address. Please sign in again.',
+            LinkSpecNotifyType.warning,
+          );
+          context.go('/auth');
+        }
+        return;
+      }
+
+      // 3. SAVE PROFILE with professional sync (upsert prevents duplicates)
       await client.from('profiles_dim').upsert({
         'id': user.id,
+        'email': email,                                          // ✅ Required — NOT NULL
         'full_name': _fullNameController.text.trim(),
         'mother_domain': _selectedDomain,
         'domain_id': _selectedDomain,
