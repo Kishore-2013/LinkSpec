@@ -3,7 +3,8 @@ import 'dart:convert';
 import '../models/post.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
-import 'post_service.dart';
+import '../providers/domain_provider.dart';
+import 'home_screen.dart';
 import 'session_cache.dart';
 import 'web_cache_manager.dart';
 
@@ -143,8 +144,10 @@ class PostWindowManager {
     final cacheKey = 'swr_feed_${mode.name}_${domain}_p0';
     
     // 1. STALE: Show what we have from persistent cache (only if requested)
+    String? cachedJson;
+
     if (showStale) {
-      final cachedJson = await WebCacheManager.getCachedJson(cacheKey);
+      cachedJson = await WebCacheManager.getJson(cacheKey);
       if (cachedJson != null) {
         try {
           final List<dynamic> list = jsonDecode(cachedJson);

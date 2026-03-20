@@ -8,6 +8,7 @@ import '../widgets/clay_container.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/follow_provider.dart';
 import '../providers/unite_provider.dart';
+import '../providers/domain_provider.dart';
 
 
 class NetworkScreen extends ConsumerStatefulWidget {

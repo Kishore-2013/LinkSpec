@@ -5,6 +5,7 @@ import '../models/job.dart';
 import '../api/job_service.dart';
 import '../services/supabase_service.dart';
 import '../services/linkspec_notify.dart';
+import '../providers/domain_provider.dart';
 import 'job_detail_screen.dart';
 import '../widgets/clay_container.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -329,7 +330,8 @@ class _JobsPageState extends ConsumerState<JobsPage> {
     final salaryCtrl = TextEditingController();
     final typeCtrl = TextEditingController(text: 'Full-time');
     final descCtrl = TextEditingController();
-    String selectedDomain = _currentDomain ?? 'IT/Software';
+    final activeDomain = ref.read(currentDomainProvider);
+    String selectedDomain = activeDomain.isNotEmpty ? activeDomain : 'IT/Software';
     final List<String> customQuestions = [];
     final questionCtrl = TextEditingController();
 
