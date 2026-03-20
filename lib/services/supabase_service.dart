@@ -1478,6 +1478,31 @@ class SupabaseService {
     });
   }
 
+  /// Update an existing comment
+  static Future<void> updateComment({
+    required String id,
+    required String content,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    await _client.from('comments_fact').update({
+      'content': content,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', id).eq('author_id', userId);
+  }
+
+  /// Delete an existing comment
+  static Future<void> deleteComment(String id) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    await _client.from('comments_fact')
+        .delete()
+        .eq('id', id)
+        .eq('author_id', userId);
+  }
+
   /// Create a new notification
   static Future<void> createNotification({
     required String userId,

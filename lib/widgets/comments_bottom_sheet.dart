@@ -135,14 +135,152 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         );
       }
     } catch (e) {
-      LinkSpecNotify.show(
-        context,
-        'Error adding comment: $e',
-        LinkSpecNotifyType.error,
-      );
+      String errorMsg = 'Error adding comment: $e';
+      if (e.toString().contains('SocketException') || e.toString().contains('Network')) {
+        errorMsg = 'No Internet Connection. Please try again.';
+      }
+      if (mounted) {
+        LinkSpecNotify.show(
+          context,
+          errorMsg,
+          LinkSpecNotifyType.error,
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<void> _updateComment(String commentId, String content) async {
+    setState(() => _isSubmitting = true);
+    try {
+      await SupabaseService.updateComment(id: commentId, content: content);
+      await _loadComments();
+      if (mounted) {
+        LinkSpecNotify.show(
+          context, 
+          'Comment updated!', 
+          LinkSpecNotifyType.success
+        );
+      }
+    } catch (e) {
+      String errorMsg = 'Error updating comment: $e';
+      if (e.toString().contains('SocketException') || e.toString().contains('Network')) {
+        errorMsg = 'No Internet Connection. Please try again.';
+      }
+      if (mounted) {
+        LinkSpecNotify.show(
+          context,
+          errorMsg,
+          LinkSpecNotifyType.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _deleteComment(String commentId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Comment'),
+        content: const Text('Are you sure you want to delete this comment?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isSubmitting = true);
+    try {
+      await SupabaseService.deleteComment(commentId);
+      await _loadComments();
+      if (mounted) {
+        LinkSpecNotify.show(
+          context, 
+          'Comment deleted!', 
+          LinkSpecNotifyType.success
+        );
+      }
+    } catch (e) {
+      String errorMsg = 'Error deleting comment: $e';
+      if (e.toString().contains('SocketException') || e.toString().contains('Network')) {
+        errorMsg = 'No Internet Connection. Please try again.';
+      }
+      if (mounted) {
+        LinkSpecNotify.show(
+          context,
+          errorMsg,
+          LinkSpecNotifyType.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _showEditSheet(Comment comment) {
+    final controller = TextEditingController(text: comment.content);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.fromLTRB(16, 20, 16, MediaQuery.of(context).viewInsets.bottom + 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Edit Comment', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+              maxLines: 3,
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    if (text.isNotEmpty && text != comment.content) {
+                      Navigator.pop(context);
+                      _updateComment(comment.id, text);
+                    } else {
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleLike(Comment comment) async {
@@ -331,6 +469,24 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                                                 style: TextStyle(color: Colors.grey[600], fontSize: 12),
                                               ),
                                             ),
+                                          if (comment.authorId == SupabaseService.getCurrentUserId()) ...[
+                                            const SizedBox(width: 16),
+                                            GestureDetector(
+                                              onTap: () => _showEditSheet(comment),
+                                              child: Text(
+                                                'Edit',
+                                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            GestureDetector(
+                                              onTap: () => _deleteComment(comment.id),
+                                              child: Text(
+                                                'Delete',
+                                                style: TextStyle(color: Colors.red[400], fontSize: 12),
+                                              ),
+                                            ),
+                                          ],
                                           if (comment.likeCount > 0) ...[
                                             const Spacer(),
                                             Icon(Icons.thumb_up_alt_rounded, size: 12, color: Colors.blue[300]),
