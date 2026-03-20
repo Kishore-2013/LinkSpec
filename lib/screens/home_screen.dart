@@ -96,6 +96,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     'Sales, Marketing & CRM',
     'ERP & Enterprise Systems',
     'HR, Operations & Support',
+    'Global',
   ];
   bool _isSwitchingDomain = false;
 

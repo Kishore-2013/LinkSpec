@@ -340,7 +340,7 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
                           const SizedBox(height: 24),
 
                           // ── Bio (Optional) ──────────────────────────────
-                          _sectionLabel('Bio  (optional)'),
+                          _sectionLabel('Bio'),
                           const SizedBox(height: 10),
                           ClayContainer(
                             borderRadius: 20,

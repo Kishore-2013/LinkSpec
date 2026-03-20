@@ -76,7 +76,12 @@ class PostService {
     // ── Reactive Domain Filter ──────────────────────────────────────────
     // If 'Global' or 'All' is selected, we omit the filter to show everyone's posts.
     if (domain != null && domain != 'Global' && domain != 'All') {
-      baseQuery = baseQuery.eq('domain_id', domain);
+      final domainIds = _getDomainIds(domain);
+      if (domainIds.length == 1) {
+        baseQuery = baseQuery.eq('domain_id', domainIds.first);
+      } else {
+        baseQuery = baseQuery.inFilter('domain_id', domainIds);
+      }
     }
 
     // ── Sort Logic ─────────────────────────────────────────────────────
@@ -206,6 +211,34 @@ class PostService {
       isAutomated: isAutomated,
       linkedJobId: linkedJobId,
     );
+  }
+
+  /// Maps a display domain to its set of database identifiers (for legacy content).
+  static List<String> _getDomainIds(String domain) {
+    switch (domain) {
+      case 'Healthcare & Life Sciences':
+        return ['Healthcare & Life Sciences', 'Medical', 'Healthcare'];
+      case 'Software Development':
+        return ['Software Development', 'IT', 'Software', 'Technology'];
+      case 'AI, Data & Analytics':
+        return ['AI, Data & Analytics', 'AI', 'Data Science', 'Data Analytics'];
+      case 'Business, Product & Management':
+        return ['Business, Product & Management', 'Business', 'Management', 'Product'];
+      case 'Finance, Risk & Compliance':
+        return ['Finance, Risk & Compliance', 'Finance', 'Banking'];
+      case 'Core Engineering':
+        return ['Core Engineering', 'Engineering'];
+      case 'Design & Creative':
+        return ['Design & Creative', 'Design', 'Creative'];
+      case 'Sales, Marketing & CRM':
+        return ['Sales, Marketing & CRM', 'Sales', 'Marketing', 'CRM'];
+      case 'HR, Operations & Support':
+        return ['HR, Operations & Support', 'HR', 'Human Resources', 'Operations'];
+      case 'Agriculture & Environmental':
+        return ['Agriculture & Environmental', 'Agriculture', 'Environmental'];
+      default:
+        return [domain];
+    }
   }
 
   static String _getMimeType(String ext) {

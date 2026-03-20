@@ -373,7 +373,12 @@ class SupabaseService {
         .select();
         
     if (effectiveDomain != null && effectiveDomain != 'Global' && effectiveDomain != 'All') {
-      query = query.eq('domain_id', effectiveDomain);
+      final domainIds = _getDomainIds(effectiveDomain);
+      if (domainIds.length == 1) {
+        query = query.eq('domain_id', domainIds.first);
+      } else {
+        query = query.inFilter('domain_id', domainIds);
+      }
     }
         
     if (searchQuery != null && searchQuery.isNotEmpty) {
@@ -1363,8 +1368,13 @@ class SupabaseService {
     
     // Filter by domain if available
     final domain = _myDomain;
-    if (domain != null) {
-      query = query.eq('domain_id', domain);
+    if (domain != null && domain != 'Global' && domain != 'All') {
+      final domainIds = _getDomainIds(domain);
+      if (domainIds.length == 1) {
+        query = query.eq('domain_id', domainIds.first);
+      } else {
+        query = query.inFilter('domain_id', domainIds);
+      }
     }
     
     final response = await query.order('posted_at', ascending: false);
@@ -1391,10 +1401,17 @@ class SupabaseService {
     final query = _client.from('groups_dim').select();
     
     final domain = _myDomain;
-    if (domain != null) {
-      return List<Map<String, dynamic>>.from(
-        await query.eq('domain_id', domain).order('created_at', ascending: false)
-      );
+    if (domain != null && domain != 'Global' && domain != 'All') {
+      final domainIds = _getDomainIds(domain);
+      if (domainIds.length == 1) {
+        return List<Map<String, dynamic>>.from(
+          await query.eq('domain_id', domainIds.first).order('created_at', ascending: false)
+        );
+      } else {
+        return List<Map<String, dynamic>>.from(
+          await query.inFilter('domain_id', domainIds).order('created_at', ascending: false)
+        );
+      }
     }
     
     return List<Map<String, dynamic>>.from(await query.order('created_at', ascending: false));
@@ -1437,10 +1454,17 @@ class SupabaseService {
     final query = _client.from('events_dim').select();
     
     final domain = _myDomain;
-    if (domain != null) {
-      return List<Map<String, dynamic>>.from(
-        await query.eq('domain_id', domain).order('date', ascending: true)
-      );
+    if (domain != null && domain != 'Global' && domain != 'All') {
+      final domainIds = _getDomainIds(domain);
+      if (domainIds.length == 1) {
+        return List<Map<String, dynamic>>.from(
+          await query.eq('domain_id', domainIds.first).order('date', ascending: true)
+        );
+      } else {
+        return List<Map<String, dynamic>>.from(
+          await query.inFilter('domain_id', domainIds).order('date', ascending: true)
+        );
+      }
     }
     
     return List<Map<String, dynamic>>.from(await query.order('date', ascending: true));
@@ -2035,10 +2059,38 @@ class SupabaseService {
     }).toList();
 
     return {
-      'messages': messages.reversed.toList(), // Chronological for chat UI
+      'messages': messages.reversed.toList(),
       'hasMore': hasMore,
       'lastTimestamp': rows.isNotEmpty ? DateTime.parse(rows.last['created_at']) : null,
     };
+  }
+
+  /// Maps a display domain to its set of database identifiers (for legacy content).
+  static List<String> _getDomainIds(String domain) {
+    switch (domain) {
+      case 'Healthcare & Life Sciences':
+        return ['Healthcare & Life Sciences', 'Medical', 'Healthcare'];
+      case 'Software Development':
+        return ['Software Development', 'IT', 'Software', 'Technology'];
+      case 'AI, Data & Analytics':
+        return ['AI, Data & Analytics', 'AI', 'Data Science', 'Data Analytics'];
+      case 'Business, Product & Management':
+        return ['Business, Product & Management', 'Business', 'Management', 'Product'];
+      case 'Finance, Risk & Compliance':
+        return ['Finance, Risk & Compliance', 'Finance', 'Banking'];
+      case 'Core Engineering':
+        return ['Core Engineering', 'Engineering'];
+      case 'Design & Creative':
+        return ['Design & Creative', 'Design', 'Creative'];
+      case 'Sales, Marketing & CRM':
+        return ['Sales, Marketing & CRM', 'Sales', 'Marketing', 'CRM'];
+      case 'HR, Operations & Support':
+        return ['HR, Operations & Support', 'HR', 'Human Resources', 'Operations'];
+      case 'Agriculture & Environmental':
+        return ['Agriculture & Environmental', 'Agriculture', 'Environmental'];
+      default:
+        return [domain];
+    }
   }
 }
 
