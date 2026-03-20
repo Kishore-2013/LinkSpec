@@ -13,6 +13,7 @@ import 'user_posts_insights_screen.dart';
 import 'member_profile_screen.dart';
 import '../widgets/post_card.dart' show ViewTracker;
 import '../providers/saved_posts_provider.dart';
+import '../providers/user_profile_provider.dart';
 import '../services/verification_service.dart';
 import '../widgets/verification_viewer.dart';
 import 'dart:async';
@@ -162,6 +163,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         skills: _profile!.skills,
       );
       await _loadProfile();
+      // Invalidate the global provider to sync with Sidebar and other listeners
+      ref.invalidate(userProfileProvider);
+      
       setState(() => _isEditing = false);
       if (mounted) {
         LinkSpecNotify.show(
@@ -224,6 +228,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setState(() {
         _profile = _profile?.copyWith(avatarUrl: url);
       });
+      // Invalidate the global provider
+      ref.invalidate(userProfileProvider);
       if (mounted) {
         LinkSpecNotify.show(
           context, 
@@ -283,6 +289,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       final url = await SupabaseService.uploadCoverPhoto(bytes, name);
       setState(() => _coverUrl = url);
+      // Invalidate the global provider
+      ref.invalidate(userProfileProvider);
       if (mounted) {
         LinkSpecNotify.show(
           context, 

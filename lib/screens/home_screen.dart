@@ -36,6 +36,8 @@ import '../api/sidebar_data_service.dart';
 import '../api/post_service.dart';
 import '../api/web_cache_manager.dart';
 import '../providers/domain_provider.dart';
+import '../providers/user_profile_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -58,7 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool get _hasNextPage => _feedCtrl.hasMoreOlder;
   bool get _hasPrevPage => _feedCtrl.hasMoreNewer;
 
-  UserProfile? _currentUserProfile;
+  // Removed local _currentUserProfile to use global userProfileProvider
 
   List<Group> _sidebarGroups = [];
 
@@ -119,17 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _loadSyncBadgeCounts();
     _loadSidebarData();
 
-    // Subscribe to profile changes for the UI
-    final myUserId = Supabase.instance.client.auth.currentUser?.id;
-    if (myUserId != null) {
-      SupabaseService.subscribeToProfileChanges(myUserId, (profile) {
-        if (mounted) {
-          setState(() {
-            _currentUserProfile = UserProfile.fromJson(profile);
-          });
-        }
-      });
-    }
+    // Profile subscription is now handled by userProfileProvider.
 
     bool _sidebarStartupComplete = false;
     Future.delayed(const Duration(milliseconds: 500), () {
@@ -1200,14 +1192,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: SizedBox(
                           height: 120,
                           width: double.infinity,
-                          child: _currentUserProfile?.coverUrl != null
-                              ? Image.network(
-                                  _currentUserProfile!.coverUrl!,
+                        child: ref.watch(userProfileProvider).when(
+                          data: (profile) => profile?.coverUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: profile!.coverUrl!,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _buildCoverGradient(),
+                                  placeholder: (_, __) => _buildCoverGradient(),
+                                  errorWidget: (_, __, ___) => _buildCoverGradient(),
+                                  // Key ensures image reloads if URL changes or content is updated
+                                  key: ValueKey('sidebar_cover_${profile.updatedAt.millisecondsSinceEpoch}'),
                                 )
                               : _buildCoverGradient(),
+                          loading: () => _buildCoverGradient(),
+                          error: (_, __) => _buildCoverGradient(),
+                        ),
                         ),
                       ),
                       // Space for avatar (radius 40 = 80px, half overlapping = 40px below cover)
@@ -1218,7 +1216,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Column(
                           children: [
                             Text(
-                              _currentUserProfile?.fullName ?? 'You',
+                              ref.watch(userProfileProvider).value?.fullName ?? 'You',
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w800,
@@ -1228,11 +1226,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     ?.color,
                               ),
                               textAlign: TextAlign.center,
+                              // Key ensures text reloads if needed
+                              key: ValueKey('sidebar_name_${ref.watch(userProfileProvider).value?.updatedAt.millisecondsSinceEpoch}'),
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '@${(_currentUserProfile?.fullName ?? 'user').replaceAll(' ', '').toLowerCase()}',
+                              '@${(ref.watch(userProfileProvider).value?.fullName ?? 'user').replaceAll(' ', '').toLowerCase()}',
                               style: TextStyle(
                                   color: Colors.grey[500], fontSize: 12),
                               textAlign: TextAlign.center,
@@ -1263,24 +1263,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                           ],
                         ),
-                        child: CircleAvatar(
-                          radius: 40,
-                          backgroundColor: Colors.blue[50],
-                          backgroundImage: _currentUserProfile?.avatarUrl !=
-                                  null
-                              ? NetworkImage(_currentUserProfile!.avatarUrl!)
-                              : null,
-                          child: _currentUserProfile?.avatarUrl == null
-                              ? Text(
-                                  (_currentUserProfile?.fullName ?? 'U')[0]
-                                      .toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 30,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue,
-                                  ),
-                                )
-                              : null,
+                        child: ref.watch(userProfileProvider).when(
+                          data: (profile) => CircleAvatar(
+                            radius: 40,
+                            backgroundColor: Colors.blue[50],
+                            backgroundImage: profile?.avatarUrl != null
+                                ? CachedNetworkImageProvider(
+                                    profile!.avatarUrl!,
+                                    // Cache-busting via key/tag logic or just relying on profile update
+                                  )
+                                : null,
+                            key: ValueKey('sidebar_avatar_${profile?.updatedAt.millisecondsSinceEpoch}'),
+                            child: profile?.avatarUrl == null
+                                ? Text(
+                                    (profile?.fullName ?? 'U')[0]
+                                        .toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 30,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          loading: () => const CircleAvatar(radius: 40, child: CircularProgressIndicator()),
+                          error: (_, __) => const CircleAvatar(radius: 40, child: Icon(Icons.error)),
                         ),
                       ),
                     ),
