@@ -25,8 +25,8 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   bool _hasNextPage = true;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
-  String? _currentDomain;
   bool _isHR = false;
+  String? _lastDomain; // Track domain for re-fetching
 
   @override
   void initState() {
@@ -55,7 +55,11 @@ class _JobsPageState extends ConsumerState<JobsPage> {
         setState(() {
           if (profile != null) {
             _isHR = profile['tag'] == 'HR';
-            _currentDomain = profile['domain_id'] as String?;
+            final String? profileDomain = profile['domain_id'] as String?;
+          // Sync provider if not already set (fallback for standalone entry)
+          if (profileDomain != null && ref.read(currentDomainProvider) == 'Global') {
+             ref.read(currentDomainProvider.notifier).state = profileDomain;
+          }
           }
           _jobs.clear();
           _jobs.addAll(jobData.map((e) => Job.fromJson(e)));
@@ -83,7 +87,8 @@ class _JobsPageState extends ConsumerState<JobsPage> {
     }
   }
 
-  Future<void> _loadInitialJobs() async {
+  Future<void> _loadInitialJobs({String? newDomain}) async {
+    debugPrint('JobsPage: _loadInitialJobs called with newDomain: $newDomain');
     setState(() {
       _isLoading = true;
       _lastTimestamp = null;
@@ -91,10 +96,12 @@ class _JobsPageState extends ConsumerState<JobsPage> {
       _hasNextPage = true;
     });
 
+    final domainToUse = newDomain ?? ref.read(currentDomainProvider);
+
     try {
       final result = await JobService.fetchJobs(
         query: _searchController.text,
-        domain: _currentDomain,
+        domain: domainToUse,
       );
 
       final List<Map<String, dynamic>> jobData = result['jobs'];
@@ -122,7 +129,7 @@ class _JobsPageState extends ConsumerState<JobsPage> {
       final result = await JobService.fetchJobs(
         before: _lastTimestamp,
         query: _searchController.text,
-        domain: _currentDomain,
+        domain: ref.read(currentDomainProvider),
       );
 
       final List<Map<String, dynamic>> jobData = result['jobs'];
@@ -144,6 +151,16 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   @override
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width <= 700;
+    final String activeDomain = ref.watch(currentDomainProvider);
+
+    // Re-fetch jobs when domain changes
+    if (_lastDomain != activeDomain) {
+      final oldDomain = _lastDomain;
+      _lastDomain = activeDomain;
+      if (oldDomain != null) { // Skip re-fetch on initial build (handled by _initializePage)
+        Future.microtask(() => _loadInitialJobs(newDomain: activeDomain));
+      }
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F7),

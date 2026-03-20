@@ -22,6 +22,7 @@ class NetworkScreen extends ConsumerStatefulWidget {
 class _NetworkScreenState extends ConsumerState<NetworkScreen> {
   List<Map<String, dynamic>> _profiles = [];
   bool _isLoading = true;
+  String? _lastDomain; // Track domain for re-fetching
 
 
   @override
@@ -31,6 +32,7 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
   }
 
   Future<void> _loadNetwork() async {
+    debugPrint('NetworkScreen: _loadNetwork called');
     if (mounted) setState(() => _isLoading = true);
     try {
       // 1. Get other profiles in the same domain
@@ -149,6 +151,17 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final activeDomain = ref.watch(currentDomainProvider);
+
+    // Re-fetch network when domain changes
+    if (_lastDomain != activeDomain) {
+      final oldDomain = _lastDomain;
+      _lastDomain = activeDomain;
+      if (oldDomain != null) { // Skip re-fetch on initial build (handled by _loadNetwork in initState)
+        Future.microtask(() => _loadNetwork());
+      }
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(

@@ -340,12 +340,14 @@ class SupabaseService {
     }
     
     final domain = _myDomain;
-    if (domain == null) return [];
-
+    
     var query = _client
         .from('profiles_dim')
-        .select()
-        .eq('domain_id', domain);
+        .select();
+        
+    if (domain != null && domain != 'Global' && domain != 'All') {
+      query = query.eq('domain_id', domain);
+    }
         
     if (searchQuery != null && searchQuery.isNotEmpty) {
       query = query.ilike('full_name', '%$searchQuery%');

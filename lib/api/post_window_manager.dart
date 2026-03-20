@@ -137,25 +137,27 @@ class PostWindowManager {
 
   /// Load initial page using SWR (Stale-While-Revalidate).
   /// Immediately serves from WebCacheManager if available.
-  Future<void> loadInitial({void Function()? onUpdate}) async {
+  Future<void> loadInitial({void Function()? onUpdate, bool showStale = true}) async {
     if (isLoading) return;
     
     final cacheKey = 'swr_feed_${mode.name}_${domain}_p0';
     
-    // 1. STALE: Show what we have from persistent cache
-    final cachedJson = await WebCacheManager.getCachedJson(cacheKey);
-    if (cachedJson != null) {
-      try {
-        final List<dynamic> list = jsonDecode(cachedJson);
-        final cachedPosts = list.map((d) => Post.fromJson(d)).toList();
-        if (cachedPosts.isNotEmpty) {
-          _window.clear();
-          _window.addAll(cachedPosts);
-          _firstPage = 0;
-          _lastPage = 0;
-          onUpdate?.call();
-        }
-      } catch (_) {}
+    // 1. STALE: Show what we have from persistent cache (only if requested)
+    if (showStale) {
+      final cachedJson = await WebCacheManager.getCachedJson(cacheKey);
+      if (cachedJson != null) {
+        try {
+          final List<dynamic> list = jsonDecode(cachedJson);
+          final cachedPosts = list.map((d) => Post.fromJson(d)).toList();
+          if (cachedPosts.isNotEmpty) {
+            _window.clear();
+            _window.addAll(cachedPosts);
+            _firstPage = 0;
+            _lastPage = 0;
+            onUpdate?.call();
+          }
+        } catch (_) {}
+      }
     }
 
     // 2. REVALIDATE: Fetch in background

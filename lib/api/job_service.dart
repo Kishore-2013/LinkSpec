@@ -28,8 +28,11 @@ class JobService {
       // ── Step 1: Fetch jobs (NO joins — avoids FK errors blocking results) ──
       var request = _client.from('jobs_dim').select('*');
 
-      // Case-insensitive domain filter
-      if (domainToUse != null && domainToUse.isNotEmpty) {
+      // Case-insensitive domain filter (Skip if 'Global' or 'All' to show everything)
+      if (domainToUse != null && 
+          domainToUse.isNotEmpty && 
+          domainToUse != 'Global' && 
+          domainToUse != 'All') {
         request = request.ilike('domain_id', domainToUse);
       }
 

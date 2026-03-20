@@ -426,9 +426,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       unawaited(_loadSidebarData());
     }
 
-    await _feedCtrl.loadInitial(onUpdate: () {
-      if (mounted) setState(() {});
-    });
+    await _feedCtrl.loadInitial(
+        showStale: domain == null, // Only show stale if it's the initial app load, not a domain switch
+        onUpdate: () {
+          if (mounted) setState(() {});
+        });
     if (mounted) setState(() => _isSwitchingDomain = false);
   }
 
