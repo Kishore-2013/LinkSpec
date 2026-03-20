@@ -83,8 +83,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const _domains = [
     'Software Development',
     'AI, Data & Analytics',
+    'Data Engineering & Databases',
     'Cloud, DevOps & Infrastructure',
     'Cybersecurity & Risk',
+    'Networking & IT Support',
     'Business, Product & Management',
     'Finance, Risk & Compliance',
     'Healthcare & Life Sciences',
@@ -95,73 +97,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     'ERP & Enterprise Systems',
     'HR, Operations & Support',
   ];
-
-  static const _mainDomains = [
-    "Software Development",
-    "AI, Data & Analytics",
-    "Data Engineering & Databases",
-    "Cloud, DevOps & Infrastructure",
-    "Cybersecurity & Risk",
-    "Networking & IT Support",
-    "Business, Product & Management",
-    "Finance, Risk & Compliance",
-    "Healthcare & Life Sciences",
-    "Core Engineering",
-    "Agriculture & Environmental",
-    "Design & Creative",
-    "Sales, Marketing & CRM",
-    "ERP & Enterprise Systems",
-    "HR, Operations & Support"
-  ];
-
-  String? _selectedFeedDomain;
-
-  String _mapToMainDomain(String role) {
-    role = role.toLowerCase();
-
-    // Healthcare
-    if (role.contains("medical") ||
-        role.contains("clinical") ||
-        role.contains("bio") ||
-        role.contains("pharma") ||
-        role.contains("ehr")) {
-      return "Healthcare & Life Sciences";
-    }
-
-    // Software / IT
-    if (role.contains("software") ||
-        role.contains("developer") ||
-        role.contains("engineer") ||
-        role.contains("frontend") ||
-        role.contains("backend") ||
-        role.contains("full stack") ||
-        role.contains("it/software")) {
-      return "Software Development";
-    }
-
-    // Data & AI
-    if (role.contains("data") ||
-        role.contains("ai") ||
-        role.contains("ml")) {
-      return "AI, Data & Analytics";
-    }
-
-    // Cloud / DevOps
-    if (role.contains("cloud") ||
-        role.contains("devops")) {
-      return "Cloud, DevOps & Infrastructure";
-    }
-
-    // Security
-    if (role.contains("security") ||
-        role.contains("aml") ||
-        role.contains("risk")) {
-      return "Cybersecurity & Risk";
-    }
-
-    // Default fallback
-    return "Software Development";
-  }
   bool _isSwitchingDomain = false;
 
   DateTime? _lastNotificationClear;
@@ -989,59 +924,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildRoundIcon(IconData icon, {VoidCallback? onTap}) =>
       _buildHeaderIcon(icon, onTap: onTap);
 
-  Widget _buildDomainFilter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.5)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.filter_list_rounded,
-              size: 18, color: Theme.of(context).primaryColor),
-          const SizedBox(width: 12),
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedFeedDomain,
-                isDense: true,
-                isExpanded: true,
-                icon: const Icon(Icons.arrow_drop_down_rounded, size: 24),
-                hint: const Text("Filter by Industry",
-                    style: TextStyle(fontSize: 14)),
-                items: [
-                  const DropdownMenuItem<String>(
-                    value: null,
-                    child: Text("All Domains", style: TextStyle(fontSize: 14)),
-                  ),
-                  ..._mainDomains.map((domain) {
-                    return DropdownMenuItem<String>(
-                      value: domain,
-                      child: Text(domain, style: const TextStyle(fontSize: 14)),
-                    );
-                  }).toList(),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _selectedFeedDomain = value;
-                  });
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildHomeFeed() {
-    final filteredPosts = _selectedFeedDomain == null
-        ? _posts
-        : _posts.where((post) => _mapToMainDomain(post.domainId) == _selectedFeedDomain).toList();
-
     return RefreshIndicator(
       onRefresh: _refreshPosts,
       displacement: 60,
@@ -1057,8 +940,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             sliver: SliverToBoxAdapter(
               child: Column(children: [
                 _buildStartPostBox(),
-                const SizedBox(height: 12),
-                _buildDomainFilter(),
                 const SizedBox(height: 16),
               ]),
             ),
@@ -1115,9 +996,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) => Padding(
                     padding: const EdgeInsets.only(bottom: 20),
-                    child: PostCard(post: filteredPosts[index]),
+                    child: PostCard(post: _posts[index]),
                   ),
-                  childCount: filteredPosts.length,
+                  childCount: _posts.length,
                 ),
               ),
             ),
@@ -1884,86 +1765,124 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _showDomainSwitcher(String activeDomain) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       backgroundColor: Theme.of(context).cardColor,
-      builder: (_) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
-        child: Column(
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Select Domain',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).textTheme.titleLarge?.color),
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Filter your feed by professional industry',
-                    style: TextStyle(color: Theme.of(context).hintColor, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView.separated(
-                itemCount: _mainDomains.length,
-                separatorBuilder: (context, index) => Divider(
-                  height: 1,
-                  indent: 16,
-                  endIndent: 16,
-                  color: Theme.of(context).dividerColor.withOpacity(0.3),
                 ),
-                itemBuilder: (context, index) {
-                  final domain = _mainDomains[index];
-                  final isSelected = _selectedFeedDomain == domain;
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-                    title: Text(
-                      domain,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Switch Domain',
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).textTheme.titleLarge?.color),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'See posts from a different professional domain',
+                style:
+                    TextStyle(color: Theme.of(context).hintColor, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _domains.map((d) {
+                  final isSelected = d == activeDomain;
+                  return GestureDetector(
+                    onTap: () async {
+                      final String current = ref.read(currentDomainProvider);
+                      if (d == current) {
+                        Navigator.pop(ctx);
+                        return;
+                      }
+                      // Close sheet first
+                      Navigator.pop(ctx);
+
+                      // Update Provider (this triggers the ref.listen in build)
+                      ref.read(currentDomainProvider.notifier).state = d;
+
+                      try {
+                        // Update Supabase profile domain
+                        await Future.wait([
+                          SupabaseService.switchDomain(d),
+                          WebCacheManager.clearDomainCache(),
+                        ]);
+                      } catch (_) {}
+
+                      await _loadGroups();
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 10),
+                      decoration: BoxDecoration(
                         color: isSelected
                             ? Theme.of(context).primaryColor
-                            : Theme.of(context).textTheme.bodyLarge?.color,
+                            : Theme.of(context).dividerColor.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected
+                              ? Theme.of(context).primaryColor
+                              : Theme.of(context).dividerColor.withOpacity(0.1),
+                          width: 1,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                    color: const Color(0xFF0066CC)
+                                        .withOpacity(0.2),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2))
+                              ]
+                            : [],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isSelected) ...[
+                            const Icon(Icons.check_circle,
+                                size: 16, color: Colors.white),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(
+                            d,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.color,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    trailing: isSelected
-                        ? Icon(Icons.check_circle, color: Theme.of(context).primaryColor, size: 20)
-                        : const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
-                    onTap: () {
-                      setState(() {
-                        _selectedFeedDomain = domain;
-                      });
-                      Navigator.pop(context);
-                    },
                   );
-                },
+                }).toList(),
               ),
-            ),
-            const SizedBox(height: 20),
-          ],
+            ],
+          ),
         ),
       ),
     );
