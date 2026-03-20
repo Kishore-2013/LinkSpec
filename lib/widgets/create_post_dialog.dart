@@ -88,10 +88,49 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
       if (result != null && result.files.single.bytes != null) {
         Uint8List bytes = result.files.single.bytes!;
         String name = result.files.single.name;
+        final ext = name.split('.').last.toLowerCase();
+
+        // 1. Type Validation
+        if (!AppConstants.allowedImageExtensions.contains(ext) && 
+            !AppConstants.allowedVideoExtensions.contains(ext)) {
+          if (mounted) {
+            LinkSpecNotify.show(
+              context, 
+              'Unsupported file format. Please upload JPG, PNG, or MP4.', 
+              LinkSpecNotifyType.error
+            );
+          }
+          return;
+        }
+
+        // 2. Initial Size Validation (before compression)
+        // If it's already > 10MB and it's a video (no compression for video here), reject
+        if (bytes.length > AppConstants.maxMediaSize && AppConstants.allowedVideoExtensions.contains(ext)) {
+          if (mounted) {
+            LinkSpecNotify.show(
+              context, 
+              'File size exceeds limit (Max: 10MB). Please upload a smaller file.', 
+              LinkSpecNotifyType.error
+            );
+          }
+          return;
+        }
         
-        // Heavy Compression Check (>5MB)
-        if (bytes.length > 5 * 1024 * 1024) {
+        // 3. Heavy Compression Check (>5MB) for images
+        if (bytes.length > 5 * 1024 * 1024 && AppConstants.allowedImageExtensions.contains(ext)) {
           bytes = await _compressImage(bytes);
+        }
+
+        // 4. Final Size Validation (after compression)
+        if (bytes.length > AppConstants.maxMediaSize) {
+          if (mounted) {
+            LinkSpecNotify.show(
+              context, 
+              'File size exceeds limit (Max: 10MB). Please upload a smaller file.', 
+              LinkSpecNotifyType.error
+            );
+          }
+          return;
         }
 
         setState(() {

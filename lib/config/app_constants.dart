@@ -43,6 +43,11 @@ class AppConstants {
   static const int minPostLength = 500;
   static const int maxPostLength = 5000;
   
+  // Media Upload
+  static const int maxMediaSize = 10 * 1024 * 1024; // 10MB
+  static const List<String> allowedImageExtensions = ['jpg', 'jpeg', 'png'];
+  static const List<String> allowedVideoExtensions = ['mp4'];
+  
   // UI
   static const double defaultPadding = 16.0;
   static const double defaultRadius = 12.0;

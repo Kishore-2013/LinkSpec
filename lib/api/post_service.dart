@@ -142,23 +142,6 @@ class PostService {
     }).toList();
   }
 
-  /// High-level alias for chronological feed
-  static Future<List<Map<String, dynamic>>> getChronologicalFeed({int limit = 10, int offset = 0, String? domain}) {
-    return getPostsByMode(mode: FeedMode.chronological, limit: limit, offset: offset, domain: domain);
-  }
-
-  /// Upload a post image using strictly Uint8List (Standard for Web/Mobile)
-  static Future<String> uploadPostImage({
-    required Uint8List bytes,
-    required String extension,
-  }) async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) throw Exception('User not authenticated');
-
-    final bucketFromEnv = () {
-      try {
-        return dotenv.env['SUPABASE_POST_BUCKET'] ?? SupabaseConfig.postBucket;
-      } catch (_) {
         return SupabaseConfig.postBucket;
       }
     }();

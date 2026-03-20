@@ -8,6 +8,7 @@ import '../services/supabase_service.dart';
 import '../services/linkspec_notify.dart';
 import '../utils/web_utils.dart';
 import '../models/user_profile.dart';
+import '../config/app_constants.dart';
 import 'user_posts_insights_screen.dart';
 import 'member_profile_screen.dart';
 import '../widgets/post_card.dart' show ViewTracker;
@@ -189,10 +190,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
     if (result == null || result.files.single.bytes == null) return;
     
+    final bytes = result.files.single.bytes!;
+    final name = result.files.single.name;
+    final ext = name.split('.').last.toLowerCase();
+
+    // 1. Type Validation
+    if (!AppConstants.allowedImageExtensions.contains(ext)) {
+      if (mounted) {
+        LinkSpecNotify.show(
+          context, 
+          'Unsupported file format. Please upload JPG or PNG.', 
+          LinkSpecNotifyType.error
+        );
+      }
+      return;
+    }
+
+    // 2. Size Validation
+    if (bytes.length > AppConstants.maxMediaSize) {
+      if (mounted) {
+        LinkSpecNotify.show(
+          context, 
+          'File size exceeds limit (Max: 10MB). Please upload a smaller file.', 
+          LinkSpecNotifyType.error
+        );
+      }
+      return;
+    }
+
     setState(() => _isUploadingAvatar = true);
     try {
-      final bytes = result.files.single.bytes!;
-      final url = await SupabaseService.uploadAvatar(bytes, result.files.single.name);
+      final url = await SupabaseService.uploadAvatar(bytes, name);
       setState(() {
         _profile = _profile?.copyWith(avatarUrl: url);
       });
@@ -223,10 +251,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
     if (result == null || result.files.single.bytes == null) return;
     
+    final bytes = result.files.single.bytes!;
+    final name = result.files.single.name;
+    final ext = name.split('.').last.toLowerCase();
+
+    // 1. Type Validation
+    if (!AppConstants.allowedImageExtensions.contains(ext)) {
+      if (mounted) {
+        LinkSpecNotify.show(
+          context, 
+          'Unsupported file format. Please upload JPG or PNG.', 
+          LinkSpecNotifyType.error
+        );
+      }
+      return;
+    }
+
+    // 2. Size Validation
+    if (bytes.length > AppConstants.maxMediaSize) {
+      if (mounted) {
+        LinkSpecNotify.show(
+          context, 
+          'File size exceeds limit (Max: 10MB). Please upload a smaller file.', 
+          LinkSpecNotifyType.error
+        );
+      }
+      return;
+    }
+
     setState(() => _isUploadingCover = true);
     try {
-      final bytes = result.files.single.bytes!;
-      final url = await SupabaseService.uploadCoverPhoto(bytes, result.files.single.name);
+      final url = await SupabaseService.uploadCoverPhoto(bytes, name);
       setState(() => _coverUrl = url);
       if (mounted) {
         LinkSpecNotify.show(

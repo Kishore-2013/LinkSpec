@@ -194,6 +194,18 @@ class SupabaseService {
 
   /// Upload avatar image and return public URL (Binary-Standard)
   static Future<String> uploadAvatar(Uint8List bytes, String fileName) async {
+    final extension = fileName.split('.').last.toLowerCase();
+    
+    // Size Validation
+    if (bytes.length > AppConstants.maxMediaSize) {
+      throw Exception('File size exceeds limit (Max: 10MB). Please upload a smaller file.');
+    }
+    
+    // Type Validation
+    if (!AppConstants.allowedImageExtensions.contains(extension)) {
+      throw Exception('Unsupported file format. Please upload JPG or PNG.');
+    }
+
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
     
@@ -223,6 +235,18 @@ class SupabaseService {
 
   /// Upload cover photo and return public URL (Binary-Standard)
   static Future<String> uploadCoverPhoto(Uint8List bytes, String fileName) async {
+    final extension = fileName.split('.').last.toLowerCase();
+
+    // Size Validation
+    if (bytes.length > AppConstants.maxMediaSize) {
+      throw Exception('File size exceeds limit (Max: 10MB). Please upload a smaller file.');
+    }
+
+    // Type Validation
+    if (!AppConstants.allowedImageExtensions.contains(extension)) {
+      throw Exception('Unsupported file format. Please upload JPG or PNG.');
+    }
+
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Not authenticated');
     
