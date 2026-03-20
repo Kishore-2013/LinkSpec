@@ -1766,98 +1766,109 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _showDomainSwitcher(String activeDomain) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // Allow custom height/full screen logic
+      backgroundColor: Colors.transparent, // Use Container decoration instead
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      backgroundColor: Theme.of(context).cardColor,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(4),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (ctx, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SingleChildScrollView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Switch Domain',
-                style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: Theme.of(context).textTheme.titleLarge?.color),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'See posts from a different professional domain',
-                style:
-                    TextStyle(color: Theme.of(context).hintColor, fontSize: 13),
-              ),
-              const SizedBox(height: 20),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: _domains.map((d) {
-                  final isSelected = d == activeDomain;
-                  return GestureDetector(
-                    onTap: () async {
-                      final String current = ref.read(currentDomainProvider);
-                      if (d == current) {
+                const SizedBox(height: 20),
+                Text(
+                  'Switch Domain',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(context).textTheme.titleLarge?.color),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'See posts from a different professional domain',
+                  style: TextStyle(
+                      color: Theme.of(context).hintColor, fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: _domains.map((d) {
+                    final isSelected = d == activeDomain;
+                    return GestureDetector(
+                      onTap: () async {
+                        final String current = ref.read(currentDomainProvider);
+                        if (d == current) {
+                          Navigator.pop(ctx);
+                          return;
+                        }
+                        // Close sheet first
                         Navigator.pop(ctx);
-                        return;
-                      }
-                      // Close sheet first
-                      Navigator.pop(ctx);
 
-                      // Update Provider (this triggers the ref.listen in build)
-                      ref.read(currentDomainProvider.notifier).state = d;
+                        // Update Provider (this triggers the ref.listen in build)
+                        ref.read(currentDomainProvider.notifier).state = d;
 
-                      try {
-                        // Update Supabase profile domain
-                        await Future.wait([
-                          SupabaseService.switchDomain(d),
-                          WebCacheManager.clearDomainCache(),
-                        ]);
-                      } catch (_) {}
+                        try {
+                          // Update Supabase profile domain
+                          await Future.wait([
+                            SupabaseService.switchDomain(d),
+                            WebCacheManager.clearDomainCache(),
+                          ]);
+                        } catch (_) {}
 
-                      await _loadGroups();
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? Theme.of(context).primaryColor
-                            : Theme.of(context).dividerColor.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
+                        await _loadGroups();
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 10),
+                        decoration: BoxDecoration(
                           color: isSelected
                               ? Theme.of(context).primaryColor
-                              : Theme.of(context).dividerColor.withOpacity(0.1),
-                          width: 1,
+                              : Theme.of(context).dividerColor.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected
+                                ? Theme.of(context).primaryColor
+                                : Theme.of(context).dividerColor
+                                    .withOpacity(0.1),
+                            width: 1,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                      color: const Color(0xFF0066CC)
+                                          .withOpacity(0.2),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2))
+                                ]
+                              : [],
                         ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                    color: const Color(0xFF0066CC)
-                                        .withOpacity(0.2),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2))
-                              ]
-                            : [],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                           if (isSelected) ...[
                             const Icon(Icons.check_circle,
                                 size: 16, color: Colors.white),
