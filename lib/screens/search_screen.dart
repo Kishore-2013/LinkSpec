@@ -20,7 +20,9 @@ class SearchScreen extends StatefulWidget {
     this.autofocusSearch = false,
     this.searchOnlyConnections = false,
     this.initialQuery,
+    this.scrollController,
   }) : super(key: key);
+  final ScrollController? scrollController;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -250,6 +252,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildDiscoveryPane() {
     return SingleChildScrollView(
+      controller: widget.scrollController,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -327,6 +330,7 @@ class _SearchScreenState extends State<SearchScreen>
           _postResults.isEmpty
               ? _buildEmptyState('No posts found for "${_searchController.text}".\nTry a hashtag like #Medical')
               : ListView.separated(
+                  controller: widget.scrollController,
                   padding: const EdgeInsets.all(16),
                   itemCount: _postResults.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 16),
@@ -338,6 +342,7 @@ class _SearchScreenState extends State<SearchScreen>
         _peopleResults.isEmpty
             ? _buildEmptyState('No ${widget.searchOnlyConnections ? 'unites' : 'people'} found for "${_searchController.text}"')
             : ListView.separated(
+                controller: widget.scrollController,
                 padding: const EdgeInsets.all(16),
                 itemCount: _peopleResults.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),

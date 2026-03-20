@@ -9,7 +9,8 @@ import 'dart:async';
 class NotificationsScreen extends StatefulWidget {
   final VoidCallback? onBack;
   final VoidCallback? onRefreshBadges;
-  const NotificationsScreen({Key? key, this.onBack, this.onRefreshBadges}) : super(key: key);
+  final ScrollController? scrollController;
+  const NotificationsScreen({Key? key, this.onBack, this.onRefreshBadges, this.scrollController}) : super(key: key);
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -158,6 +159,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: _notifications.isEmpty
                   ? _buildEmptyState()
                   : ListView.separated(
+                      controller: widget.scrollController,
                       padding: const EdgeInsets.all(16),
                       itemCount: _notifications.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 12),

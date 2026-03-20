@@ -618,6 +618,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   autofocusSearch: _currentIndex == 1,
                                   searchOnlyConnections:
                                       _isSearchMessageContext,
+                                  scrollController: _scrollController,
                                 ),
                                 NetworkScreen(
                                   // 2
@@ -625,6 +626,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       setState(() => _currentIndex = 0),
                                   onSearch: () =>
                                       setState(() => _currentIndex = 1),
+                                  scrollController: _scrollController,
                                 ),
                                 LazyLoadWrapper(
                                   isActive: _currentIndex == 3,
@@ -637,18 +639,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       _currentIndex = 1;
                                       _isSearchMessageContext = true;
                                     }),
+                                    scrollController: _scrollController,
                                   ),
                                 ),
                                 ProfileScreen(
                                   // 4
                                   onBack: () =>
                                       setState(() => _currentIndex = 0),
+                                  scrollController: _scrollController,
                                 ),
                                 NotificationsScreen(
                                   // 5
                                   onBack: () =>
                                       setState(() => _currentIndex = 0),
                                   onRefreshBadges: _loadBadgeCounts,
+                                  scrollController: _scrollController,
                                 ),
                                 RecentActivityScreen(
                                   // 6
@@ -677,11 +682,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   // 10
                                   onBack: () =>
                                       setState(() => _currentIndex = 0),
-                                ),
+                                  ),
                                 JobsPage(
                                   // 11
                                   onBack: () =>
                                       setState(() => _currentIndex = 0),
+                                  scrollController: _scrollController,
                                 ),
                               ],
                             ),
@@ -1202,20 +1208,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: SizedBox(
                           height: 120,
                           width: double.infinity,
-                        child: ref.watch(userProfileProvider).when(
-                          data: (profile) => profile?.coverUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl: profile!.coverUrl!,
-                                  fit: BoxFit.cover,
-                                  placeholder: (_, __) => _buildCoverGradient(),
-                                  errorWidget: (_, __, ___) => _buildCoverGradient(),
-                                  // Key ensures image reloads if URL changes or content is updated
-                                  key: ValueKey('sidebar_cover_${profile.updatedAt.millisecondsSinceEpoch}'),
-                                )
-                              : _buildCoverGradient(),
-                          loading: () => _buildCoverGradient(),
-                          error: (_, __) => _buildCoverGradient(),
-                        ),
+                        child: _currentUserProfile != null && _currentUserProfile!.coverUrl != null
+                            ? CachedNetworkImage(
+                                imageUrl: _currentUserProfile!.coverUrl!,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => _buildCoverGradient(),
+                                errorWidget: (_, __, ___) => _buildCoverGradient(),
+                                key: ValueKey('sidebar_cover_${_currentUserProfile!.updatedAt.millisecondsSinceEpoch}'),
+                              )
+                            : _buildCoverGradient(),
                         ),
                       ),
                       // Space for avatar (radius 40 = 80px, half overlapping = 40px below cover)
@@ -1226,7 +1227,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Column(
                           children: [
                             Text(
-                              ref.watch(userProfileProvider).value?.fullName ?? 'You',
+                              _currentUserProfile?.fullName ?? 'You',
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w800,
@@ -1236,13 +1237,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     ?.color,
                               ),
                               textAlign: TextAlign.center,
-                              // Key ensures text reloads if needed
-                              key: ValueKey('sidebar_name_${ref.watch(userProfileProvider).value?.updatedAt.millisecondsSinceEpoch}'),
+                              key: ValueKey('sidebar_name_${_currentUserProfile?.updatedAt.millisecondsSinceEpoch}'),
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '@${(ref.watch(userProfileProvider).value?.fullName ?? 'user').replaceAll(' ', '').toLowerCase()}',
+                              '@${(_currentUserProfile?.fullName ?? 'user').replaceAll(' ', '').toLowerCase()}',
                               style: TextStyle(
                                   color: Colors.grey[500], fontSize: 12),
                               textAlign: TextAlign.center,

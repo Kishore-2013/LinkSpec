@@ -7,7 +7,8 @@ import 'chat_screen.dart';
 class MessagesListScreen extends StatefulWidget {
   final VoidCallback? onBack;
   final VoidCallback? onSearch;
-  const MessagesListScreen({Key? key, this.onBack, this.onSearch})
+  final ScrollController? scrollController;
+  const MessagesListScreen({Key? key, this.onBack, this.onSearch, this.scrollController})
       : super(key: key);
 
   @override
@@ -173,6 +174,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                       : filtered.isEmpty
                           ? _buildEmpty()
                           : ListView.separated(
+                              controller: widget.scrollController,
                               physics: const AlwaysScrollableScrollPhysics(),
                               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                               itemCount: filtered.length,

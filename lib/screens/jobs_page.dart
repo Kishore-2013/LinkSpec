@@ -12,7 +12,8 @@ import 'package:timeago/timeago.dart' as timeago;
 
 class JobsPage extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
-  const JobsPage({Key? key, this.onBack}) : super(key: key);
+  final ScrollController? scrollController;
+  const JobsPage({Key? key, this.onBack, this.scrollController}) : super(key: key);
 
   @override
   ConsumerState<JobsPage> createState() => _JobsPageState();
@@ -24,7 +25,7 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   bool _isLoadingMore = false;
   DateTime? _lastTimestamp;
   bool _hasNextPage = true;
-  final ScrollController _scrollController = ScrollController();
+  late final ScrollController _scrollController;
   final TextEditingController _searchController = TextEditingController();
   bool _isHR = false;
   String? _lastDomain; // Track domain for re-fetching
@@ -32,6 +33,7 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   @override
   void initState() {
     super.initState();
+    _scrollController = widget.scrollController ?? ScrollController();
     _initializePage();
     _scrollController.addListener(_onScroll);
   }
@@ -77,7 +79,10 @@ class _JobsPageState extends ConsumerState<JobsPage> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _scrollController.removeListener(_onScroll);
+    if (widget.scrollController == null) {
+      _scrollController.dispose();
+    }
     _searchController.dispose();
     super.dispose();
   }

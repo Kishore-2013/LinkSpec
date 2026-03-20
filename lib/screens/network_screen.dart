@@ -14,7 +14,8 @@ import '../providers/domain_provider.dart';
 class NetworkScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
   final VoidCallback? onSearch;
-  const NetworkScreen({Key? key, this.onBack, this.onSearch}) : super(key: key);
+  final ScrollController? scrollController;
+  const NetworkScreen({Key? key, this.onBack, this.onSearch, this.scrollController}) : super(key: key);
 
   @override
   ConsumerState<NetworkScreen> createState() => _NetworkScreenState();
@@ -23,12 +24,14 @@ class NetworkScreen extends ConsumerStatefulWidget {
 class _NetworkScreenState extends ConsumerState<NetworkScreen> {
   List<Map<String, dynamic>> _profiles = [];
   bool _isLoading = true;
-  String? _lastDomain; // Track domain for re-fetching
+  String? _lastDomain; 
+  late final ScrollController _scrollController;
 
 
   @override
   void initState() {
     super.initState();
+    _scrollController = widget.scrollController ?? ScrollController();
     _loadNetwork();
   }
 
@@ -219,6 +222,7 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
                       child: Text('No other professionals found in your domain yet.'),
                     )
                   : ListView.separated(
+                      controller: _scrollController,
                       padding: const EdgeInsets.all(16),
                       itemCount: _profiles.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 12),

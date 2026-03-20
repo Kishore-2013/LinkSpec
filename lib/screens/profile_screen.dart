@@ -24,7 +24,8 @@ import 'package:go_router/go_router.dart';
 class ProfileScreen extends ConsumerStatefulWidget {
   final String? userId; // Optional; if null, defaults to current user
   final VoidCallback? onBack;
-  const ProfileScreen({Key? key, this.userId, this.onBack}) : super(key: key);
+  final ScrollController? scrollController;
+  const ProfileScreen({Key? key, this.userId, this.onBack, this.scrollController}) : super(key: key);
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -774,7 +775,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: RefreshIndicator(
             onRefresh: _loadProfile,
             child: CustomScrollView(
-          slivers: [
+              controller: widget.scrollController,
+              slivers: [
             // ── Full header: cover + avatar + info in ONE stack ──────────
             SliverToBoxAdapter(
               child: Stack(
