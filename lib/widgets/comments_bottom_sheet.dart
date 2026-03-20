@@ -135,10 +135,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         );
       }
     } catch (e) {
-      String errorMsg = 'Error adding comment: $e';
-      if (e.toString().contains('SocketException') || e.toString().contains('Network')) {
-        errorMsg = 'No Internet Connection. Please try again.';
-      }
+      final errorMsg = SupabaseService.getUserFriendlyError(e);
       if (mounted) {
         LinkSpecNotify.show(
           context,
@@ -164,10 +161,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         );
       }
     } catch (e) {
-      String errorMsg = 'Error updating comment: $e';
-      if (e.toString().contains('SocketException') || e.toString().contains('Network')) {
-        errorMsg = 'No Internet Connection. Please try again.';
-      }
+      final errorMsg = SupabaseService.getUserFriendlyError(e);
       if (mounted) {
         LinkSpecNotify.show(
           context,
@@ -213,10 +207,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         );
       }
     } catch (e) {
-      String errorMsg = 'Error deleting comment: $e';
-      if (e.toString().contains('SocketException') || e.toString().contains('Network')) {
-        errorMsg = 'No Internet Connection. Please try again.';
-      }
+      final errorMsg = SupabaseService.getUserFriendlyError(e);
       if (mounted) {
         LinkSpecNotify.show(
           context,

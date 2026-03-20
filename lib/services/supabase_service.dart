@@ -1521,6 +1521,18 @@ class SupabaseService {
     });
   }
 
+  /// Map technical errors to user-friendly messages
+  static String getUserFriendlyError(dynamic e) {
+    final str = e.toString().toLowerCase();
+    if (str.contains('socketexception') || 
+        str.contains('network') || 
+        str.contains('failed to fetch') ||
+        str.contains('clientexception')) {
+      return 'No internet connection. Try to connect to internet and try again.';
+    }
+    return e.toString();
+  }
+
   /// Get comments for a specific post with cursor-based pagination
   static Future<Map<String, dynamic>> getCommentsPaged({
     required String postId,
