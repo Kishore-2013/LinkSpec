@@ -37,6 +37,7 @@ import '../api/post_service.dart';
 import '../api/web_cache_manager.dart';
 import '../providers/domain_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../providers/scroll_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -99,9 +100,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     'Global',
   ];
   bool _isSwitchingDomain = false;
-
-  DateTime? _lastNotificationClear;
-  DateTime? _lastMessageClear;
 
   DateTime? _lastNotificationClear;
   DateTime? _lastMessageClear;
@@ -1887,11 +1885,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _showCreatePostDialog() {
-    showDialog(context: context, builder: (context) => const CreatePostDialog());
-  }
 }
-}
+
+
 
 /// Helper widget to deferred load screen modules on-demand.
 class LazyLoadWrapper extends StatefulWidget {

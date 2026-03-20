@@ -5,6 +5,7 @@ import '../services/supabase_service.dart';
 import '../models/notification.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'dart:async';
+import '../providers/scroll_provider.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
