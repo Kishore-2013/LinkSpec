@@ -227,22 +227,116 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
                             'You\'ll unite with professionals in your selected field',
                             style: TextStyle(color: Colors.grey[500], fontSize: 12),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
 
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final int crossAxisCount = constraints.maxWidth > 400 ? 2 : 1;
-                              return GridView.count(
-                                crossAxisCount: crossAxisCount,
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: 2.2,
-                                children: _domains.map((d) => _buildDomainTile(d)).toList(),
-                              );
-                            },
-                          ),
+                          // ── Domain Dropdown ──────────────────────────────
+                          Builder(builder: (_) {
+                            final selected = _domains.firstWhere(
+                              (d) => d['id'] == _selectedDomain,
+                              orElse: () => <String, dynamic>{},
+                            );
+                            final selectedColor = selected.isNotEmpty
+                                ? selected['color'] as Color
+                                : Colors.blue[400]!;
+
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.72),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.blueGrey.withOpacity(0.14),
+                                    blurRadius: 8,
+                                    offset: const Offset(3, 3),
+                                  ),
+                                  BoxShadow(
+                                    color: Colors.white.withOpacity(0.9),
+                                    blurRadius: 8,
+                                    offset: const Offset(-3, -3),
+                                  ),
+                                ],
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              child: DropdownButtonFormField<String>(
+                                value: _selectedDomain,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  errorBorder: InputBorder.none,
+                                  focusedErrorBorder: InputBorder.none,
+                                  labelText: 'Professional Domain',
+                                  labelStyle: TextStyle(
+                                    color: selectedColor,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                  prefixIcon: Icon(
+                                    selected.isNotEmpty
+                                        ? selected['icon'] as IconData
+                                        : Icons.work_outline,
+                                    color: selectedColor,
+                                    size: 20,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 18),
+                                  errorStyle: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.6,
+                                  ),
+                                ),
+                                hint: const Text(
+                                  'Choose your domain…',
+                                  style: TextStyle(color: Color(0xFFAFC6E0), fontSize: 14),
+                                ),
+                                dropdownColor: const Color(0xFFF0F6FF),
+                                borderRadius: BorderRadius.circular(20),
+                                icon: Icon(Icons.keyboard_arrow_down_rounded,
+                                    color: selectedColor),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: Color(0xFF1A2740),
+                                ),
+                                validator: (v) =>
+                                    v == null ? 'Please select your professional domain' : null,
+                                onChanged: (val) => setState(() => _selectedDomain = val),
+                                items: _domains.map((d) {
+                                  final dId = d['id'] as String;
+                                  final dIcon = d['icon'] as IconData;
+                                  final dColor = d['color'] as Color;
+                                  return DropdownMenuItem<String>(
+                                    value: dId,
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: dColor.withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Icon(dIcon, color: dColor, size: 16),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Flexible(
+                                          child: Text(
+                                            dId,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF1A2740),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            );
+                          }),
                           const SizedBox(height: 24),
 
                           // ── Bio (Optional) ──────────────────────────────
@@ -334,59 +428,6 @@ class _DomainSelectionScreenState extends ConsumerState<DomainSelectionScreen>
     );
   }
 
-  Widget _buildDomainTile(Map<String, dynamic> d) {
-    final id = d['id'] as String;
-    final icon = d['icon'] as IconData;
-    final color = d['color'] as Color;
-    final isSelected = _selectedDomain == id;
-
-    return GestureDetector(
-      onTap: () => setState(() => _selectedDomain = id),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.12) : Colors.white.withOpacity(0.55),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? color : Colors.blue.withOpacity(0.15),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected
-              ? [BoxShadow(color: color.withOpacity(0.18), blurRadius: 12, offset: const Offset(0, 4))]
-              : [BoxShadow(color: const Color(0xFF1A2740).withOpacity(0.04), blurRadius: 6)],
-        ),
-        child: Row(
-          children: [
-            // Icon pill
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(isSelected ? 0.18 : 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                id,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: isSelected ? color : const Color(0xFF1A2740),
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (isSelected)
-              Icon(Icons.check_circle_rounded, color: color, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildClayField({
     required TextEditingController controller,
