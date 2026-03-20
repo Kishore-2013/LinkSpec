@@ -5,7 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/supabase_service.dart';
 import 'session_cache.dart';
 import '../config/supabase_config.dart';
-
+import '../config/app_constants.dart';
 
 /// Service for handling post-related database operations.
 enum FeedMode { popularity, chronological, topWeekly }
@@ -142,19 +142,43 @@ class PostService {
     }).toList();
   }
 
+  /// Upload a post image using strictly Uint8List (Standard for Web/Mobile)
+  static Future<String> uploadPostImage({
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    // Size Validation
+    if (bytes.length > AppConstants.maxMediaSize) {
+      throw Exception('File size exceeds limit (Max: 10MB). Please upload a smaller file.');
+    }
+
+    // Type Validation
+    final ext = extension.toLowerCase();
+    if (!AppConstants.allowedImageExtensions.contains(ext) && 
+        !AppConstants.allowedVideoExtensions.contains(ext)) {
+      throw Exception('Unsupported file format. Please upload JPG, PNG, or MP4.');
+    }
+
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    final bucketFromEnv = () {
+      try {
+        return dotenv.env['SUPABASE_POST_BUCKET'] ?? SupabaseConfig.postBucket;
+      } catch (_) {
         return SupabaseConfig.postBucket;
       }
     }();
     final bucket = bucketFromEnv;
 
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}.$extension';
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}.$ext';
     final path = '$userId/$fileName';
     
     await _client.storage.from(bucket).uploadBinary(
       path, 
       bytes,
       fileOptions: FileOptions(
-        contentType: _getMimeType(extension),
+        contentType: _getMimeType(ext),
         upsert: true,
       ),
     );
@@ -184,17 +208,17 @@ class PostService {
   }
 
   static String _getMimeType(String ext) {
-
     switch (ext.toLowerCase()) {
       case 'png': return 'image/png';
       case 'webp': return 'image/webp';
       case 'heic': return 'image/heic';
       case 'gif': return 'image/gif';
+      case 'mp4': return 'video/mp4';
       case 'jpg':
       case 'jpeg':
       case 'jfif':
         return 'image/jpeg';
-      default: return 'image/octet-stream';
+      default: return 'application/octet-stream';
     }
   }
 }
