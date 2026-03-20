@@ -6,6 +6,7 @@ import '../services/supabase_service.dart';
 import '../widgets/post_card.dart';
 import '../api/saved_posts_service.dart';
 import '../providers/saved_posts_provider.dart';
+import '../providers/scroll_provider.dart';
 
 /// Saved Items Screen — LinkedIn-style saved posts view.
 class SavedItemsScreen extends ConsumerStatefulWidget {
@@ -24,11 +25,12 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = true;
   int _currentPage = 0;
-  final ScrollController _scrollController = ScrollController();
+  late ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ref.read(globalScrollControllerProvider);
     _loadSavedPosts(reset: true);
     _scrollController.addListener(_onScroll);
   }
@@ -41,9 +43,8 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen> {
     }
   }
 
-  @override
   void dispose() {
-    _scrollController.dispose();
+    _scrollController.removeListener(_onScroll);
     super.dispose();
   }
 

@@ -6,6 +6,7 @@ import '../providers/theme_provider.dart';
 import '../services/supabase_service.dart';
 import '../providers/supabase_auth_provider.dart';
 import 'package:go_router/go_router.dart';
+import '../providers/scroll_provider.dart';
 import '../services/linkspec_notify.dart';
 import 'verification_screen.dart';
 
@@ -182,6 +183,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             // Content
             Expanded(
               child: SingleChildScrollView(
+                controller: ref.read(globalScrollControllerProvider),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -200,6 +202,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildMobileLayout() {
     return ListView(
+      controller: ref.read(globalScrollControllerProvider),
       children: _categories.map((cat) {
         final key = cat['key'] as String;
         return ListTile(
@@ -221,7 +224,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     elevation: 0,
                     surfaceTintColor: Colors.transparent,
                   ),
-                  body: SingleChildScrollView(child: _buildCategoryContent()),
+                  body: SingleChildScrollView(
+                    controller: ref.read(globalScrollControllerProvider),
+                    child: _buildCategoryContent(),
+                  ),
                 ),
               ),
             );

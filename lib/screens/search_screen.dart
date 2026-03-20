@@ -6,8 +6,10 @@ import '../models/post.dart';
 import '../widgets/post_card.dart';
 import '../widgets/clay_container.dart';
 import 'member_profile_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/scroll_provider.dart';
 
-class SearchScreen extends StatefulWidget {
+class SearchScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
   final bool autofocusSearch;
   final bool searchOnlyConnections;
@@ -25,10 +27,10 @@ class SearchScreen extends StatefulWidget {
   final ScrollController? scrollController;
 
   @override
-  State<SearchScreen> createState() => _SearchScreenState();
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen>
+class _SearchScreenState extends ConsumerState<SearchScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
@@ -252,7 +254,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildDiscoveryPane() {
     return SingleChildScrollView(
-      controller: widget.scrollController,
+      controller: ref.read(globalScrollControllerProvider),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -330,7 +332,7 @@ class _SearchScreenState extends State<SearchScreen>
           _postResults.isEmpty
               ? _buildEmptyState('No posts found for "${_searchController.text}".\nTry a hashtag like #Medical')
               : ListView.separated(
-                  controller: widget.scrollController,
+                  controller: ref.read(globalScrollControllerProvider),
                   padding: const EdgeInsets.all(16),
                   itemCount: _postResults.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 16),
@@ -342,7 +344,7 @@ class _SearchScreenState extends State<SearchScreen>
         _peopleResults.isEmpty
             ? _buildEmptyState('No ${widget.searchOnlyConnections ? 'unites' : 'people'} found for "${_searchController.text}"')
             : ListView.separated(
-                controller: widget.scrollController,
+                controller: ref.read(globalScrollControllerProvider),
                 padding: const EdgeInsets.all(16),
                 itemCount: _peopleResults.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),

@@ -3,8 +3,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
 import 'chat_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/scroll_provider.dart';
 
-class MessagesListScreen extends StatefulWidget {
+class MessagesListScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
   final VoidCallback? onSearch;
   final ScrollController? scrollController;
@@ -12,10 +14,10 @@ class MessagesListScreen extends StatefulWidget {
       : super(key: key);
 
   @override
-  State<MessagesListScreen> createState() => _MessagesListScreenState();
+  ConsumerState<MessagesListScreen> createState() => _MessagesListScreenState();
 }
 
-class _MessagesListScreenState extends State<MessagesListScreen> {
+class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
   // All users fetched from the directory (no domain filter)
   List<Map<String, dynamic>> _allUsers = [];
   // IDs of users we already have a conversation thread with (green dot)
@@ -174,7 +176,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                       : filtered.isEmpty
                           ? _buildEmpty()
                           : ListView.separated(
-                              controller: widget.scrollController,
+                              controller: ref.read(globalScrollControllerProvider),
                               physics: const AlwaysScrollableScrollPhysics(),
                               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                               itemCount: filtered.length,

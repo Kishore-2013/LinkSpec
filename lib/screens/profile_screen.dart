@@ -20,6 +20,7 @@ import 'dart:ui';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart'; // for Clipboard if needed
 import 'package:go_router/go_router.dart';
+import '../providers/scroll_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   final String? userId; // Optional; if null, defaults to current user
@@ -775,7 +776,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: RefreshIndicator(
             onRefresh: _loadProfile,
             child: CustomScrollView(
-              controller: widget.scrollController,
+              controller: ref.read(globalScrollControllerProvider),
               slivers: [
             // ── Full header: cover + avatar + info in ONE stack ──────────
             SliverToBoxAdapter(

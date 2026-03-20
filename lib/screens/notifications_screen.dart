@@ -6,17 +6,17 @@ import '../models/notification.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'dart:async';
 
-class NotificationsScreen extends StatefulWidget {
+class NotificationsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
   final VoidCallback? onRefreshBadges;
   final ScrollController? scrollController;
   const NotificationsScreen({Key? key, this.onBack, this.onRefreshBadges, this.scrollController}) : super(key: key);
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   List<AppNotification> _notifications = [];
   bool _isLoading = true;
   bool _isLoadingNotifs = false; // inflight guard for _loadNotifications
@@ -159,7 +159,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: _notifications.isEmpty
                   ? _buildEmptyState()
                   : ListView.separated(
-                      controller: widget.scrollController,
+                      controller: ref.read(globalScrollControllerProvider),
                       padding: const EdgeInsets.all(16),
                       itemCount: _notifications.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 12),

@@ -49,7 +49,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
   bool _isSearchMessageContext = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  final _scrollController = ScrollController();
+  // Replaced local scroll controller with global one in initState/build
+  late ScrollController _scrollController;
 
   late PostWindowManager _feedCtrl;
   List<Post> get _posts => _feedCtrl.posts;
@@ -102,8 +103,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   DateTime? _lastNotificationClear;
   DateTime? _lastMessageClear;
 
-  bool _navVisible = true;
-  double _lastScrollOffset = 0;
+  DateTime? _lastNotificationClear;
+  DateTime? _lastMessageClear;
 
   RealtimeChannel? _messagesChannel;
   RealtimeChannel? _notificationsChannel;
@@ -131,7 +132,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _loadSyncBadgeCounts();
     _loadSidebarData();
 
-    // Profile subscription is now handled by userProfileProvider.
+    // Profile subscription: we load the user profile via _loadUserProfile in initState.
 
     bool _sidebarStartupComplete = false;
     Future.delayed(const Duration(milliseconds: 500), () {
@@ -210,7 +211,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           .subscribe((RealtimeSubscribeStatus status, Object? error) {});
     }
 
+    _scrollController = ref.read(globalScrollControllerProvider);
     _scrollController.addListener(() {
+      if (!mounted) return;
       final offset = _scrollController.offset;
       final maxScroll = _scrollController.position.maxScrollExtent;
 
@@ -220,13 +223,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (offset <= 300 && _feedCtrl.hasMoreNewer) {
         _loadNewerPosts();
       }
-
-      if (offset > _lastScrollOffset + 10 && _navVisible) {
-        setState(() => _navVisible = false);
-      } else if (offset < _lastScrollOffset - 10 && !_navVisible) {
-        setState(() => _navVisible = true);
-      }
-      _lastScrollOffset = offset;
     });
   }
 
@@ -240,7 +236,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _applicationsSub?.cancel();
     _sidebarSvc.dispose();
     _feedCtrl.unsubscribe();
-    _scrollController.dispose();
+    // Disposal is handled by the provider ref.onDispose
     super.dispose();
   }
 
@@ -707,15 +703,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ],
               ),
-              // Floating Bottom Nav Pill — always visible (primary nav on all screen sizes)
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeInOut,
-                bottom: _navVisible ? 20 : -90,
-                left: 0,
-                right: 0,
-                child: Center(child: _buildBottomNavPill()),
-              ),
+              // Floating Bottom Nav Pill was removed - now handled by MainLayout
             ],
           ),
         );
@@ -1899,156 +1887,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildBottomNavPill() {
-    final bool isMobile = MediaQuery.of(context).size.width < 700;
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(
-            color: Theme.of(context).dividerColor.withOpacity(0.2), width: 0.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(
-                Theme.of(context).brightness == Brightness.dark ? 0.3 : 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 6 : 12,
-          vertical: isMobile ? 6 : 8,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildNavIcon(Icons.home_filled, 0, label: 'Home'),
-            _buildNavIcon(Icons.search, 1, label: 'Search'),
-            _buildNavIcon(Icons.people_alt_outlined, 2, label: 'Network'),
-            // Create Post Button - Normal style
-            GestureDetector(
-              onTap: () => _showCreatePostDialog(),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 10 : 16,
-                  vertical: 8,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.add_circle_outline,
-                      color: Theme.of(context).hintColor,
-                      size: isMobile ? 22 : 26,
-                    ),
-                    if (!isMobile)
-                      Text('Post',
-                          style: TextStyle(
-                              color: Theme.of(context).hintColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
-            ),
-            _buildNavIcon(Icons.mail_outline, 3,
-                badge: _unreadMessages, label: 'Messages'),
-            _buildNavIcon(Icons.work_outline, 11,
-                badge: _newJobsCount, label: 'Jobs'),
-          ],
-        ),
-      ),
-    );
+  void _showCreatePostDialog() {
+    showDialog(context: context, builder: (context) => const CreatePostDialog());
   }
-
-  Widget _buildNavIcon(IconData? icon, int index,
-      {int badge = 0, String? assetPath, String? label}) {
-    final bool isSelected = _currentIndex == index;
-    final bool isMobile = MediaQuery.of(context).size.width <= 900;
-    return GestureDetector(
-      onTap: () {
-        if (index == 1) {
-          setState(() => _isSearchMessageContext = false);
-        }
-        _navigateTo(index);
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 10 : 16,
-          vertical: 8,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                assetPath != null
-                    ? Container(
-                        width: isMobile ? 22 : 26,
-                        height: isMobile ? 22 : 26,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected
-                                ? const Color(0xFF0066CC)
-                                : Colors.transparent,
-                            width: 1.5,
-                          ),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Image.asset(
-                          assetPath,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : Icon(
-                        icon,
-                        color: isSelected
-                            ? Theme.of(context).primaryColor
-                            : Theme.of(context).hintColor,
-                        size: isMobile ? 22 : 26,
-                      ),
-                if (badge > 0)
-                  Positioned(
-                    right: -4,
-                    top: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 2),
-                      decoration: const BoxDecoration(
-                          color: Colors.red, shape: BoxShape.circle),
-                      child: Text(
-                        badge > 9 ? '9+' : badge.toString(),
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            if (label != null && !isMobile) ...[
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected
-                      ? Theme.of(context).primaryColor
-                      : Theme.of(context).hintColor,
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+}
 }
 
 /// Helper widget to deferred load screen modules on-demand.

@@ -5,15 +5,18 @@ import '../services/supabase_service.dart';
 import '../services/linkspec_notify.dart';
 import 'package:intl/intl.dart';
 
-class EventsScreen extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/scroll_provider.dart';
+
+class EventsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
   const EventsScreen({Key? key, this.onBack}) : super(key: key);
 
   @override
-  State<EventsScreen> createState() => _EventsScreenState();
+  ConsumerState<EventsScreen> createState() => _EventsScreenState();
 }
 
-class _EventsScreenState extends State<EventsScreen> {
+class _EventsScreenState extends ConsumerState<EventsScreen> {
   List<AppEvent> _events = [];
   bool _isLoading = true;
 
@@ -54,6 +57,7 @@ class _EventsScreenState extends State<EventsScreen> {
           : RefreshIndicator(
               onRefresh: _loadEvents,
               child: SingleChildScrollView(
+                controller: ref.read(globalScrollControllerProvider),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

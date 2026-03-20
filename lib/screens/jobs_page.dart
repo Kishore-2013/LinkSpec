@@ -9,6 +9,7 @@ import '../providers/domain_provider.dart';
 import 'job_detail_screen.dart';
 import '../widgets/clay_container.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import '../providers/scroll_provider.dart';
 
 class JobsPage extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -25,7 +26,7 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   bool _isLoadingMore = false;
   DateTime? _lastTimestamp;
   bool _hasNextPage = true;
-  late final ScrollController _scrollController;
+  late ScrollController _scrollController;
   final TextEditingController _searchController = TextEditingController();
   bool _isHR = false;
   String? _lastDomain; // Track domain for re-fetching
@@ -33,7 +34,7 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   @override
   void initState() {
     super.initState();
-    _scrollController = widget.scrollController ?? ScrollController();
+    _scrollController = ref.read(globalScrollControllerProvider);
     _initializePage();
     _scrollController.addListener(_onScroll);
   }
@@ -80,9 +81,7 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
-    if (widget.scrollController == null) {
-      _scrollController.dispose();
-    }
+    // Disposal is handled by the provider ref.onDispose
     _searchController.dispose();
     super.dispose();
   }

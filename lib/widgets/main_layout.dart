@@ -7,6 +7,8 @@ import '../providers/domain_provider.dart';
 import '../widgets/aw_logo.dart';
 import '../api/sidebar_data_service.dart';
 import '../widgets/create_post_dialog.dart';
+import '../providers/scroll_provider.dart';
+import 'package:flutter/rendering.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   final Widget child;
@@ -22,6 +24,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   late SidebarDataService _sidebarSvc;
   int _unreadNotifications = 0;
   int _unreadMessages = 0;
+  double _lastScrollOffset = 0;
 
   @override
   void initState() {
@@ -29,6 +32,29 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final initialDomain = ref.read(currentDomainProvider);
     _sidebarSvc = SidebarDataService(domain: initialDomain);
     _loadInitialData();
+
+    // Setup global scroll listener
+    final scrollController = ref.read(globalScrollControllerProvider);
+    scrollController.addListener(() {
+      final direction = scrollController.position.userScrollDirection;
+      final offset = scrollController.offset;
+
+      // Threshold to prevent micro-flickering
+      if ((offset - _lastScrollOffset).abs() < 5) return;
+
+      if (direction == ScrollDirection.forward) {
+        // 🔼 SCROLL UP → HIDE NAVBAR (User's specific requirement)
+        if (ref.read(navVisibilityProvider)) {
+          ref.read(navVisibilityProvider.notifier).state = false;
+        }
+      } else if (direction == ScrollDirection.reverse) {
+        // 🔽 SCROLL DOWN → SHOW NAVBAR (User's specific requirement)
+        if (!ref.read(navVisibilityProvider)) {
+          ref.read(navVisibilityProvider.notifier).state = true;
+        }
+      }
+      _lastScrollOffset = offset;
+    });
   }
 
   @override
@@ -126,7 +152,12 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             left: 0,
             right: 0,
             child: Center(
-              child: _buildBottomNavPill(location),
+              child: AnimatedSlide(
+                offset: ref.watch(navVisibilityProvider) ? Offset.zero : const Offset(0, 2),
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                child: _buildBottomNavPill(location),
+              ),
             ),
           ),
         ],
@@ -456,7 +487,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               _buildNavIcon(Icons.search_rounded, 'Search', '/search', currentLocation),
               _buildNavIcon(Icons.groups_rounded, 'Groups', '/groups', currentLocation),
               _buildNavIcon(Icons.add_circle_outline_rounded, 'Post', '/home', currentLocation, isSpecial: true),
-              _buildNavIcon(Icons.chat_bubble_outline_rounded, 'Messages', '/messages', currentLocation),
+              _buildNavIcon(Icons.chat_bubble_outline_rounded, 'Messages', '/messages', currentLocation, badge: _unreadMessages),
               _buildNavIcon(Icons.work_rounded, 'Jobs', '/jobs', currentLocation),
             ],
           ),
@@ -465,7 +496,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     );
   }
 
-  Widget _buildNavIcon(IconData icon, String label, String path, String currentPath, {bool isSpecial = false}) {
+  Widget _buildNavIcon(IconData icon, String label, String path, String currentPath, {bool isSpecial = false, int badge = 0}) {
     final bool isSelected = currentPath == path;
     return GestureDetector(
       onTap: () {
@@ -480,10 +511,31 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon, 
-              color: isSpecial ? Colors.blue[700] : (isSelected ? Colors.blue[700] : Colors.grey[600]), 
-              size: isSpecial ? 28 : 24,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon, 
+                  color: isSpecial ? Colors.blue[700] : (isSelected ? Colors.blue[700] : Colors.grey[600]), 
+                  size: isSpecial ? 28 : 24,
+                ),
+                if (badge > 0)
+                  Positioned(
+                    right: -6,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(color: Colors.red[600], shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                      child: Center(
+                        child: Text(
+                          badge > 9 ? '9+' : '$badge',
+                          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 2),
             Text(

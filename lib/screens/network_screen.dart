@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/follow_provider.dart';
 import '../providers/unite_provider.dart';
 import '../providers/domain_provider.dart';
+import '../providers/scroll_provider.dart';
 
 
 class NetworkScreen extends ConsumerStatefulWidget {
@@ -25,13 +26,13 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
   List<Map<String, dynamic>> _profiles = [];
   bool _isLoading = true;
   String? _lastDomain; 
-  late final ScrollController _scrollController;
+  late ScrollController _scrollController;
 
 
   @override
   void initState() {
     super.initState();
-    _scrollController = widget.scrollController ?? ScrollController();
+    _scrollController = ref.read(globalScrollControllerProvider);
     _loadNetwork();
   }
 
