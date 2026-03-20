@@ -42,13 +42,22 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       // Threshold to prevent micro-flickering
       if ((offset - _lastScrollOffset).abs() < 5) return;
 
+      // Safety check: Always show navbar when at the very top
+      if (offset < 20) {
+        if (!ref.read(navVisibilityProvider)) {
+          ref.read(navVisibilityProvider.notifier).state = true;
+        }
+        _lastScrollOffset = offset;
+        return;
+      }
+
       if (direction == ScrollDirection.forward) {
-        // 🔼 SCROLL UP → HIDE NAVBAR (User's specific requirement)
+        // 🔼 SCROLL UP → HIDE NAVBAR (Prompt 10 requirement)
         if (ref.read(navVisibilityProvider)) {
           ref.read(navVisibilityProvider.notifier).state = false;
         }
       } else if (direction == ScrollDirection.reverse) {
-        // 🔽 SCROLL DOWN → SHOW NAVBAR (User's specific requirement)
+        // 🔽 SCROLL DOWN → SHOW NAVBAR (Prompt 10 requirement)
         if (!ref.read(navVisibilityProvider)) {
           ref.read(navVisibilityProvider.notifier).state = true;
         }
@@ -278,6 +287,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       children: [
         _buildProfileCard(),
         const SizedBox(height: 24),
+        _buildSidebarItem(Icons.home_rounded, 'Home', path: '/home'),
+        _buildSidebarItem(Icons.search_rounded, 'Search', path: '/search'),
+        _buildSidebarItem(Icons.groups_rounded, 'Groups', path: '/groups'),
+        _buildSidebarItem(Icons.work_rounded, 'Jobs', path: '/jobs'),
+        const SizedBox(height: 12),
+        const Divider(),
+        const SizedBox(height: 12),
         _buildSidebarItem(Icons.bookmark_border_rounded, 'Saved items', path: '/saved-items'),
         _buildSidebarItem(Icons.settings_outlined, 'Settings', path: '/settings'),
         const SizedBox(height: 24),
