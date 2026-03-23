@@ -27,7 +27,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
   // Accumulate small deltas before acting — prevents rapid flicker on web
   // trackpad and inertial scroll (which sends many tiny events).
-  static const double _scrollThreshold = 8.0;
+  // Increase threshold to prevent flickering/accidental hiding
+  static const double _scrollThreshold = 20.0;
   double _pendingDelta = 0;
 
   @override
@@ -106,7 +107,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         children: [
           Column(
             children: [
-              _buildHeader(isMobile, activeDomain),
+              _buildHeader(isMobile, activeDomain, location),
               Expanded(
                 // NotificationListener captures ALL scroll events from any
                 // descendant: touch drag, mouse wheel, trackpad, keyboard.
@@ -173,7 +174,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             right: 0,
             child: Center(
               child: AnimatedSlide(
-                offset: ref.watch(navVisibilityProvider) ? Offset.zero : const Offset(0, 2),
+                // Always visible on all screens as requested (centered bottom pill)
+                offset: Offset.zero,
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
                 child: _buildBottomNavPill(location),
@@ -185,7 +187,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     );
   }
 
-  Widget _buildHeader(bool isMobile, String activeDomain) {
+  Widget _buildHeader(bool isMobile, String activeDomain, String location) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -233,14 +235,18 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               ),
             ),
             const SizedBox(width: 16),
-            _buildHeaderIcon(Icons.notifications_none_rounded, badge: _unreadNotifications, onTap: () => context.go('/home')), 
-            const SizedBox(width: 12),
-            _buildHeaderIcon(Icons.mail_outline_rounded, badge: _unreadMessages, onTap: () => context.go('/home')),
+            _buildHeaderIcon(Icons.notifications_none_rounded, badge: _unreadNotifications, onTap: () => context.go('/notifications')), 
+            const SizedBox(width: 16),
+            _buildHeaderIcon(Icons.logout_rounded, onTap: () async {
+              await SupabaseService.signOut();
+              context.go('/login');
+            }),
           ],
         ),
       ),
     );
   }
+
 
   Widget _buildHeaderIcon(IconData icon, {int badge = 0, VoidCallback? onTap}) {
     return GestureDetector(
@@ -512,7 +518,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             children: [
               _buildNavIcon(Icons.home_rounded, 'Home', '/home', currentLocation),
               _buildNavIcon(Icons.search_rounded, 'Search', '/search', currentLocation),
-              _buildNavIcon(Icons.groups_rounded, 'Groups', '/groups', currentLocation),
+              _buildNavIcon(Icons.people_alt_rounded, 'Network', '/network', currentLocation),
               _buildNavIcon(Icons.add_circle_outline_rounded, 'Post', '/home', currentLocation, isSpecial: true),
               _buildNavIcon(Icons.chat_bubble_outline_rounded, 'Messages', '/messages', currentLocation, badge: _unreadMessages),
               _buildNavIcon(Icons.work_rounded, 'Jobs', '/jobs', currentLocation),

@@ -33,6 +33,8 @@ import 'models/job.dart';
 import 'screens/job_detail_screen.dart';
 import 'screens/jobs_page.dart';
 import 'screens/messages_list_screen.dart';
+import 'screens/network_screen.dart';
+import 'screens/notifications_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -137,6 +139,14 @@ final _router = GoRouter(
         GoRoute(
           path: '/jobs',
           builder: (context, state) => const JobsPage(),
+        ),
+        GoRoute(
+          path: '/network',
+          builder: (context, state) => const NetworkScreen(),
+        ),
+        GoRoute(
+          path: '/notifications',
+          builder: (context, state) => const NotificationsScreen(),
         ),
         GoRoute(
           path: '/job/:id',
