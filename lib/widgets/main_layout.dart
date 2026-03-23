@@ -139,7 +139,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF5F5F7),
       drawer: isMobile ? Drawer(child: SafeArea(child: SingleChildScrollView(padding: const EdgeInsets.all(16), child: _buildLeftSideBar()))) : null,
       body: Stack(
         children: [
@@ -166,7 +166,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                       // Column 2: Center Content
                       Expanded(
                         flex: 2,
+                        child: Padding(
+                           padding: EdgeInsets.only(bottom: showNavbar ? 100 : 0),
                         child: widget.child,
+                        ),
                       ),
 
                       if (isDesktop) const SizedBox(width: 12),
