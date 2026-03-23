@@ -79,10 +79,12 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final activeDomain = ref.watch(currentDomainProvider);
     final String location = GoRouterState.of(context).uri.path;
 
-    // ✅ ONLY ADDITION
     final bool showNavbar =
         !location.contains('/login') &&
         !location.contains('/signup');
+
+    // Debug Log
+    debugPrint("Navbar visible: $showNavbar, route: $location");
 
     ref.listen(currentDomainProvider, (prev, next) {
       if (prev != next) {
@@ -99,6 +101,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       backgroundColor: const Color(0xFFF5F5F7),
       drawer: isMobile ? Drawer(child: _buildLeftSideBar()) : null,
       body: Stack(
+        clipBehavior: Clip.none, // Ensure children aren't clipped
         children: [
           Column(
             children: [
@@ -126,16 +129,18 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             ],
           ),
 
-          // ✅ ONLY MODIFIED PART
-          if (showNavbar)
-            Positioned(
-              bottom: 24,
-              left: 0,
-              right: 0,
-              child: Center(
+          // ✅ FORCED VISIBILITY FOR DEBUGGING
+          Positioned(
+            bottom: 24,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                color: Colors.red.withOpacity(0.2), // Debug color
                 child: _buildBottomNavPill(location),
               ),
             ),
+          ),
         ],
       ),
     );
