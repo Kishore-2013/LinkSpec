@@ -46,7 +46,8 @@ class _GoogleSignInButtonWebState extends State<_GoogleSignInButtonWeb> {
     // Register the platform view factory for this instance
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
       final div = _createHostDiv(_elementId);
-      return div;
+      // Modern Flutter Web requires returning as JSObject/Object
+      return div as JSObject;
     });
 
     // FIX 1: Ensure renderButton is called ONLY after DOM is ready
@@ -97,14 +98,14 @@ external JSObject _createElementRaw(JSString tag);
 
 @JS()
 @staticInterop
-class _HtmlElement extends JSObject {}
+class _HtmlElement {}
 
 extension _HtmlElementExt on _HtmlElement {
   @JS('setAttribute')
   external void setAttribute(JSString name, JSString value);
 }
 
-JSObject _createHostDiv(String id) {
+_HtmlElement _createHostDiv(String id) {
   final el = _createElementRaw('div'.toJS) as _HtmlElement;
   el.setAttribute('id'.toJS, id.toJS);
   el.setAttribute('style'.toJS, 'width:100%;height:48px;display:flex;align-items:center;justify-content:center;'.toJS);

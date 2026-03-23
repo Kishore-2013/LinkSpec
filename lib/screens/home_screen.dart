@@ -909,9 +909,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     : null,
                 child: _currentUserProfile?.avatarUrl == null
                     ? Text(
-                        (_currentUserProfile?.fullName ?? 'U')
-                            .substring(0, 1)
-                            .toUpperCase(),
+                        (_currentUserProfile?.fullName ?? 'U').isNotEmpty 
+                            ? (_currentUserProfile?.fullName ?? 'U')[0].toUpperCase() 
+                            : '?',
                         style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF1C1C1E)),
@@ -1112,8 +1112,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     : null,
                                 child: _currentUserProfile!.avatarUrl == null
                                     ? Text(
-                                        (_currentUserProfile!.fullName ?? 'U')[0]
-                                            .toUpperCase(),
+                                        (_currentUserProfile!.fullName ?? 'U').isNotEmpty 
+                                            ? (_currentUserProfile!.fullName ?? 'U')[0].toUpperCase()
+                                            : '?',
                                         style: const TextStyle(
                                           fontSize: 30,
                                           fontWeight: FontWeight.bold,

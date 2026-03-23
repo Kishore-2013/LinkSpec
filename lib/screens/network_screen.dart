@@ -110,6 +110,15 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
     }
   }
 
+  Future<void> _handleReject(String targetUserId) async {
+    try {
+      await ref.read(uniteProvider.notifier).rejectRequest(targetUserId);
+      if (mounted) LinkSpecNotify.show(context, 'Request rejected', LinkSpecNotifyType.info);
+    } catch (e) {
+      if (mounted) LinkSpecNotify.show(context, 'Action failed: $e', LinkSpecNotifyType.error);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeDomain = ref.watch(currentDomainProvider);
@@ -226,11 +235,20 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: () => _toggleFollow(targetId),
-                                        style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.blue)),
-                                        child: Text(isFollowing ? 'Following' : 'Follow'),
-                                      ),
+                                      child: connectStatus == 'pending_received'
+                                          ? OutlinedButton(
+                                              onPressed: () => _handleReject(targetId),
+                                              style: OutlinedButton.styleFrom(
+                                                side: BorderSide(color: Colors.red.withOpacity(0.5)),
+                                                foregroundColor: Colors.red[600],
+                                              ),
+                                              child: const Text('Reject'),
+                                            )
+                                          : OutlinedButton(
+                                              onPressed: () => _toggleFollow(targetId),
+                                              style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.blue)),
+                                              child: Text(isFollowing ? 'Following' : 'Follow'),
+                                            ),
                                     ),
                                   ],
                                 ),

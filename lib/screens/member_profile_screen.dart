@@ -368,7 +368,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen>
                               : null,
                           child: _profile!.avatarUrl == null
                               ? Text(
-                                  _profile!.fullName[0].toUpperCase(),
+                                  _profile!.fullName.isNotEmpty ? _profile!.fullName[0].toUpperCase() : '?',
                                   style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
                                 )
                               : null,
@@ -665,8 +665,11 @@ extension on _MemberProfileScreenState {
                       final conn = connections[index];
                       return ListTile(
                         leading: CircleAvatar(
+                          backgroundColor: Colors.blue[50],
                           backgroundImage: conn['avatar_url'] != null ? CachedNetworkImageProvider(conn['avatar_url']) : null,
-                          child: conn['avatar_url'] == null ? Text(conn['full_name'][0].toUpperCase()) : null,
+                          child: conn['avatar_url'] == null 
+                              ? Text((conn['full_name'] as String? ?? 'U').isNotEmpty ? (conn['full_name'] as String)[0].toUpperCase() : '?',
+                                  style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)) : null,
                         ),
                         title: Text(conn['full_name'] ?? 'Unknown'),
                         subtitle: Text(conn['domain_id'] ?? ''),
