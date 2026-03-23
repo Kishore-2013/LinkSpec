@@ -7,9 +7,6 @@ import '../providers/domain_provider.dart';
 import '../widgets/aw_logo.dart';
 import '../api/sidebar_data_service.dart';
 import '../widgets/create_post_dialog.dart';
-import '../providers/scroll_provider.dart';
-import 'bottom_nav_bar.dart';
-
 
 class MainLayout extends ConsumerStatefulWidget {
   final Widget child;
@@ -25,9 +22,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   late SidebarDataService _sidebarSvc;
   int _unreadNotifications = 0;
   int _unreadMessages = 0;
-
-  static const double _scrollThreshold = 20.0;
-  double _pendingDelta = 0;
 
   @override
   void initState() {
@@ -103,64 +97,36 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         children: [
           Column(
             children: [
-              _buildHeader(isMobile, activeDomain, location),
+              _buildHeader(isMobile, activeDomain),
               Expanded(
-                child: NotificationListener<ScrollUpdateNotification>(
-                  onNotification: (notification) {
-                    final delta = notification.scrollDelta ?? 0;
-                    if (notification.metrics.pixels <= 0) {
-                      if (!ref.read(navVisibilityProvider)) {
-                        ref.read(navVisibilityProvider.notifier).state = true;
-                        _pendingDelta = 0;
-                      }
-                      return false;
-                    }
-                    _pendingDelta += delta;
-                    if (_pendingDelta > _scrollThreshold) {
-                      if (ref.read(navVisibilityProvider)) ref.read(navVisibilityProvider.notifier).state = false;
-                      _pendingDelta = 0;
-                    } else if (_pendingDelta < -_scrollThreshold) {
-                      if (!ref.read(navVisibilityProvider)) ref.read(navVisibilityProvider.notifier).state = true;
-                      _pendingDelta = 0;
-                    }
-                    return false;
-                  },
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (!isMobile)
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 300),
-                          child: _buildStickyPanel(_buildLeftSideBar()),
-                        ),
-                      Expanded(child: widget.child),
-                      if (isWide)
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 320),
-                          child: _buildStickyPanel(_buildRightSideBar(activeDomain)),
-                        ),
-                    ],
-                  ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!isMobile)
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 300),
+                        child: _buildStickyPanel(_buildLeftSideBar()),
+                      ),
+                    Expanded(
+                      child: widget.child,
+                    ),
+                    if (isWide)
+                       ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 320),
+                        child: _buildStickyPanel(_buildRightSideBar(activeDomain)),
+                      ),
+                  ],
                 ),
               ),
             ],
           ),
+          // Floating Bottom Nav Pill
           Positioned(
             bottom: 24,
             left: 0,
             right: 0,
-            child: AnimatedSlide(
-              offset: ref.watch(navVisibilityProvider) ? Offset.zero : const Offset(0, 1.5),
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-              child: Center(
-                child: BottomNavBar(
-                  currentIndex: _getNavIndex(location),
-                  unreadMessages: _unreadMessages,
-                  unreadNotifications: _unreadNotifications,
-                  onTap: (index) => _handleNavTap(index),
-                ),
-              ),
+            child: Center(
+              child: _buildBottomNavPill(location),
             ),
           ),
         ],
@@ -168,7 +134,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     );
   }
 
-  Widget _buildHeader(bool isMobile, String activeDomain, String location) {
+  Widget _buildHeader(bool isMobile, String activeDomain) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -196,6 +162,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               ),
             ],
             const Spacer(),
+            // Domain Indicator
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -215,12 +182,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               ),
             ),
             const SizedBox(width: 16),
-            _buildHeaderIcon(Icons.notifications_none_rounded, badge: _unreadNotifications, onTap: () => context.go('/notifications')), 
-            const SizedBox(width: 16),
-            _buildHeaderIcon(Icons.logout_rounded, onTap: () async {
-              await SupabaseService.signOut();
-              context.go('/login');
-            }),
+            _buildHeaderIcon(Icons.notifications_none_rounded, badge: _unreadNotifications, onTap: () => context.go('/home')), 
+            const SizedBox(width: 12),
+            _buildHeaderIcon(Icons.mail_outline_rounded, badge: _unreadMessages, onTap: () => context.go('/home')),
           ],
         ),
       ),
@@ -282,7 +246,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     return Column(
       children: [
         _buildProfileCard(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         _buildSidebarItem(Icons.bookmark_border_rounded, 'Saved items', path: '/saved-items'),
         _buildSidebarItem(Icons.settings_outlined, 'Settings', path: '/settings'),
         const SizedBox(height: 24),
@@ -407,6 +371,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
+          // Cover Image
           Container(
             height: 90,
             width: double.infinity,
@@ -466,24 +431,72 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     );
   }
 
-  int _getNavIndex(String location) {
-    if (location.startsWith('/search')) return 1;
-    if (location.startsWith('/network')) return 2;
-    if (location.startsWith('/messages')) return 4;
-    if (location.startsWith('/jobs')) return 5;
-    return 0; // Default to Home
+  Widget _buildBottomNavPill(String currentLocation) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(40),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildNavIcon(Icons.home_rounded, 'Home', '/home', currentLocation),
+              _buildNavIcon(Icons.search_rounded, 'Search', '/search', currentLocation),
+              _buildNavIcon(Icons.groups_rounded, 'Groups', '/groups', currentLocation),
+              _buildNavIcon(Icons.add_circle_outline_rounded, 'Post', '/home', currentLocation, isSpecial: true),
+              _buildNavIcon(Icons.chat_bubble_outline_rounded, 'Messages', '/messages', currentLocation),
+              _buildNavIcon(Icons.work_rounded, 'Jobs', '/jobs', currentLocation),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  void _handleNavTap(int index) {
-    switch (index) {
-      case 0: context.go('/home'); break;
-      case 1: context.go('/search'); break;
-      case 2: context.go('/network'); break;
-      case 3: 
-        showDialog(context: context, builder: (context) => const CreatePostDialog());
-        break;
-      case 4: context.go('/messages'); break;
-      case 5: context.go('/jobs'); break;
-    }
+  Widget _buildNavIcon(IconData icon, String label, String path, String currentPath, {bool isSpecial = false}) {
+    final bool isSelected = currentPath == path;
+    return GestureDetector(
+      onTap: () {
+        if (isSpecial) {
+          showDialog(context: context, builder: (context) => const CreatePostDialog());
+        } else {
+          context.go(path);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon, 
+              color: isSpecial ? Colors.blue[700] : (isSelected ? Colors.blue[700] : Colors.grey[600]), 
+              size: isSpecial ? 28 : 24,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.blue[700] : Colors.grey[600],
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

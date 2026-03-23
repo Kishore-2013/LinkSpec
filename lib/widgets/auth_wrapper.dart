@@ -29,13 +29,13 @@ class AuthWrapper extends ConsumerWidget {
         }
 
         if (session == null) {
-          return const MainLayout(child: LoginScreen());
+          return const LoginScreen();
         }
 
         return _handleAuthenticatedState(context, ref);
       },
       loading: () => _buildLoadingScreen(),
-      error: (e, st) => const MainLayout(child: LoginScreen()),
+      error: (e, st) => const LoginScreen(),
     );
   }
 

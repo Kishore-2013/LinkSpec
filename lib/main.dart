@@ -68,11 +68,11 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/auth',
-      builder: (context, state) => MainLayout(child: LoginScreen()),
+      builder: (context, state) => const LoginScreen(),
     ),
     GoRoute(
       path: '/login', // Alias for /auth to maintain compatibility if needed
-      builder: (context, state) => MainLayout(child: LoginScreen()),
+      builder: (context, state) => const LoginScreen(),
     ),
     GoRoute(
       path: '/otp-verify',
