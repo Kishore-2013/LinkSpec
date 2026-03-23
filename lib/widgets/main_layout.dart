@@ -299,6 +299,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       'Sales, Marketing & CRM',
       'ERP & Enterprise Systems',
       'HR, Operations & Support',
+      'Global',
     ];
 
     showModalBottomSheet(
@@ -326,32 +327,52 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Select a professional domain to customize your feed.',
+              'See posts from a different professional domain',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 24),
             Expanded(
-              child: ListView.separated(
-                itemCount: domains.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final domain = domains[index];
-                  final isSelected = domain == currentDomain;
-                  return ListTile(
-                    title: Text(
-                      domain,
-                      style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? Colors.blue : Colors.black87,
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: domains.map((domain) {
+                    final isSelected = domain == currentDomain;
+                    return InkWell(
+                      onTap: () {
+                        ref.read(currentDomainProvider.notifier).state = domain;
+                        Navigator.pop(context);
+                      },
+                      borderRadius: BorderRadius.circular(24),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF0066CC) : const Color(0xFFF3F3F3),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF0066CC) : Colors.grey.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isSelected) ...[
+                              const Icon(Icons.check_circle, color: Colors.white, size: 18),
+                              const SizedBox(width: 8),
+                            ],
+                            Text(
+                              domain,
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                color: isSelected ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
-                    onTap: () {
-                      ref.read(currentDomainProvider.notifier).state = domain;
-                      Navigator.pop(context);
-                    },
-                  );
-                },
+                    );
+                  }).toList(),
+                ),
               ),
             ),
           ],
