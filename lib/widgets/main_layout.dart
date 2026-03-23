@@ -7,6 +7,7 @@ import '../providers/domain_provider.dart';
 import '../widgets/aw_logo.dart';
 import '../api/sidebar_data_service.dart';
 import '../widgets/create_post_dialog.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   final Widget child;
@@ -72,19 +73,52 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     }
   }
 
+  void _onBottomNavTap(int index, String currentLocation) {
+    if (index == 3) {
+      // Show Post Dialog
+      showDialog(
+        context: context,
+        builder: (context) => CreatePostDialog(
+          onPostCreated: () {
+            // Success logic already handled inside dialog
+          },
+        ),
+      );
+      return;
+    }
+
+    final String targetRoute = switch (index) {
+      0 => '/home',
+      1 => '/search',
+      2 => '/network',
+      4 => '/messages',
+      5 => '/jobs',
+      _ => '/home',
+    };
+
+    if (!currentLocation.startsWith(targetRoute)) {
+      context.go(targetRoute);
+    }
+  }
+
+  int _getCurrentIndex(String location) {
+    if (location.startsWith('/home')) return 0;
+    if (location.startsWith('/search')) return 1;
+    if (location.startsWith('/network')) return 2;
+    if (location.startsWith('/messages')) return 4;
+    if (location.startsWith('/jobs')) return 5;
+    return 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
-    final bool isWide = MediaQuery.of(context).size.width > 1200;
     final activeDomain = ref.watch(currentDomainProvider);
     final String location = GoRouterState.of(context).uri.path;
 
     final bool showNavbar =
         !location.contains('/login') &&
         !location.contains('/signup');
-
-    // Debug Log
-    debugPrint("Navbar visible: $showNavbar, route: $location");
 
     ref.listen(currentDomainProvider, (prev, next) {
       if (prev != next) {
@@ -101,46 +135,43 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       backgroundColor: const Color(0xFFF5F5F7),
       drawer: isMobile ? Drawer(child: _buildLeftSideBar()) : null,
       body: Stack(
-        clipBehavior: Clip.none, // Ensure children aren't clipped
         children: [
           Column(
             children: [
               _buildHeader(isMobile, activeDomain),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!isMobile)
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 300),
-                        child: _buildStickyPanel(_buildLeftSideBar()),
+                child: Padding(
+                  // Add bottom padding to prevent overlapping with the floating nav bar
+                  padding: EdgeInsets.only(bottom: showNavbar ? 100 : 0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Note: sidebars are currently handled by individual screens
+                      // like HomeScreen to maintain visual and functional parity.
+                      Expanded(
+                        child: widget.child,
                       ),
-                    Expanded(
-                      child: widget.child,
-                    ),
-                    if (isWide)
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 320),
-                        child: _buildStickyPanel(_buildRightSideBar(activeDomain)),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
 
-          // ✅ FORCED VISIBILITY FOR DEBUGGING
-          Positioned(
-            bottom: 24,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                color: Colors.red.withOpacity(0.2), // Debug color
-                child: _buildBottomNavPill(location),
+          if (showNavbar)
+            Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: BottomNavBar(
+                  currentIndex: _getCurrentIndex(location),
+                  onTap: (index) => _onBottomNavTap(index, location),
+                  unreadMessages: _unreadMessages,
+                  unreadNotifications: _unreadNotifications,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -183,55 +214,51 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             _buildHeaderIcon(Icons.notifications_none_rounded, badge: _unreadNotifications),
             const SizedBox(width: 12),
             _buildHeaderIcon(Icons.mail_outline_rounded, badge: _unreadMessages),
+            const SizedBox(width: 8),
+            _buildHeaderIcon(Icons.logout_rounded, onTap: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: const Text('Log out?', style: TextStyle(fontWeight: FontWeight.w700)),
+                  content: const Text('Are you sure you want to log out of linkspec?'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('Log out', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true && mounted) {
+                await SupabaseService.signOut();
+                if (mounted) context.go('/login');
+              }
+            }),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeaderIcon(IconData icon, {int badge = 0}) {
-    return Stack(
-      children: [
-        Icon(icon, size: 26),
-        if (badge > 0)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: CircleAvatar(radius: 6, backgroundColor: Colors.red),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildStickyPanel(Widget child) {
-    return SingleChildScrollView(child: child);
-  }
-
-  Widget _buildLeftSideBar() => Column(children: []);
-  Widget _buildRightSideBar(String domain) => Column(children: []);
-
-  Widget _buildBottomNavPill(String currentLocation) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(40),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+  Widget _buildHeaderIcon(IconData icon, {int badge = 0, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
         children: [
-          Icon(Icons.home),
-          SizedBox(width: 12),
-          Icon(Icons.search),
-          SizedBox(width: 12),
-          Icon(Icons.add),
-          SizedBox(width: 12),
-          Icon(Icons.message),
-          SizedBox(width: 12),
-          Icon(Icons.work),
+          Icon(icon, size: 26),
+          if (badge > 0)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: CircleAvatar(radius: 6, backgroundColor: Colors.red),
+            ),
         ],
       ),
     );
   }
+
+  Widget _buildLeftSideBar() => Column(children: []);
 }
