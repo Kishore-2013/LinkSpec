@@ -223,7 +223,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ? NetworkImage(widget.otherUser['avatar_url'])
                   : null,
               child: widget.otherUser['avatar_url'] == null
-                  ? Text(widget.otherUser['full_name'][0].toUpperCase(),
+                  ? Text((widget.otherUser['full_name']?.toString().isNotEmpty ?? false) ? widget.otherUser['full_name'][0].toUpperCase() : '?',
                       style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold))
                   : null,
             ),

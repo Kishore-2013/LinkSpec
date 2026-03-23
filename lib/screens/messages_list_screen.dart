@@ -47,7 +47,7 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
       
       // Corrected Supabase method calls based on SupabaseService implementation
       final results = await Future.wait([
-        SupabaseService.getAllProfiles(limit: 100), // Get users for directory
+        SupabaseService.getAllProfiles(limit: 1000), // Get users for directory
         SupabaseService.getConversations(), // Get IDs/Profiles of existing chats
         SupabaseService.getUnreadSenderIds(), // Get IDs of senders with unread messages
       ]);
@@ -104,6 +104,8 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
     });
 
     return Container(
+      width: double.infinity,
+      height: double.infinity,
       color: Colors.white,
       child: Column(
         children: [
@@ -169,7 +171,8 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
   }
 
   Widget _buildUserTile(Map<String, dynamic> user) {
-    final userId = user['id'] as String;
+    final userId = user['id'] as String? ?? '';
+    if (userId.isEmpty) return const SizedBox.shrink();
     final hasUnread = _hasUnreadFrom.contains(userId);
     final name = user['full_name'] as String? ?? 'User';
     final domain = user['domain_id'] as String? ?? '';
@@ -190,7 +193,7 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
           radius: 24,
           backgroundColor: Colors.blue[50],
           backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) ? NetworkImage(avatarUrl) : null,
-          child: (avatarUrl == null || avatarUrl.isEmpty) ? Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.blue)) : null,
+          child: (avatarUrl == null || avatarUrl.isEmpty) ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Colors.blue)) : null,
         ),
         title: Text(name, style: TextStyle(fontWeight: hasUnread ? FontWeight.w800 : FontWeight.w700, fontSize: 15)),
         subtitle: Text(domain.toUpperCase(), style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),

@@ -330,7 +330,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   final String avatarUrl = person['avatar_url'] as String? ?? '';
                   final String fullName = person['full_name'] as String? ?? 'User';
                   return GestureDetector(
-                    onTap: () => context.push('/profile/${person['id']}'),
+                    onTap: () {
+                      final pid = person['id']?.toString() ?? '';
+                      if (pid.isNotEmpty) context.push('/profile/$pid');
+                    },
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -344,7 +347,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                           CircleAvatar(
                             radius: 24,
                             backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                            child: avatarUrl.isEmpty ? Text(fullName[0]) : null,
+                            child: avatarUrl.isEmpty ? Text(fullName.isNotEmpty ? fullName[0].toUpperCase() : '?') : null,
                           ),
                           const SizedBox(width: 16),
                           Expanded(
