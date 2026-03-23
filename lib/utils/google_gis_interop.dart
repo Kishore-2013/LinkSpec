@@ -21,10 +21,22 @@ extension _GoogleAccountsIdExt on _GoogleAccountsId {
   external void cancel();
 }
 
+/// Helper for GIS CredentialResponse object
+@JS()
+@staticInterop
+class _CredentialResponse {}
+
+extension _CredentialResponseExt on _CredentialResponse {
+  external JSString? get credential;
+}
+
 // ─── window-level callback hook ─────────────────────────────────────────────
 
 @JS('window.flutterGoogleSignInCallback')
 external set _flutterGoogleSignInCallback(JSFunction? callback);
+
+@JS('window.flutterGoogleSignInCallback')
+external JSFunction? get _flutterGoogleSignInCallback;
 
 // ─── Public API used by Dart code ────────────────────────────────────────────
 
@@ -34,8 +46,10 @@ external set _flutterGoogleSignInCallback(JSFunction? callback);
 /// This bridges the global JS `onGoogleCredentialResponse` (called by GIS)
 /// → `window.flutterGoogleSignInCallback` (set here) → [onIdToken].
 void registerGoogleSignInCallback(void Function(String idToken) onIdToken) {
-  _flutterGoogleSignInCallback = ((JSString jwtToken) {
-    onIdToken(jwtToken.toDart);
+  _flutterGoogleSignInCallback = ((_CredentialResponse response) {
+    // In GIS v3, callback receives a CredentialResponse object.
+    final String? jwt = response.credential?.toDart;
+    if (jwt != null) onIdToken(jwt);
   }).toJS;
 }
 
@@ -43,12 +57,17 @@ void registerGoogleSignInCallback(void Function(String idToken) onIdToken) {
 /// Call this once before rendering the button.
 void initializeGoogleSignIn({
   required String clientId,
-  String callbackFunctionName = 'onGoogleCredentialResponse',
 }) {
   try {
+    final callback = _flutterGoogleSignInCallback;
+    if (callback == null) {
+      debugPrint('GIS: initialize() skipped — callback not registered.');
+      return;
+    }
+
     _googleAccountsId.initialize({
       'client_id': clientId,
-      'callback': callbackFunctionName,
+      'callback': callback,
       'auto_select': false,       // Never auto-sign-in silently
       'cancel_on_tap_outside': false,
     }.jsify()! as JSObject);

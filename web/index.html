@@ -36,6 +36,8 @@
   <link rel="icon" type="image/jpg" href="icons/apply_wizz_logo.jpg"/>
 
 
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups" />
+
   <title>LinkSpec</title>
   <link rel="manifest" href="manifest.json">
 
@@ -46,22 +48,6 @@
     when Flutter's HtmlElementView mounts.
   -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-  <script>
-    /**
-     * GIS credential callback bridge.
-     * GIS calls this function with a CredentialResponse when the user picks
-     * a Google account.  We forward the raw JWT id_token to Flutter via a
-     * window-level hook that the Dart side registers.
-     */
-    function onGoogleCredentialResponse(response) {
-      if (window.flutterGoogleSignInCallback) {
-        window.flutterGoogleSignInCallback(response.credential);
-      } else {
-        console.warn('LinkSpec: flutterGoogleSignInCallback not yet registered.');
-      }
-    }
-  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
