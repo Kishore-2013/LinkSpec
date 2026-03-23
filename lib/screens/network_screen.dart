@@ -158,9 +158,14 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
                         itemCount: _profiles.length,
                         itemBuilder: (context, index) {
                           final profile = _profiles[index];
-                          final targetId = profile['id'];
+                          final targetId = profile['id'] as String? ?? '';
+                          if (targetId.isEmpty) return const SizedBox.shrink();
+                          
                           final isFollowing = ref.watch(followProvider)[targetId] ?? false;
                           final connectStatus = ref.watch(uniteProvider)[targetId] ?? 'none';
+                          final String name = profile['full_name'] as String? ?? 'User';
+                          final String domain = profile['domain_id']?.toString().toUpperCase() ?? 'DOMAIN';
+                          final String? avatarUrl = profile['avatar_url'] as String?;
 
                           final connectLabel = switch (connectStatus) {
                             'pending_sent' => 'Pending',
@@ -174,7 +179,13 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.02),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
                             padding: const EdgeInsets.all(16),
                             child: Column(
@@ -183,16 +194,17 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
                                   children: [
                                     CircleAvatar(
                                       radius: 26,
-                                      backgroundImage: profile['avatar_url'] != null ? NetworkImage(profile['avatar_url']) : null,
-                                      child: profile['avatar_url'] == null ? Text(profile['full_name'][0].toUpperCase()) : null,
+                                      backgroundColor: Colors.blue[50],
+                                      backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) ? NetworkImage(avatarUrl) : null,
+                                      child: (avatarUrl == null || avatarUrl.isEmpty) ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Colors.blue, fontSize: 18, fontWeight: FontWeight.bold)) : null,
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(profile['full_name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                          Text(profile['domain_id'].toString().toUpperCase(), style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
+                                          Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                          Text(domain, style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
                                         ],
                                       ),
                                     ),
