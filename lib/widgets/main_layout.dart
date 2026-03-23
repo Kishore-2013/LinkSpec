@@ -136,26 +136,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       drawer: isMobile ? Drawer(child: _buildLeftSideBar()) : null,
       body: Stack(
         children: [
-          Column(
-            children: [
-              _buildHeader(isMobile, activeDomain),
-              Expanded(
-                child: Padding(
-                  // Add bottom padding to prevent overlapping with the floating nav bar
-                  padding: EdgeInsets.only(bottom: showNavbar ? 100 : 0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Note: sidebars are currently handled by individual screens
-                      // like HomeScreen to maintain visual and functional parity.
-                      Expanded(
-                        child: widget.child,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          Padding(
+            padding: EdgeInsets.only(bottom: showNavbar ? 100 : 0),
+            child: widget.child,
           ),
 
           if (showNavbar)

@@ -81,7 +81,7 @@ class AuthWrapper extends ConsumerWidget {
           });
         }
 
-        return const HomeScreen();
+        return const MainLayout(child: HomeScreen());
       },
     );
   }
