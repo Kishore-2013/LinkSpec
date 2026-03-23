@@ -53,4 +53,10 @@ class SupabaseConfig {
     'SENDER_EMAIL',
     defaultValue: '',
   );
+
+  /// Google Identity Services (GIS) — OAuth 2.0 Web Client ID
+  static const String googleClientId = String.fromEnvironment(
+    'GOOGLE_CLIENT_ID',
+    defaultValue: '761906978717-tvdv5e4ju6tdc4i12u8e5sepuvhsegla.apps.googleusercontent.com',
+  );
 }

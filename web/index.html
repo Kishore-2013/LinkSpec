@@ -19,7 +19,11 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="LinkSpec - Domain-Gated Professional Networking App">
+
+  <!-- Google Identity Services: Client ID for GIS button-based sign-in -->
+  <meta name="google-signin-client_id"
+        content="761906978717-tvdv5e4ju6tdc4i12u8e5sepuvhsegla.apps.googleusercontent.com">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -32,8 +36,32 @@
   <link rel="icon" type="image/jpg" href="icons/apply_wizz_logo.jpg"/>
 
 
-  <title>linkspec_app</title>
+  <title>LinkSpec</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    Google Identity Services (GIS) — latest, non-deprecated button-based flow.
+    Do NOT use the old platform.js library.
+    This must be loaded in <head> so the renderButton API is available
+    when Flutter's HtmlElementView mounts.
+  -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <script>
+    /**
+     * GIS credential callback bridge.
+     * GIS calls this function with a CredentialResponse when the user picks
+     * a Google account.  We forward the raw JWT id_token to Flutter via a
+     * window-level hook that the Dart side registers.
+     */
+    function onGoogleCredentialResponse(response) {
+      if (window.flutterGoogleSignInCallback) {
+        window.flutterGoogleSignInCallback(response.credential);
+      } else {
+        console.warn('LinkSpec: flutterGoogleSignInCallback not yet registered.');
+      }
+    }
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

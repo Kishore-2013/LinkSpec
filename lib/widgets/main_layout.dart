@@ -8,7 +8,7 @@ import '../widgets/aw_logo.dart';
 import '../api/sidebar_data_service.dart';
 import '../widgets/create_post_dialog.dart';
 import '../providers/scroll_provider.dart';
-import 'package:flutter/rendering.dart';
+
 
 class MainLayout extends ConsumerStatefulWidget {
   final Widget child;
@@ -24,7 +24,11 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   late SidebarDataService _sidebarSvc;
   int _unreadNotifications = 0;
   int _unreadMessages = 0;
-  double _lastScrollOffset = 0;
+
+  // Accumulate small deltas before acting — prevents rapid flicker on web
+  // trackpad and inertial scroll (which sends many tiny events).
+  static const double _scrollThreshold = 8.0;
+  double _pendingDelta = 0;
 
   @override
   void initState() {
@@ -32,38 +36,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final initialDomain = ref.read(currentDomainProvider);
     _sidebarSvc = SidebarDataService(domain: initialDomain);
     _loadInitialData();
-
-    // Setup global scroll listener
-    final scrollController = ref.read(globalScrollControllerProvider);
-    scrollController.addListener(() {
-      final direction = scrollController.position.userScrollDirection;
-      final offset = scrollController.offset;
-
-      // Threshold to prevent micro-flickering
-      if ((offset - _lastScrollOffset).abs() < 5) return;
-
-      // Safety check: Always show navbar when at the very top
-      if (offset < 20) {
-        if (!ref.read(navVisibilityProvider)) {
-          ref.read(navVisibilityProvider.notifier).state = true;
-        }
-        _lastScrollOffset = offset;
-        return;
-      }
-
-      if (direction == ScrollDirection.forward) {
-        // 🔼 SCROLL UP → HIDE NAVBAR (Prompt 10 requirement)
-        if (ref.read(navVisibilityProvider)) {
-          ref.read(navVisibilityProvider.notifier).state = false;
-        }
-      } else if (direction == ScrollDirection.reverse) {
-        // 🔽 SCROLL DOWN → SHOW NAVBAR (Prompt 10 requirement)
-        if (!ref.read(navVisibilityProvider)) {
-          ref.read(navVisibilityProvider.notifier).state = true;
-        }
-      }
-      _lastScrollOffset = offset;
-    });
+    // NOTE: Scroll detection is now handled by NotificationListener in build()
+    // so it works for all input types: touch, mouse wheel, trackpad, keyboard.
   }
 
   @override
@@ -134,23 +108,60 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             children: [
               _buildHeader(isMobile, activeDomain),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!isMobile)
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 300),
-                        child: _buildStickyPanel(_buildLeftSideBar()),
+                // NotificationListener captures ALL scroll events from any
+                // descendant: touch drag, mouse wheel, trackpad, keyboard.
+                // scrollDelta > 0 → content moving up (user scrolling into feed) → HIDE
+                // scrollDelta < 0 → content moving back to top → SHOW
+                child: NotificationListener<ScrollUpdateNotification>(
+                  onNotification: (notification) {
+                    final delta = notification.scrollDelta ?? 0;
+                    final metrics = notification.metrics;
+
+                    // Always show when snapped to the very top
+                    if (metrics.pixels <= 0) {
+                      if (!ref.read(navVisibilityProvider)) {
+                        ref.read(navVisibilityProvider.notifier).state = true;
+                        _pendingDelta = 0;
+                      }
+                      return false;
+                    }
+
+                    _pendingDelta += delta;
+
+                    if (_pendingDelta > _scrollThreshold) {
+                      // Scrolling forward (into content) — HIDE navbar
+                      if (ref.read(navVisibilityProvider)) {
+                        ref.read(navVisibilityProvider.notifier).state = false;
+                      }
+                      _pendingDelta = 0;
+                    } else if (_pendingDelta < -_scrollThreshold) {
+                      // Scrolling backward (toward top) — SHOW navbar
+                      if (!ref.read(navVisibilityProvider)) {
+                        ref.read(navVisibilityProvider.notifier).state = true;
+                      }
+                      _pendingDelta = 0;
+                    }
+
+                    return false; // allow notification to keep bubbling
+                  },
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (!isMobile)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 300),
+                          child: _buildStickyPanel(_buildLeftSideBar()),
+                        ),
+                      Expanded(
+                        child: widget.child,
                       ),
-                    Expanded(
-                      child: widget.child,
-                    ),
-                    if (isWide)
-                       ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 320),
-                        child: _buildStickyPanel(_buildRightSideBar(activeDomain)),
-                      ),
-                  ],
+                      if (isWide)
+                         ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 320),
+                          child: _buildStickyPanel(_buildRightSideBar(activeDomain)),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],

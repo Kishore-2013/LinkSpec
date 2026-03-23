@@ -12,6 +12,7 @@ import '../widgets/aw_logo.dart';
 import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../widgets/google_signin_button.dart';
 
 /// Login Screen — Unified Microsoft 365 Authentication.
 /// Features a single, premium 'Sign in with Microsoft' entry point.
@@ -205,6 +206,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
        if (mounted) LinkSpecNotify.show(context, LinkSpecNotify.mapError(e), LinkSpecNotifyType.warning);
     } finally {
        if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Handle the JWT id_token returned by GIS renderButton().
+  Future<void> _handleGoogleCredential(String idToken) async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final result = await SupabaseService.signInWithGoogle(idToken);
+      final bool isNewUser = result['isNewUser'] as bool? ?? false;
+
+      if (!mounted) return;
+      if (isNewUser) {
+        // New Google user: still needs to pick a domain
+        final session = sb.Supabase.instance.client.auth.currentSession;
+        final fullName = session?.user.userMetadata?['full_name'] as String?;
+        context.go('/domain-selection', extra: {'fullName': fullName});
+      }
+      // Existing user: AuthWrapper detects the new Supabase session automatically
+      // and routes to HomeScreen — no explicit navigation needed here.
+    } on sb.AuthException catch (e) {
+      if (mounted) {
+        LinkSpecNotify.show(
+          context,
+          'Google sign-in failed: ${e.message}',
+          LinkSpecNotifyType.warning,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        LinkSpecNotify.show(
+          context,
+          'Google sign-in failed. Please try again.',
+          LinkSpecNotifyType.warning,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -432,7 +471,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
         ),
         
         const SizedBox(height: 24),
-        const SizedBox(height: 32),
+
+        // ── Google Sign-In divider + button ──────────────────────────────────
+        if (kIsWeb) ...[
+          Row(
+            children: [
+              const Expanded(child: Divider(color: Color(0xFFE5E5EA))),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'or continue with',
+                  style: TextStyle(color: _textMid, fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ),
+              const Expanded(child: Divider(color: Color(0xFFE5E5EA))),
+            ],
+          ),
+          const SizedBox(height: 16),
+          GoogleSignInButton(onCredential: _handleGoogleCredential),
+          const SizedBox(height: 8),
+        ],
+
+        const SizedBox(height: 8),
         
         Center(
           child: TextButton(

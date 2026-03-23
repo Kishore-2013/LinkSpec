@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
@@ -7,6 +8,8 @@ import '../config/supabase_config.dart';
 import '../api/session_cache.dart';
 import '../api/web_cache_manager.dart';
 import '../config/app_constants.dart';
+import 'google_sign_in_web_stub.dart'
+    if (dart.library.js_interop) 'google_sign_in_web_impl.dart';
 
 
 // Diagnostic: Force filesystem update. Corrected unread counts.
@@ -49,6 +52,8 @@ class SupabaseService {
     SessionCache.clearAll();
     await WebCacheManager.clearCache();
     clearCache();
+    // Prevent GIS from auto-signing in again on next page load
+    if (kIsWeb) disableGoogleAutoSelectPlatform();
     await _client.auth.signOut();
   }
 
@@ -59,6 +64,112 @@ class SupabaseService {
       OAuthProvider.azure,
       redirectTo: redirectTo,
     );
+  }
+
+  // ============================================================================
+  // GOOGLE SIGN-IN (GIS — Google Identity Services)
+  // ============================================================================
+
+  /// Sign in (or sign up) with Google using a GIS JWT id_token.
+  ///
+  /// Flow:
+  ///   1. Decode JWT payload → extract email, name, picture.
+  ///   2. Call Supabase signInWithIdToken → creates/links the auth.users row.
+  ///   3. Check `profiles_dim` for existing profile:
+  ///      • EXISTS  → sync avatar + add 'google' to providers list → login.
+  ///      • MISSING → insert new profile row → caller routes to domain selection.
+  ///
+  /// Returns a map with:
+  ///   `isNewUser` (bool) — true if domain selection is still required.
+  ///   `session`          — the Supabase session object.
+  static Future<Map<String, dynamic>> signInWithGoogle(String idToken) async {
+    // ── 1. Decode JWT (base64url, no signature verification needed — Supabase does that)
+    final Map<String, dynamic> payload = _decodeJwtPayload(idToken);
+    final String email   = (payload['email']   as String? ?? '').toLowerCase();
+    final String name    = payload['name']      as String? ?? '';
+    final String picture = payload['picture']   as String? ?? '';
+
+    debugPrint('GIS: sign-in for $email (${name.isNotEmpty ? name : "unknown"}).');
+
+    // ── 2. Authenticate with Supabase using the raw GIS id_token
+    final authResponse = await _client.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+    );
+
+    if (authResponse.session == null) {
+      throw Exception('Google sign-in failed: Supabase returned no session.');
+    }
+
+    final String userId = authResponse.user!.id;
+
+    // ── 3. Upsert profile (duplicate-safe)
+    final existingProfile = await _client
+        .from('profiles_dim')
+        .select('id, full_name, avatar_url, providers')
+        .eq('id', userId)
+        .maybeSingle();
+
+    bool isNewUser = false;
+
+    if (existingProfile == null) {
+      // ── 3a. New user — insert profile; routing will go to DomainSelection
+      await _client.from('profiles_dim').insert({
+        'id':         userId,
+        'full_name':  name.isNotEmpty ? name : email.split('@').first,
+        'avatar_url': picture.isNotEmpty ? picture : null,
+        'providers':  ['google'],
+      });
+      isNewUser = true;
+      debugPrint('GIS: Created new profile for $email.');
+    } else {
+      // ── 3b. Existing user — sync Google data & add provider tag
+      final List<dynamic> currentProviders =
+          (existingProfile['providers'] as List?)?.cast<dynamic>() ?? [];
+
+      final providersSet = <String>{
+        ...currentProviders.map((p) => p.toString()),
+        'google',
+      };
+
+      final Map<String, dynamic> updates = {
+        'providers': providersSet.toList(),
+        // Only overwrite avatar if the user has none
+        if ((existingProfile['avatar_url'] as String?)?.isEmpty ?? true)
+          'avatar_url': picture,
+      };
+
+      await _client
+          .from('profiles_dim')
+          .update(updates)
+          .eq('id', userId);
+
+      // Refresh in-memory cache
+      _currentUserProfile = {...?_currentUserProfile, ...updates};
+      debugPrint('GIS: Linked Google to existing account for $email.');
+    }
+
+    return {
+      'isNewUser': isNewUser,
+      'session':   authResponse.session,
+    };
+  }
+
+  /// Decode a JWT payload section (base64url) into a Dart map.
+  /// No signature verification — Supabase validates the token server-side.
+  static Map<String, dynamic> _decodeJwtPayload(String jwt) {
+    try {
+      final parts = jwt.split('.');
+      if (parts.length != 3) return {};
+      // base64url → base64 padding
+      String payload = parts[1].replaceAll('-', '+').replaceAll('_', '/');
+      while (payload.length % 4 != 0) payload += '=';
+      final decoded = utf8.decode(base64.decode(payload));
+      return jsonDecode(decoded) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('GIS: JWT decode error: $e');
+      return {};
+    }
   }
 
   // ============================================================================
