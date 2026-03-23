@@ -5,7 +5,6 @@ import '../api/search_manager.dart';
 import '../models/post.dart';
 import '../widgets/post_card.dart';
 import '../widgets/clay_container.dart';
-import 'member_profile_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/scroll_provider.dart';
 
@@ -13,7 +12,6 @@ class SearchScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
   final bool autofocusSearch;
   final bool searchOnlyConnections;
-  /// Pre-populate the search bar and immediately execute this query.
   final String? initialQuery;
 
   const SearchScreen({
@@ -50,7 +48,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     _tabController =
         TabController(length: widget.searchOnlyConnections ? 1 : 2, vsync: this);
 
-    // If we were given an initial query (from a hashtag tap), run it immediately.
     if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _searchController.text = widget.initialQuery!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -67,10 +64,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     super.dispose();
   }
 
-  // ── Search logic ──────────────────────────────────────────────
-
   Future<void> _performSearch(String rawQuery) async {
-    // Guard: reject single char / symbol-only queries
     if (!SearchManager.isValidQuery(rawQuery)) {
       setState(() {
         _errorMsg = 'Please enter at least 2 characters to search.';
@@ -93,12 +87,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         postsData = [];
       }
 
-      // Update trending tags from the freshly returned posts (dynamic, no hardcoding)
       final trending = SearchManager.extractTrendingTags(postsData);
 
-      final peopleData = widget.searchOnlyConnections
-          ? await SearchManager.searchPeople(rawQuery)
-          : await SearchManager.searchPeople(rawQuery);
+      final peopleData = await SearchManager.searchPeople(rawQuery);
 
       if (mounted) {
         setState(() {
@@ -123,142 +114,133 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     _performSearch(tag);
   }
 
-  // ── Build ─────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7),
-      body: Column(
-        children: [
-          // Internal Search Header (Since it's functional)
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Colors.white,
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+                onPressed: widget.onBack ?? () => context.go('/home'),
+              ),
+              Expanded(
+                child: ClayContainer(
+                  borderRadius: 12,
+                  emboss: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocus,
+                    autofocus: widget.autofocusSearch,
+                    decoration: InputDecoration(
+                      hintText: 'Search #hashtags or people...',
+                      border: InputBorder.none,
+                      hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
+                      suffixIcon: _searchController.text.isNotEmpty 
+                        ? IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 20), 
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _hasSearched = false;
+                                _postResults = [];
+                                _peopleResults = [];
+                              });
+                            }
+                          ) 
+                        : null,
+                    ),
+                    onChanged: (val) {
+                      if (val.isEmpty && _hasSearched) {
+                        setState(() => _hasSearched = false);
+                      }
+                    },
+                    onSubmitted: _performSearch,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_hasSearched)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             color: Colors.white,
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
-                  onPressed: widget.onBack ?? () => Navigator.of(context).pop(),
-                ),
-                Expanded(
-                  child: ClayContainer(
-                    borderRadius: 12,
-                    emboss: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: TextField(
-                      controller: _searchController,
-                      focusNode: _searchFocus,
-                      autofocus: widget.autofocusSearch,
-                      decoration: InputDecoration(
-                        hintText: 'Search #hashtags or people...',
-                        border: InputBorder.none,
-                        hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
-                        suffixIcon: _searchController.text.isNotEmpty 
-                          ? IconButton(
-                              icon: const Icon(Icons.close_rounded, size: 20), 
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {
-                                  _hasSearched = false;
-                                  _postResults = [];
-                                  _peopleResults = [];
-                                });
-                              }
-                            ) 
-                          : null,
-                      ),
-                      onChanged: (val) {
-                        if (val.isEmpty && _hasSearched) {
-                          setState(() => _hasSearched = false);
-                        }
-                      },
-                      onSubmitted: _performSearch,
-                    ),
+            child: widget.searchOnlyConnections
+                ? TabBar(
+                    controller: _tabController,
+                    labelColor: Colors.blue[700],
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: Colors.blue[700],
+                    indicatorWeight: 3,
+                    tabs: const [Tab(text: 'Unites')],
+                  )
+                : TabBar(
+                    controller: _tabController,
+                    labelColor: Colors.blue[700],
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: Colors.blue[700],
+                    indicatorWeight: 3,
+                    tabs: const [
+                      Tab(text: 'Posts'),
+                      Tab(text: 'People'),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
-          if (_hasSearched)
-            Container(
-              color: Colors.white,
-              child: widget.searchOnlyConnections
-                  ? TabBar(
-                      controller: _tabController,
-                      labelColor: Colors.blue[700],
-                      unselectedLabelColor: Colors.grey,
-                      indicatorColor: Colors.blue[700],
-                      indicatorWeight: 3,
-                      tabs: const [Tab(text: 'Unites')],
-                    )
-                  : TabBar(
-                      controller: _tabController,
-                      labelColor: Colors.blue[700],
-                      unselectedLabelColor: Colors.grey,
-                      indicatorColor: Colors.blue[700],
-                      indicatorWeight: 3,
-                      tabs: const [
-                        Tab(text: 'Posts'),
-                        Tab(text: 'People'),
-                      ],
+        Expanded(
+          child: Stack(
+            children: [
+              _buildDiscoveryPane(),
+              if (_hasSearched)
+                Container(
+                  color: const Color(0xFFF5F5F7),
+                  child: _buildSearchResults(),
+                ),
+              Positioned(
+                bottom: 80,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: _hasSearched ? 0.05 : 0.35,
+                    child: SvgPicture.asset(
+                      'assets/svg/undraw_searching_no1g.svg',
+                      height: 350,
+                      fit: BoxFit.contain,
                     ),
-            ),
-          Expanded(
-            child: Stack(
-              children: [
-                _buildDiscoveryPane(),
-                if (_hasSearched)
-                  Container(
-                    color: const Color(0xFFF5F5F7),
-                    child: _buildSearchResults(),
                   ),
+                ),
+              ),
+              if (_errorMsg != null)
                 Positioned(
-                  bottom: 80,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: _hasSearched ? 0.05 : 0.35,
-                      child: SvgPicture.asset(
-                        'assets/svg/undraw_searching_no1g.svg',
-                        height: 350,
-                        fit: BoxFit.contain,
-                      ),
+                  top: 12,
+                  left: 20,
+                  right: 20,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(8)),
+                    child: Text(
+                      _errorMsg!,
+                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                   ),
                 ),
-                if (_errorMsg != null)
-                  Positioned(
-                    top: 12,
-                    left: 20,
-                    right: 20,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(8)),
-                      child: Text(
-                        _errorMsg!,
-                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600, fontSize: 13),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  // ── Discovery pane (shown before any search) ──────────────────
-
   Widget _buildDiscoveryPane() {
     return SingleChildScrollView(
-      controller: ref.read(globalScrollControllerProvider),
+      controller: widget.scrollController ?? ref.read(globalScrollControllerProvider),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Trending tags (dynamic from last search) ───────────
           if (_trendingTags.isNotEmpty) ...[
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 24, 20, 10),
@@ -284,8 +266,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             ),
             const SizedBox(height: 16),
           ],
-
-          // ── Suggested hashtag prompts ─────────────────────────
           const Padding(
             padding: EdgeInsets.fromLTRB(20, 24, 20, 10),
             child: Text(
@@ -318,8 +298,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     );
   }
 
-  // ── Results view ──────────────────────────────────────────────
-
   Widget _buildSearchResults() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -332,7 +310,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           _postResults.isEmpty
               ? _buildEmptyState('No posts found for "${_searchController.text}".\nTry a hashtag like #Medical')
               : ListView.separated(
-                  controller: ref.read(globalScrollControllerProvider),
+                  controller: widget.scrollController ?? ref.read(globalScrollControllerProvider),
                   padding: const EdgeInsets.all(16),
                   itemCount: _postResults.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 16),
@@ -340,43 +318,33 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       PostCard(post: _postResults[index]),
                 ),
 
-        // People tab
         _peopleResults.isEmpty
             ? _buildEmptyState('No ${widget.searchOnlyConnections ? 'unites' : 'people'} found for "${_searchController.text}"')
             : ListView.separated(
-                controller: ref.read(globalScrollControllerProvider),
+                controller: widget.scrollController ?? ref.read(globalScrollControllerProvider),
                 padding: const EdgeInsets.all(16),
                 itemCount: _peopleResults.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final person = _peopleResults[index];
+                  final String avatarUrl = person['avatar_url'] as String? ?? '';
+                  final String fullName = person['full_name'] as String? ?? 'User';
                   return GestureDetector(
                     onTap: () => context.push('/profile/${person['id']}'),
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                            color: const Color(0xFFE8EAED), width: 0.5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 6,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
+                        border: Border.all(color: const Color(0xFFE8EAED), width: 0.5),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 1))],
                       ),
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
                           CircleAvatar(
                             radius: 24,
-                            backgroundImage: person['avatar_url'] != null
-                                ? NetworkImage(person['avatar_url'])
-                                : null,
-                            child: person['avatar_url'] == null
-                                ? Text(person['full_name'][0])
-                                : null,
+                            backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                            child: avatarUrl.isEmpty ? Text(fullName[0]) : null,
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -385,31 +353,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                               children: [
                                 Row(
                                   children: [
-                                    Text(person['full_name'],
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16)),
+                                    Text(fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                     if (person['verification_status'] == 'verified')
-                                      const Padding(
-                                        padding: EdgeInsets.only(left: 4),
-                                        child: Icon(Icons.verified, color: Colors.blue, size: 16),
-                                      ),
+                                      const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.verified, color: Colors.blue, size: 16)),
                                   ],
                                 ),
                                 Text(
                                   person['domain_id'] ?? 'Professional',
-                                  style: TextStyle(
-                                      color: Colors.blue[700],
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600),
+                                  style: TextStyle(color: Colors.blue[700], fontSize: 12, fontWeight: FontWeight.w600),
                                 ),
                                 if (person['bio'] != null)
                                   Text(
                                     person['bio'],
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        color: Colors.grey[600], fontSize: 13),
+                                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
                                   ),
                               ],
                             ),
@@ -434,19 +392,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600], fontSize: 15),
-            ),
+            child: Text(message, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600], fontSize: 15)),
           ),
         ],
       ),
     );
   }
 }
-
-// ── Reusable tag chip widgets ─────────────────────────────────────────────────
 
 class _StaticTagChip extends StatelessWidget {
   final String tag;
@@ -463,22 +415,9 @@ class _StaticTagChip extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.grey.shade300),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
         ),
-        child: Text(
-          tag,
-          style: const TextStyle(
-            color: Color(0xFF444444),
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
-        ),
+        child: Text(tag, style: const TextStyle(color: Color(0xFF444444), fontWeight: FontWeight.w600, fontSize: 13)),
       ),
     );
   }

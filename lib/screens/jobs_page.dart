@@ -29,26 +29,22 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   late ScrollController _scrollController;
   final TextEditingController _searchController = TextEditingController();
   bool _isHR = false;
-  String? _lastDomain; // Track domain for re-fetching
+  String? _lastDomain;
 
   @override
   void initState() {
     super.initState();
-    _scrollController = ref.read(globalScrollControllerProvider);
+    _scrollController = widget.scrollController ?? ref.read(globalScrollControllerProvider);
     _initializePage();
     _scrollController.addListener(_onScroll);
   }
 
   Future<void> _initializePage() async {
     setState(() => _isLoading = true);
-    
-    // Optimisation: Load profile and initial jobs in parallel
     try {
       final results = await Future.wait([
         SupabaseService.getCurrentUserProfile(),
-        JobService.fetchJobs(
-          query: _searchController.text,
-        ),
+        JobService.fetchJobs(query: _searchController.text),
       ]);
 
       final profile = results[0] as Map<String, dynamic>?;
@@ -60,10 +56,9 @@ class _JobsPageState extends ConsumerState<JobsPage> {
           if (profile != null) {
             _isHR = profile['tag'] == 'HR';
             final String? profileDomain = profile['domain_id'] as String?;
-          // Sync provider if not already set (fallback for standalone entry)
-          if (profileDomain != null && ref.read(currentDomainProvider) == 'Global') {
-             ref.read(currentDomainProvider.notifier).state = profileDomain;
-          }
+            if (profileDomain != null && ref.read(currentDomainProvider) == 'Global') {
+              ref.read(currentDomainProvider.notifier).state = profileDomain;
+            }
           }
           _jobs.clear();
           _jobs.addAll(jobData.map((e) => Job.fromJson(e)));
@@ -74,14 +69,12 @@ class _JobsPageState extends ConsumerState<JobsPage> {
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
-      print('Error initializing JobsPage: $e');
     }
   }
 
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
-    // Disposal is handled by the provider ref.onDispose
     _searchController.dispose();
     super.dispose();
   }
@@ -93,7 +86,6 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   }
 
   Future<void> _loadInitialJobs({String? newDomain}) async {
-    debugPrint('JobsPage: _loadInitialJobs called with newDomain: $newDomain');
     setState(() {
       _isLoading = true;
       _lastTimestamp = null;
@@ -110,7 +102,6 @@ class _JobsPageState extends ConsumerState<JobsPage> {
       );
 
       final List<Map<String, dynamic>> jobData = result['jobs'];
-      
       if (mounted) {
         setState(() {
           _jobs.addAll(jobData.map((e) => Job.fromJson(e)));
@@ -121,24 +112,19 @@ class _JobsPageState extends ConsumerState<JobsPage> {
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
-      print('Error loading jobs: $e');
     }
   }
 
   Future<void> _loadMoreJobs() async {
     if (_isLoadingMore || !_hasNextPage) return;
-
     setState(() => _isLoadingMore = true);
-
     try {
       final result = await JobService.fetchJobs(
         before: _lastTimestamp,
         query: _searchController.text,
         domain: ref.read(currentDomainProvider),
       );
-
       final List<Map<String, dynamic>> jobData = result['jobs'];
-
       if (mounted) {
         setState(() {
           _jobs.addAll(jobData.map((e) => Job.fromJson(e)));
@@ -149,7 +135,6 @@ class _JobsPageState extends ConsumerState<JobsPage> {
       }
     } catch (e) {
       if (mounted) setState(() => _isLoadingMore = false);
-      print('Error loading more jobs: $e');
     }
   }
 
@@ -158,90 +143,90 @@ class _JobsPageState extends ConsumerState<JobsPage> {
     final bool isMobile = MediaQuery.of(context).size.width <= 700;
     final String activeDomain = ref.watch(currentDomainProvider);
 
-    // Re-fetch jobs when domain changes
     if (_lastDomain != activeDomain) {
       final oldDomain = _lastDomain;
       _lastDomain = activeDomain;
-      if (oldDomain != null) { // Skip re-fetch on initial build (handled by _initializePage)
+      if (oldDomain != null) {
         Future.microtask(() => _loadInitialJobs(newDomain: activeDomain));
       }
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: widget.onBack != null ? IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
-          onPressed: widget.onBack,
-        ) : null,
-        title: Text(
-          'Jobs Board',
-          style: TextStyle(
-            color: Theme.of(context).textTheme.titleLarge?.color,
-            fontWeight: FontWeight.bold,
-            fontSize: isMobile ? 18 : 22,
-          ),
-        ),
-      ),
-      floatingActionButton: _isHR ? FloatingActionButton.extended(
-        onPressed: _showCreateJobModal,
-        backgroundColor: Colors.blue[700],
-        icon: const Icon(Icons.add_business, color: Colors.white),
-        label: const Text('Post Job', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ) : null,
-      body: Column(
-        children: [
-          // Search Header
-          _buildSearchHeader(isMobile),
-          
-          // Job List
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _loadInitialJobs,
-                  child: _jobs.isEmpty 
-                    ? _buildEmptyState()
-                    : GridView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: isMobile ? 1 : (MediaQuery.of(context).size.width > 1200 ? 3 : 2),
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: isMobile ? 1.2 : 1.6,
+    return Stack(
+      children: [
+        Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+                    onPressed: widget.onBack ?? () => context.go('/home'),
+                  ),
+                  const Text('Jobs Board', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                ],
+              ),
+            ),
+            _buildSearchHeader(isMobile),
+            Expanded(
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _loadInitialJobs,
+                    child: _jobs.isEmpty 
+                      ? _buildEmptyState()
+                      : GridView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: isMobile ? 1 : (MediaQuery.of(context).size.width > 1200 ? 2 : 1),
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: isMobile ? 1.4 : 2.5,
+                          ),
+                          itemCount: _jobs.length + (_isLoadingMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == _jobs.length) {
+                              return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2)));
+                            }
+                            return _buildJobCard(_jobs[index], isMobile);
+                          },
                         ),
-                        itemCount: _jobs.length + (_isLoadingMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index == _jobs.length) {
-                            return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2)));
-                          }
-                          return _buildJobCard(_jobs[index], isMobile);
-                        },
-                      ),
-                ),
+                  ),
+            ),
+          ],
+        ),
+        if (_isHR)
+          Positioned(
+            right: 20,
+            bottom: 120,
+            child: FloatingActionButton.extended(
+              onPressed: _showCreateJobModal,
+              backgroundColor: Colors.blue[700],
+              icon: const Icon(Icons.add_business, color: Colors.white),
+              label: const Text('Post Job', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildSearchHeader(bool isMobile) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.white,
       child: ClayContainer(
         borderRadius: 12,
-        depth: 3,
+        emboss: true,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: TextField(
           controller: _searchController,
           onSubmitted: (_) => _loadInitialJobs(),
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Search title, company...',
-            prefixIcon: const Icon(Icons.search, color: Colors.blue),
+            prefixIcon: Icon(Icons.search, color: Colors.blue),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 12),
           ),
         ),
       ),
@@ -249,80 +234,60 @@ class _JobsPageState extends ConsumerState<JobsPage> {
   }
 
   Widget _buildJobCard(Job job, bool isMobile) {
-    return ClayContainer(
-      borderRadius: 16,
-      depth: 5,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.business, color: Colors.blue, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(job.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(job.company, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                  ],
+                ),
+              ),
+              if (job.hasApplied)
                 Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.business, color: Colors.blue, size: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(20)),
+                  child: const Text('Applied', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
-                const Spacer(),
-                if (job.hasApplied)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.green[200]!),
-                    ),
-                    child: const Text('Applied', style: TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.bold)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    job.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    job.company,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey[700], fontSize: 12),
-                  ),
-                  const Spacer(),
-                  Text(job.salary, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0066CC), fontSize: 13)),
-                  Text(
-                    '${job.location} • ${timeago.format(job.postedAt, locale: 'en_short')}',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 10),
-                  ),
-                ],
+            ],
+          ),
+          const Spacer(),
+          Text(job.salary, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14)),
+          Text('${job.location} • ${timeago.format(job.postedAt, locale: 'en_short')}', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => JobDetailScreen.show(context, job).then((_) => _loadInitialJobs()),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
               ),
+              child: const Text('View Details'),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => JobDetailScreen.show(context, job).then((_) => _loadInitialJobs()),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.blue, width: 1.5),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                ),
-                child: const Text('Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -335,26 +300,12 @@ class _JobsPageState extends ConsumerState<JobsPage> {
     final typeCtrl = TextEditingController(text: 'Full-time');
     final descCtrl = TextEditingController();
     final activeDomain = ref.read(currentDomainProvider);
-    String selectedDomain = activeDomain.isNotEmpty ? activeDomain : 'Software Development';
+    String selectedDomain = activeDomain.isNotEmpty && activeDomain != 'Global' ? activeDomain : 'Software Development';
     final List<String> customQuestions = [];
     final questionCtrl = TextEditingController();
 
     final List<String> availableDomains = [
-      'Software Development',
-      'AI, Data & Analytics',
-      'Data Engineering & Databases',
-      'Cloud, DevOps & Infrastructure',
-      'Cybersecurity & Risk',
-      'Networking & IT Support',
-      'Business, Product & Management',
-      'Finance, Risk & Compliance',
-      'Healthcare & Life Sciences',
-      'Core Engineering',
-      'Agriculture & Environmental',
-      'Design & Creative',
-      'Sales, Marketing & CRM',
-      'ERP & Enterprise Systems',
-      'HR, Operations & Support',
+      'Software Development', 'AI, Data & Analytics', 'Healthcare & Life Sciences', 'Finance, Risk & Compliance', 'Design & Creative'
     ];
 
     showModalBottomSheet(
@@ -363,168 +314,38 @@ class _JobsPageState extends ConsumerState<JobsPage> {
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-          ),
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
           padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).viewInsets.bottom + 40),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-                ),
+                Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
                 const SizedBox(height: 24),
                 const Text('Post a New Job', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 _buildField('Job Title', titleCtrl, Icons.work_outline),
-                _buildField('Company Name', companyCtrl, Icons.business),
+                _buildField('Company', companyCtrl, Icons.business),
                 _buildField('Location', locCtrl, Icons.location_on_outlined),
-                _buildField('Salary Range (e.g. \$80k - \$120k)', salaryCtrl, Icons.payments_outlined),
-                _buildField('Description', descCtrl, Icons.description_outlined, maxLines: 5),
-                const SizedBox(height: 20),
-                const Text('Target Domain', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey)),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: availableDomains.map((domain) {
-                    final isSelected = selectedDomain == domain;
-                    return GestureDetector(
-                      onTap: () => setSheetState(() => selectedDomain = domain),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected ? Colors.blue[50] : Colors.grey[50],
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: isSelected ? Colors.blue : Colors.grey[200]!),
-                        ),
-                        child: Text(
-                          domain,
-                          style: TextStyle(
-                            color: isSelected ? Colors.blue : Colors.grey[700],
-                            fontSize: 13,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
+                _buildField('Salary', salaryCtrl, Icons.payments_outlined),
+                _buildField('Description', descCtrl, Icons.description_outlined, maxLines: 4),
                 const SizedBox(height: 30),
-                const Text('Application Form Builder', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                const Text('Add custom questions for candidates to answer.', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: questionCtrl,
-                        decoration: InputDecoration(
-                          hintText: 'Enter a question...',
-                          hintStyle: TextStyle(fontSize: 14, color: Colors.grey[400]),
-                          filled: true,
-                          fillColor: Colors.grey[50],
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      onPressed: () {
-                        if (questionCtrl.text.trim().isNotEmpty) {
-                          setSheetState(() {
-                            customQuestions.add(questionCtrl.text.trim());
-                            questionCtrl.clear();
-                          });
-                        }
-                      },
-                      icon: const Icon(Icons.add_circle, color: Colors.blue, size: 32),
-                    ),
-                  ],
-                ),
-                if (customQuestions.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  ...customQuestions.asMap().entries.map((entry) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(color: Colors.blue[50]?.withOpacity(0.5), borderRadius: BorderRadius.circular(12)),
-                      child: Row(
-                        children: [
-                          Expanded(child: Text(entry.value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500))),
-                          IconButton(
-                            onPressed: () => setSheetState(() => customQuestions.removeAt(entry.key)),
-                            icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 20),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )),
-                ],
-                const SizedBox(height: 40),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () async {
-                      // ── STRICT VALIDATION ────────────────────────────
-                      if (titleCtrl.text.trim().isEmpty) {
-                        LinkSpecNotify.show(context, 'Please enter a job title', LinkSpecNotifyType.warning);
-                        return;
-                      }
-                      if (companyCtrl.text.trim().isEmpty) {
-                        LinkSpecNotify.show(context, 'Please enter the company name', LinkSpecNotifyType.warning);
-                        return;
-                      }
-                      if (locCtrl.text.trim().isEmpty) {
-                        LinkSpecNotify.show(context, 'Please specify the job location', LinkSpecNotifyType.warning);
-                        return;
-                      }
-                      if (salaryCtrl.text.trim().isEmpty) {
-                        LinkSpecNotify.show(context, 'Please provide a salary range or "Competitive"', LinkSpecNotifyType.warning);
-                        return;
-                      }
-                      if (descCtrl.text.trim().isEmpty) {
-                        LinkSpecNotify.show(context, 'A job description is required', LinkSpecNotifyType.warning);
-                        return;
-                      }
-                      if (descCtrl.text.trim().length < 50) {
-                        LinkSpecNotify.show(context, 'Job description is too short. Please provide more details (min 50 chars)', LinkSpecNotifyType.warning);
-                        return;
-                      }
-                      // ──────────────────────────────────────────────────
-                      
-                      try {
-                        await JobService.createJob(
-                          title: titleCtrl.text,
-                          company: companyCtrl.text,
-                          location: locCtrl.text,
-                          type: typeCtrl.text,
-                          salary: salaryCtrl.text,
-                          description: descCtrl.text,
-                          domainId: selectedDomain,
-                          applicationFormSchema: customQuestions,
-                        );
-                        Navigator.pop(context);
-                        _loadInitialJobs();
-                      } catch (e) {
-                         LinkSpecNotify.show(
-                          context, 
-                          'Error creating job: ${e.toString()}', 
-                          LinkSpecNotifyType.error
-                        );
-                      }
+                      if (titleCtrl.text.isEmpty || companyCtrl.text.isEmpty) return;
+                      await JobService.createJob(
+                        title: titleCtrl.text, company: companyCtrl.text, location: locCtrl.text,
+                        type: typeCtrl.text, salary: salaryCtrl.text, description: descCtrl.text,
+                        domainId: selectedDomain, applicationFormSchema: customQuestions,
+                      );
+                      Navigator.pop(context);
+                      _loadInitialJobs();
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue[700],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: const Text('Publish Job Listing', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[700], foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                    child: const Text('Publish Job Listing'),
                   ),
                 ),
               ],
@@ -543,17 +364,13 @@ class _JobsPageState extends ConsumerState<JobsPage> {
         children: [
           Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey)),
           const SizedBox(height: 8),
-          ClayContainer(
-            borderRadius: 12,
-            depth: 3,
-            child: TextField(
-              controller: ctrl,
-              maxLines: maxLines,
-              decoration: InputDecoration(
-                prefixIcon: Icon(icon, color: Colors.blue, size: 20),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.all(12),
-              ),
+          TextField(
+            controller: ctrl,
+            maxLines: maxLines,
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, color: Colors.blue, size: 20),
+              filled: true, fillColor: Colors.grey[50],
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
             ),
           ),
         ],
@@ -569,8 +386,6 @@ class _JobsPageState extends ConsumerState<JobsPage> {
           Icon(Icons.work_outline, size: 64, color: Colors.grey[300]),
           const SizedBox(height: 16),
           const Text('No jobs found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          Text('Try a different search or check back later.', style: TextStyle(color: Colors.grey[500])),
         ],
       ),
     );

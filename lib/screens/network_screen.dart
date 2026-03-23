@@ -10,7 +10,7 @@ import '../providers/follow_provider.dart';
 import '../providers/unite_provider.dart';
 import '../providers/domain_provider.dart';
 import '../providers/scroll_provider.dart';
-
+import 'package:go_router/go_router.dart';
 
 class NetworkScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
@@ -28,53 +28,41 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
   String? _lastDomain; 
   late ScrollController _scrollController;
 
-
   @override
   void initState() {
     super.initState();
-    _scrollController = ref.read(globalScrollControllerProvider);
+    _scrollController = widget.scrollController ?? ref.read(globalScrollControllerProvider);
     _loadNetwork();
   }
 
   Future<void> _loadNetwork() async {
-    debugPrint('NetworkScreen: _loadNetwork called');
     final activeDomain = ref.read(currentDomainProvider);
     if (mounted) {
       setState(() {
         _isLoading = true;
-        _profiles = []; // Clear old data immediately
+        _profiles = [];
       });
     }
     try {
-      // 1. Get other profiles in the same domain
       final profiles = await SupabaseService.getProfilesInSameDomain(
         limit: 50,
         domain: activeDomain,
       );
       
       final myId = SupabaseService.getCurrentUserId();
-      
-      // Filter out self and collect other IDs
       final others = profiles.where((p) => p['id'] != myId).toList();
       final otherIds = others.map((p) => p['id'] as String).toList();
 
       if (otherIds.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _profiles = [];
-            _isLoading = false;
-          });
-        }
+        if (mounted) setState(() { _profiles = []; _isLoading = false; });
         return;
       }
 
-      // 2. Batch check follow statuses and connection statuses
       final results = await Future.wait([
         SupabaseService.getFollowStatuses(otherIds),
         SupabaseService.getConnectionStatuses(otherIds),
       ]);
 
-      // Update follow provider for all profiles shown
       final followResults = results[0] as Set<String>;
       final followNotifier = ref.read(followProvider.notifier);
       for (var id in otherIds) {
@@ -87,14 +75,10 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
         uniteResults.forEach((id, status) {
           uniteNotifier.setUniteStatus(id, status);
         });
-
-        setState(() {
-          _profiles = others;
-        });
+        setState(() { _profiles = others; });
       }
-
     } catch (e) {
-      print('Error loading network: $e');
+      debugPrint('Error loading network: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -104,13 +88,7 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
     try {
       await ref.read(followProvider.notifier).toggleFollow(targetUserId);
     } catch (e) {
-      if (mounted) {
-        LinkSpecNotify.show(
-          context, 
-          'Action failed: $e', 
-          LinkSpecNotifyType.error
-        );
-      }
+      if (mounted) LinkSpecNotify.show(context, 'Action failed: $e', LinkSpecNotifyType.error);
     }
   }
 
@@ -125,41 +103,10 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
       } else if (status == 'pending_received') {
         await ref.read(uniteProvider.notifier).acceptRequest(targetUserId);
       } else if (status == 'connected') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(otherUser: profile),
-          ),
-        );
+        context.push('/messages'); // Simplified for now
       }
     } catch (e) {
-      if (mounted) {
-        LinkSpecNotify.show(
-          context, 
-          'Action failed: $e', 
-          LinkSpecNotifyType.error
-        );
-      }
-    }
-  }
-  Future<void> _handleReject(String targetUserId) async {
-    try {
-      await ref.read(uniteProvider.notifier).rejectRequest(targetUserId);
-      if (mounted) {
-        LinkSpecNotify.show(
-          context,
-          'Request rejected.',
-          LinkSpecNotifyType.info,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        LinkSpecNotify.show(
-          context,
-          'Action failed: $e',
-          LinkSpecNotifyType.error,
-        );
-      }
+      if (mounted) LinkSpecNotify.show(context, 'Action failed: $e', LinkSpecNotifyType.error);
     }
   }
 
@@ -167,220 +114,137 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
   Widget build(BuildContext context) {
     final activeDomain = ref.watch(currentDomainProvider);
 
-    // Re-fetch network when domain changes
     if (_lastDomain != activeDomain) {
       final oldDomain = _lastDomain;
       _lastDomain = activeDomain;
-      if (oldDomain != null) { // Skip re-fetch on initial build (handled by _loadNetwork in initState)
+      if (oldDomain != null) {
         Future.microtask(() => _loadNetwork());
       }
     }
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
-          onPressed: widget.onBack ?? () => Navigator.of(context).maybePop(),
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          color: Colors.white,
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+                onPressed: widget.onBack ?? () => context.go('/home'),
+              ),
+              const Text('My Network', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+              const Spacer(),
+              IconButton(icon: const Icon(Icons.refresh, color: Colors.blue), onPressed: _loadNetwork),
+            ],
+          ),
         ),
-        title: const Text('My Network'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.blue),
-            onPressed: widget.onSearch,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.blue),
-            onPressed: _loadNetwork,
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Opacity(
-                    opacity: 0.4,
-                    child: SvgPicture.asset(
-                      'assets/svg/undraw_followers_m4z4.svg',
-                      width: 550,
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Opacity(
+                        opacity: 0.1,
+                        child: SvgPicture.asset('assets/svg/undraw_followers_m4z4.svg', width: 400),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _profiles.isEmpty
-                  ? const Center(
-                      child: Text('No other professionals found in your domain yet.'),
-                    )
-                  : ListView.separated(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _profiles.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final profile = _profiles[index];
-                    final targetId = profile['id'];
-                    final followMap = ref.watch(followProvider);
-                    final isFollowing = followMap[targetId] ?? false;
-                    final connectStatus = ref.watch(uniteProvider)[targetId] ?? 'none';
-
-
-                    // Determine Connect button appearance
-                    final connectLabel = switch (connectStatus) {
-                      'pending_sent' => 'Pending',
-                      'pending_received' => 'Accept',
-                      'connected' => 'Message',
-                      _ => 'Unite',
-                    };
-                    final connectIcon = switch (connectStatus) {
-                      'pending_sent' => Icons.hourglass_top_rounded,
-                      'pending_received' => Icons.check_circle_outline,
-                      'connected' => Icons.message_outlined,
-                      _ => Icons.person_add_outlined,
-                    };
-
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MemberProfileScreen(userId: targetId),
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _profiles.isEmpty
+                      ? const Center(child: Text('No other professionals found in your domain yet.'))
+                      : GridView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: MediaQuery.of(context).size.width > 1200 ? 2 : 1,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 2.2,
                           ),
-                        );
-                      },
-                      child: ClayContainer(
-                        borderRadius: 14,
-                        depth: 5,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Avatar + Name row
-                              Row(
+                          itemCount: _profiles.length,
+                          itemBuilder: (context, index) {
+                            final profile = _profiles[index];
+                            final targetId = profile['id'];
+                            final isFollowing = ref.watch(followProvider)[targetId] ?? false;
+                            final connectStatus = ref.watch(uniteProvider)[targetId] ?? 'none';
+
+                            final connectLabel = switch (connectStatus) {
+                              'pending_sent' => 'Pending',
+                              'pending_received' => 'Accept',
+                              'connected' => 'Message',
+                              _ => 'Unite',
+                            };
+
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+                              ),
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
                                 children: [
-                                  CircleAvatar(
-                                    radius: 24,
-                                    backgroundColor: Colors.blue[50],
-                                    backgroundImage: profile['avatar_url'] != null
-                                        ? NetworkImage(profile['avatar_url'])
-                                        : null,
-                                    child: profile['avatar_url'] == null
-                                        ? Text(
-                                            (profile['full_name'] != null && profile['full_name'].toString().isNotEmpty)
-                                                ? profile['full_name'][0].toUpperCase()
-                                                : '?', 
-                                            style: const TextStyle(color: Colors.blue)
-                                          )
-                                        : null,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
+                                  Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 26,
+                                        backgroundImage: profile['avatar_url'] != null ? NetworkImage(profile['avatar_url']) : null,
+                                        child: profile['avatar_url'] == null ? Text(profile['full_name'][0].toUpperCase()) : null,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(
-                                              profile['full_name'],
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                            ),
-                                            if (profile['verification_status'] == 'verified')
-                                              const Padding(
-                                                padding: EdgeInsets.only(left: 4),
-                                                child: Icon(Icons.verified, color: Colors.blue, size: 16),
-                                              ),
+                                            Text(profile['full_name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                            Text(profile['domain_id'].toString().toUpperCase(), style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
                                           ],
                                         ),
-                                        Text(
-                                          profile['domain_id'].toString().toUpperCase(),
-                                          style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold),
-                                        ),
-                                        if (profile['bio'] != null)
-                                          Text(
-                                            profile['bio'],
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                      ),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          onPressed: () => _handleUnite(profile),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: connectStatus == 'none' ? Colors.blue : Colors.blue.withOpacity(0.1),
+                                            foregroundColor: connectStatus == 'none' ? Colors.white : Colors.blue,
+                                            elevation: 0,
                                           ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              // Action buttons row
-                              Row(
-                                children: [
-                                  // Connect button
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: () => _handleUnite(profile),
-                                      icon: Icon(connectIcon, size: 15),
-                                      label: Text(connectLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                      style: OutlinedButton.styleFrom(
-                                        backgroundColor: connectStatus == 'none'
-                                            ? Colors.blue
-                                            : connectStatus == 'pending_received'
-                                                ? Colors.green
-                                                : Colors.transparent,
-                                        foregroundColor: (connectStatus == 'none' || connectStatus == 'pending_received')
-                                            ? Colors.white
-                                            : Colors.blue,
-                                        side: BorderSide(
-                                          color: connectStatus == 'pending_sent'
-                                              ? Colors.grey
-                                              : connectStatus == 'pending_received'
-                                                  ? Colors.green
-                                                  : Colors.blue,
-                                          width: 1.5,
+                                          child: Text(connectLabel),
                                         ),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(vertical: 6),
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                       ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // Follow button
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: () => _toggleFollow(targetId),
-                                      icon: Icon(isFollowing ? Icons.notifications_active_outlined : Icons.add, size: 15),
-                                      label: Text(isFollowing ? 'Following' : 'Follow', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                      style: OutlinedButton.styleFrom(
-                                        backgroundColor: isFollowing ? Colors.blue.withOpacity(0.08) : Colors.transparent,
-                                        foregroundColor: Colors.blue,
-                                        side: const BorderSide(color: Colors.blue, width: 1.5),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(vertical: 6),
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed: () => _toggleFollow(targetId),
+                                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.blue)),
+                                          child: Text(isFollowing ? 'Following' : 'Follow'),
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      ),
-                    );
-                  },
-                ),
-        ],
-      ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
