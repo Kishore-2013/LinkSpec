@@ -54,10 +54,28 @@ Widget buildGoogleSignInButtonView(void Function(String idToken) onCredential) {
   ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
     final divElement = _createHostDiv(elementId);
 
-    // Schedule GIS initialization + renderButton after the element is in DOM.
+    // Recursive retry function to ensure the element is in DOM before rendering.
+    void tryRender(int attempt) {
+      if (attempt > 10) {
+        debugPrint('GIS: Failed to render button after 10 attempts.');
+        return;
+      }
+
+      final success = gis.renderGoogleSignInButton(
+        elementId: elementId,
+        width: 400,
+      );
+
+      if (!success) {
+        // Retry after a short delay (50ms)
+        Future.delayed(const Duration(milliseconds: 50), () => tryRender(attempt + 1));
+      }
+    }
+
+    // Schedule GIS initialization + recursive render retry.
     Future.microtask(() {
       gis.initializeGoogleSignIn(clientId: SupabaseConfig.googleClientId);
-      gis.renderGoogleSignInButton(elementId: elementId, width: 400);
+      tryRender(1);
     });
 
     return divElement;

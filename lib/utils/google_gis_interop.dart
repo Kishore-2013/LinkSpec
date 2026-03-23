@@ -59,7 +59,8 @@ void initializeGoogleSignIn({
 
 /// Render the official Google Sign-In button inside the HTML element with
 /// [elementId].  The button is full-width via `width` option.
-void renderGoogleSignInButton({
+/// Returns true if the element was found and rendering was attempted.
+bool renderGoogleSignInButton({
   required String elementId,
   int width = 400,
 }) {
@@ -68,7 +69,7 @@ void renderGoogleSignInButton({
     final element = _domGetElementById(elementId);
     if (element == null) {
       debugPrint('GIS: renderButton() skipped — element #$elementId not in DOM yet.');
-      return;
+      return false;
     }
 
     _googleAccountsId.renderButton(
@@ -82,8 +83,10 @@ void renderGoogleSignInButton({
         'logo_alignment': 'center',
       }.jsify()! as JSObject,
     );
+    return true;
   } catch (e) {
     debugPrint('GIS: renderButton() failed: $e');
+    return false;
   }
 }
 
