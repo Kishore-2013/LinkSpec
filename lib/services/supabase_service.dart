@@ -1241,7 +1241,7 @@ class SupabaseService {
 
     await _client
         .from('connection_requests_fact')
-        .update({'status': 'rejected'})
+        .delete()
         .eq('sender_id', senderUserId)
         .eq('receiver_id', userId);
   }
