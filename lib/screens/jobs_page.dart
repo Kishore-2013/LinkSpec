@@ -151,10 +151,12 @@ class _JobsPageState extends ConsumerState<JobsPage> {
       }
     }
 
-    return Stack(
-      children: [
-        Column(
-          children: [
+    return Container(
+      color: Colors.white,
+      child: Stack(
+        children: [
+          Column(
+            children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               color: Colors.white,

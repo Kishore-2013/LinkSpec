@@ -231,18 +231,31 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               ),
             ],
             const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
+            InkWell(
+              onTap: () => _showDomainSwitcher(context, ref, activeDomain),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      activeDomain,
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_drop_down, color: Colors.blue),
+                  ],
+                ),
               ),
-              child: Text(activeDomain),
             ),
             const SizedBox(width: 16),
             _buildHeaderIcon(Icons.notifications_none_rounded, badge: _unreadNotifications, onTap: () => _navigateTo('/notifications')),
-            const SizedBox(width: 12),
-            _buildHeaderIcon(Icons.mail_outline_rounded, badge: _unreadMessages, onTap: () => _navigateTo('/messages')),
             const SizedBox(width: 8),
             _buildHeaderIcon(Icons.logout_rounded, onTap: () async {
               final confirmed = await showDialog<bool>(
@@ -266,6 +279,84 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 if (mounted) context.go('/login');
               }
             }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDomainSwitcher(BuildContext context, WidgetRef ref, String currentDomain) {
+    final List<String> domains = [
+      'Software Development',
+      'AI, Data & Analytics',
+      'Healthcare & Life Sciences',
+      'Finance, Risk & Compliance',
+      'Design & Creative',
+      'Core Engineering',
+      'Cybersecurity & Risk',
+      'Networking & IT Support',
+      'Cloud, DevOps & Infrastructure',
+      'Data Engineering & Databases',
+      'Business, Product & Management',
+      'Agriculture & Environmental',
+      'Sales, Marketing & CRM',
+      'ERP & Enterprise Systems',
+      'HR, Operations & Support',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Switch Domain',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Select a professional domain to customize your feed.',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: ListView.separated(
+                itemCount: domains.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final domain = domains[index];
+                  final isSelected = domain == currentDomain;
+                  return ListTile(
+                    title: Text(
+                      domain,
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? Colors.blue : Colors.black87,
+                      ),
+                    ),
+                    trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
+                    onTap: () {
+                      ref.read(currentDomainProvider.notifier).state = domain;
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),

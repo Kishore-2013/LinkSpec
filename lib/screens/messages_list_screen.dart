@@ -96,8 +96,10 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
       return (a['full_name'] ?? '').toString().toLowerCase().compareTo((b['full_name'] ?? '').toString().toLowerCase());
     });
 
-    return Column(
-      children: [
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           color: Colors.white,
