@@ -152,7 +152,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                     horizontal: screenWidth > 1400 ? screenWidth * 0.05 : 12,
                   ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Column 1: Left Nav (Desktop/Tablet)
                       if (!isMobile)
