@@ -9,6 +9,7 @@ import '../screens/domain_selection_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/reset_password_screen.dart';
 import '../providers/supabase_auth_provider.dart';
+import 'main_layout.dart';
 
 /// Entry point wrapper that handles fast domain-based routing.
 /// Prevents redundant delays and ensures users are routed correctly.
@@ -28,13 +29,13 @@ class AuthWrapper extends ConsumerWidget {
         }
 
         if (session == null) {
-          return const LoginScreen();
+          return const MainLayout(child: LoginScreen());
         }
 
         return _handleAuthenticatedState(context, ref);
       },
       loading: () => _buildLoadingScreen(),
-      error: (e, st) => const LoginScreen(),
+      error: (e, st) => const MainLayout(child: LoginScreen()),
     );
   }
 

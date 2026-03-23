@@ -26,9 +26,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   int _unreadNotifications = 0;
   int _unreadMessages = 0;
 
-  // Accumulate small deltas before acting — prevents rapid flicker on web
-  // trackpad and inertial scroll (which sends many tiny events).
-  // Increase threshold to prevent flickering/accidental hiding
   static const double _scrollThreshold = 20.0;
   double _pendingDelta = 0;
 
@@ -38,8 +35,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final initialDomain = ref.read(currentDomainProvider);
     _sidebarSvc = SidebarDataService(domain: initialDomain);
     _loadInitialData();
-    // NOTE: Scroll detection is now handled by NotificationListener in build()
-    // so it works for all input types: touch, mouse wheel, trackpad, keyboard.
   }
 
   @override
@@ -110,41 +105,25 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             children: [
               _buildHeader(isMobile, activeDomain, location),
               Expanded(
-                // NotificationListener captures ALL scroll events from any
-                // descendant: touch drag, mouse wheel, trackpad, keyboard.
-                // scrollDelta > 0 → content moving up (user scrolling into feed) → HIDE
-                // scrollDelta < 0 → content moving back to top → SHOW
                 child: NotificationListener<ScrollUpdateNotification>(
                   onNotification: (notification) {
                     final delta = notification.scrollDelta ?? 0;
-                    final metrics = notification.metrics;
-
-                    // Always show when snapped to the very top
-                    if (metrics.pixels <= 0) {
+                    if (notification.metrics.pixels <= 0) {
                       if (!ref.read(navVisibilityProvider)) {
                         ref.read(navVisibilityProvider.notifier).state = true;
                         _pendingDelta = 0;
                       }
                       return false;
                     }
-
                     _pendingDelta += delta;
-
                     if (_pendingDelta > _scrollThreshold) {
-                      // Scrolling forward (into content) — HIDE navbar
-                      if (ref.read(navVisibilityProvider)) {
-                        ref.read(navVisibilityProvider.notifier).state = false;
-                      }
+                      if (ref.read(navVisibilityProvider)) ref.read(navVisibilityProvider.notifier).state = false;
                       _pendingDelta = 0;
                     } else if (_pendingDelta < -_scrollThreshold) {
-                      // Scrolling backward (toward top) — SHOW navbar
-                      if (!ref.read(navVisibilityProvider)) {
-                        ref.read(navVisibilityProvider.notifier).state = true;
-                      }
+                      if (!ref.read(navVisibilityProvider)) ref.read(navVisibilityProvider.notifier).state = true;
                       _pendingDelta = 0;
                     }
-
-                    return false; // allow notification to keep bubbling
+                    return false;
                   },
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,11 +133,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                           constraints: const BoxConstraints(maxWidth: 300),
                           child: _buildStickyPanel(_buildLeftSideBar()),
                         ),
-                      Expanded(
-                        child: widget.child,
-                      ),
+                      Expanded(child: widget.child),
                       if (isWide)
-                         ConstrainedBox(
+                        ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 320),
                           child: _buildStickyPanel(_buildRightSideBar(activeDomain)),
                         ),
@@ -168,17 +145,15 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               ),
             ],
           ),
-          // Floating Bottom Nav Pill
           Positioned(
             bottom: 24,
             left: 0,
             right: 0,
-            child: Center(
-              child: AnimatedSlide(
-                // Always visible on all screens as requested (centered bottom pill)
-                offset: Offset.zero,
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
+            child: AnimatedSlide(
+              offset: ref.watch(navVisibilityProvider) ? Offset.zero : const Offset(0, 1.5),
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              child: Center(
                 child: BottomNavBar(
                   currentIndex: _getNavIndex(location),
                   unreadMessages: _unreadMessages,
@@ -221,7 +196,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               ),
             ],
             const Spacer(),
-            // Domain Indicator
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -252,7 +226,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       ),
     );
   }
-
 
   Widget _buildHeaderIcon(IconData icon, {int badge = 0, VoidCallback? onTap}) {
     return GestureDetector(
@@ -434,7 +407,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          // Cover Image
           Container(
             height: 90,
             width: double.infinity,
