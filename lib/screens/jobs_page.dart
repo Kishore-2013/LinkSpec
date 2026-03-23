@@ -157,60 +157,61 @@ class _JobsPageState extends ConsumerState<JobsPage> {
         children: [
           Column(
             children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
-                    onPressed: widget.onBack ?? () => context.go('/home'),
-                  ),
-                  const Text('Jobs Board', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-                ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                color: Colors.white,
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+                      onPressed: widget.onBack ?? () => context.go('/home'),
+                    ),
+                    const Text('Jobs Board', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                  ],
+                ),
+              ),
+              _buildSearchHeader(isMobile),
+              Expanded(
+                child: _isLoading 
+                  ? const Center(child: CircularProgressIndicator())
+                  : RefreshIndicator(
+                      onRefresh: _loadInitialJobs,
+                      child: _jobs.isEmpty 
+                        ? _buildEmptyState()
+                        : GridView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 130),
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: isMobile ? 1 : (MediaQuery.of(context).size.width > 1200 ? 2 : 1),
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              childAspectRatio: isMobile ? 1.4 : 2.5,
+                            ),
+                            itemCount: _jobs.length + (_isLoadingMore ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == _jobs.length) {
+                                return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2)));
+                              }
+                              return _buildJobCard(_jobs[index], isMobile);
+                            },
+                          ),
+                    ),
+              ),
+            ],
+          ),
+          if (_isHR)
+            Positioned(
+              right: 20,
+              bottom: 120,
+              child: FloatingActionButton.extended(
+                onPressed: _showCreateJobModal,
+                backgroundColor: Colors.blue[700],
+                icon: const Icon(Icons.add_business, color: Colors.white),
+                label: const Text('Post Job', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
-            _buildSearchHeader(isMobile),
-            Expanded(
-              child: _isLoading 
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: _loadInitialJobs,
-                    child: _jobs.isEmpty 
-                      ? _buildEmptyState()
-                      : GridView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: isMobile ? 1 : (MediaQuery.of(context).size.width > 1200 ? 2 : 1),
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: isMobile ? 1.4 : 2.5,
-                          ),
-                          itemCount: _jobs.length + (_isLoadingMore ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index == _jobs.length) {
-                              return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2)));
-                            }
-                            return _buildJobCard(_jobs[index], isMobile);
-                          },
-                        ),
-                  ),
-            ),
-          ],
-        ),
-        if (_isHR)
-          Positioned(
-            right: 20,
-            bottom: 120,
-            child: FloatingActionButton.extended(
-              onPressed: _showCreateJobModal,
-              backgroundColor: Colors.blue[700],
-              icon: const Icon(Icons.add_business, color: Colors.white),
-              label: const Text('Post Job', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -304,11 +305,6 @@ class _JobsPageState extends ConsumerState<JobsPage> {
     final activeDomain = ref.read(currentDomainProvider);
     String selectedDomain = activeDomain.isNotEmpty && activeDomain != 'Global' ? activeDomain : 'Software Development';
     final List<String> customQuestions = [];
-    final questionCtrl = TextEditingController();
-
-    final List<String> availableDomains = [
-      'Software Development', 'AI, Data & Analytics', 'Healthcare & Life Sciences', 'Finance, Risk & Compliance', 'Design & Creative'
-    ];
 
     showModalBottomSheet(
       context: context,

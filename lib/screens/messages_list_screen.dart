@@ -1,72 +1,63 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/supabase_service.dart';
-import 'chat_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/scroll_provider.dart';
 import 'package:go_router/go_router.dart';
+import '../services/supabase_service.dart';
+import '../providers/domain_provider.dart';
+import '../providers/scroll_provider.dart';
+import 'chat_screen.dart';
 
 class MessagesListScreen extends ConsumerStatefulWidget {
   final VoidCallback? onBack;
-  final VoidCallback? onSearch;
   final ScrollController? scrollController;
-  const MessagesListScreen({Key? key, this.onBack, this.onSearch, this.scrollController})
-      : super(key: key);
+  const MessagesListScreen({Key? key, this.onBack, this.scrollController}) : super(key: key);
 
   @override
   ConsumerState<MessagesListScreen> createState() => _MessagesListScreenState();
 }
 
 class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
-  List<Map<String, dynamic>> _allUsers = [];
-  Set<String> _existingConversationIds = {};
-  Set<String> _hasUnreadFrom = {};
+  List<Map<String, dynamic>> _profiles = [];
   bool _isLoading = true;
-  final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  RealtimeChannel? _subscription;
+  final TextEditingController _searchController = TextEditingController();
+  final Set<String> _existingConversationIds = {};
+  final Set<String> _hasUnreadFrom = {};
 
   @override
   void initState() {
     super.initState();
     _loadData();
     _searchController.addListener(() {
-      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
+      setState(() => _searchQuery = _searchController.text.trim());
     });
-    _setupSubscription();
-  }
-
-  void _setupSubscription() {
-    _subscription = SupabaseService.subscribeToMessages(
-      onNewMessage: (msg) {
-        if (mounted) _loadData();
-      },
-    );
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _subscription?.unsubscribe();
     super.dispose();
   }
 
   Future<void> _loadData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
+    
     try {
+      final activeDomain = ref.read(currentDomainProvider);
+      
       final results = await Future.wait([
-        SupabaseService.getAllProfiles(limit: 200),
-        SupabaseService.getConversations(),
-        SupabaseService.getUnreadSenderIds(),
+        SupabaseService.fetchProfessionalsWithPagination(domain: activeDomain != 'Global' ? activeDomain : null, limit: 100),
+        SupabaseService.fetchExistingConversations(),
+        SupabaseService.fetchUnreadMessageSenders(),
       ]);
 
       if (mounted) {
         setState(() {
-          _allUsers = results[0] as List<Map<String, dynamic>>;
-          _existingConversationIds = (results[1] as List<Map<String, dynamic>>).map((u) => u['id'] as String).toSet();
-          _hasUnreadFrom = results[2] as Set<String>;
+          _profiles = results[0];
+          _existingConversationIds.clear();
+          _existingConversationIds.addAll(results[1]);
+          _hasUnreadFrom.clear();
+          _hasUnreadFrom.addAll(results[2]);
           _isLoading = false;
         });
       }
@@ -76,11 +67,12 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
   }
 
   List<Map<String, dynamic>> get _filteredUsers {
-    if (_searchQuery.isEmpty) return _allUsers;
-    return _allUsers.where((u) {
-      final name = (u['full_name'] as String? ?? '').toLowerCase();
-      final domain = (u['domain_id'] as String? ?? '').toLowerCase();
-      return name.contains(_searchQuery) || domain.contains(_searchQuery);
+    if (_searchQuery.isEmpty) return _profiles;
+    return _profiles.where((u) {
+      final name = (u['full_name'] ?? '').toString().toLowerCase();
+      final domain = (u['domain_id'] ?? '').toString().toLowerCase();
+      return name.contains(_searchQuery.toLowerCase()) || 
+             domain.contains(_searchQuery.toLowerCase());
     }).toList();
   }
 
@@ -100,54 +92,55 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
       color: Colors.white,
       child: Column(
         children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: Colors.white,
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
-                onPressed: widget.onBack ?? () => context.go('/home'),
-              ),
-              const Text('Messages', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-              const Spacer(),
-              IconButton(icon: const Icon(Icons.refresh_rounded, color: Colors.blue), onPressed: _loadData),
-            ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: Colors.white,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+                  onPressed: widget.onBack ?? () => context.go('/home'),
+                ),
+                const Text('Messages', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                const Spacer(),
+                IconButton(icon: const Icon(Icons.refresh_rounded, color: Colors.blue), onPressed: _loadData),
+              ],
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Container(
-            decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey[200]!)),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search people...',
-                prefixIcon: const Icon(Icons.search, color: Colors.blue, size: 20),
-                suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () => _searchController.clear()) : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Container(
+              decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey[200]!)),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search people...',
+                  prefixIcon: const Icon(Icons.search, color: Colors.blue, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () => _searchController.clear()) : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
             ),
           ),
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _loadData,
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filtered.isEmpty
-                    ? _buildEmpty()
-                    : ListView.separated(
-                        controller: widget.scrollController ?? ref.read(globalScrollControllerProvider),
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) => _buildUserTile(filtered[index]),
-                      ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _loadData,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : filtered.isEmpty
+                      ? _buildEmpty()
+                      : ListView.separated(
+                          controller: widget.scrollController ?? ref.read(globalScrollControllerProvider),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) => _buildUserTile(filtered[index]),
+                        ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
