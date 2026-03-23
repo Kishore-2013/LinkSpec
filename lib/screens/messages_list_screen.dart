@@ -45,10 +45,11 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
     try {
       final activeDomain = ref.read(currentDomainProvider);
       
+      // Corrected Supabase method calls based on SupabaseService implementation
       final results = await Future.wait([
-        SupabaseService.getAllProfiles(limit: 100),
-        SupabaseService.getConversations(),
-        SupabaseService.getUnreadSenderIds(),
+        SupabaseService.getAllProfiles(limit: 100), // Get users for directory
+        SupabaseService.getConversations(), // Get IDs/Profiles of existing chats
+        SupabaseService.getUnreadSenderIds(), // Get IDs of senders with unread messages
       ]);
 
       if (mounted) {
@@ -87,6 +88,7 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
   Widget build(BuildContext context) {
     final filtered = _filteredUsers;
     
+    // Sort: Existing conversations first, then alphabetical
     filtered.sort((a, b) {
       final aId = a['id'] as String? ?? '';
       final bId = b['id'] as String? ?? '';
@@ -101,54 +103,43 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
       );
     });
 
-    // ✅ CLEAN SCAFFOLD - NO GREY OVERLAY
-    return Scaffold(
-      backgroundColor: Colors.white, // Clean white background
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
-          onPressed: widget.onBack ?? () => context.go('/home'),
-        ),
-        title: const Text(
-          'Messages',
-          style: TextStyle(
-            fontWeight: FontWeight.bold, 
-            fontSize: 20,
-            color: Colors.black, // Fully visible, no opacity
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.blue), 
-            onPressed: _loadData,
-          ),
-        ],
-        centerTitle: false,
-      ),
-      body: Column(
+    return Container(
+      color: Colors.white,
+      child: Column(
         children: [
-          // Search Bar - Clean with no overlay
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: Colors.white,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.blue),
+                  onPressed: widget.onBack ?? () => context.go('/home'),
+                ),
+                const Text('Messages', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.blue), 
+                  onPressed: _loadData
+                ),
+              ],
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.grey.shade50, 
+                color: Colors.grey[50], 
                 borderRadius: BorderRadius.circular(14), 
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: Colors.grey[200]!)
               ),
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: 'Search people...',
-                  hintStyle: TextStyle(color: Colors.grey.shade400),
                   prefixIcon: const Icon(Icons.search, color: Colors.blue, size: 20),
                   suffixIcon: _searchQuery.isNotEmpty 
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18, color: Colors.grey), 
-                          onPressed: () => _searchController.clear(),
-                        ) 
+                      ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () => _searchController.clear()) 
                       : null,
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -156,7 +147,6 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
               ),
             ),
           ),
-          // User List - NO OVERLAY, FULLY VISIBLE
           Expanded(
             child: RefreshIndicator(
               onRefresh: _loadData,
@@ -166,7 +156,7 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
                       ? _buildEmpty()
                       : ListView.separated(
                           controller: widget.scrollController ?? ref.read(globalScrollControllerProvider),
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 20), // Reduced bottom padding
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                           itemCount: filtered.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 12),
                           itemBuilder: (context, index) => _buildUserTile(filtered[index]),
@@ -185,77 +175,32 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
     final domain = user['domain_id'] as String? ?? '';
     final avatarUrl = user['avatar_url'] as String?;
 
-    // ✅ CLEAN TILE - NO OVERLAY, FULL OPACITY
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white, // Clean white background
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.05), // Very subtle shadow, not overlay
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
         border: Border.all(
-          color: hasUnread ? Colors.blue.withOpacity(0.5) : Colors.grey.withOpacity(0.1), 
-          width: hasUnread ? 1.5 : 1,
+          color: hasUnread ? Colors.blue.withOpacity(0.3) : Colors.grey.withOpacity(0.1), 
+          width: hasUnread ? 1.5 : 1
         ),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: CircleAvatar(
           radius: 24,
-          backgroundColor: Colors.blue.shade50,
-          backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) 
-              ? NetworkImage(avatarUrl) 
-              : null,
-          child: (avatarUrl == null || avatarUrl.isEmpty) 
-              ? Text(
-                  name[0].toUpperCase(), 
-                  style: const TextStyle(
-                    color: Colors.blue,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ) 
-              : null,
+          backgroundColor: Colors.blue[50],
+          backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) ? NetworkImage(avatarUrl) : null,
+          child: (avatarUrl == null || avatarUrl.isEmpty) ? Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.blue)) : null,
         ),
-        title: Text(
-          name, 
-          style: TextStyle(
-            fontWeight: hasUnread ? FontWeight.w800 : FontWeight.w600, 
-            fontSize: 15,
-            color: Colors.black, // ✅ Fully opaque, fully visible
-            letterSpacing: -0.2,
-          ),
-        ),
-        subtitle: Text(
-          domain.toUpperCase(), 
-          style: const TextStyle(
-            color: Colors.blue, 
-            fontSize: 11, 
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
-          ),
-        ),
+        title: Text(name, style: TextStyle(fontWeight: hasUnread ? FontWeight.w800 : FontWeight.w700, fontSize: 15)),
+        subtitle: Text(domain.toUpperCase(), style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
         trailing: hasUnread 
             ? Container(
-                padding: const EdgeInsets.all(5), 
-                decoration: const BoxDecoration(
-                  color: Colors.blue, 
-                  shape: BoxShape.circle,
-                ), 
-                child: const Icon(
-                  Icons.mark_chat_unread_rounded, 
-                  color: Colors.white, 
-                  size: 12,
-                ),
+                padding: const EdgeInsets.all(6), 
+                decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle), 
+                child: const Icon(Icons.mark_chat_unread_rounded, color: Colors.white, size: 12)
               )
-            : Icon(
-                Icons.chevron_right, 
-                color: Colors.grey.shade400, 
-                size: 20,
-              ),
+            : const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
         onTap: () {
           if (hasUnread) {
             setState(() => _hasUnreadFrom.remove(userId));
@@ -275,29 +220,12 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.people_outline_rounded, 
-            size: 64, 
-            color: Colors.blue.shade100,
-          ),
+          Icon(Icons.people_outline_rounded, size: 64, color: Colors.blue[100]),
           const SizedBox(height: 16),
           Text(
             _searchQuery.isNotEmpty ? 'No users match "$_searchQuery"' : 'No users found', 
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
-              fontSize: 14,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold)
           ),
-          const SizedBox(height: 8),
-          if (_searchQuery.isEmpty)
-            Text(
-              'Start a conversation by tapping on any user',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade500,
-              ),
-            ),
         ],
       ),
     );

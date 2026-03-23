@@ -180,7 +180,7 @@ class _JobsPageState extends ConsumerState<JobsPage> {
                         ? _buildEmptyState()
                         : GridView.builder(
                             controller: _scrollController,
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 130),
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: isMobile ? 1 : (MediaQuery.of(context).size.width > 1200 ? 2 : 1),
                               crossAxisSpacing: 16,
