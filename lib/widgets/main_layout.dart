@@ -120,9 +120,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               ),
             ],
           ),
-          // Floating Bottom Nav Pill
+          // Floating Bottom Nav Pll (LinkedIn-style)
           Positioned(
-            bottom: 24,
+            bottom: 30, // Slightly higher for better visual balance
             left: 0,
             right: 0,
             child: Center(
@@ -433,31 +433,33 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
   Widget _buildBottomNavPill(String currentLocation) {
     return Container(
+      constraints: const BoxConstraints(maxWidth: 550), // Compact width
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1),
+        color: Colors.white.withOpacity(0.98),
+        borderRadius: BorderRadius.circular(35),
+        border: Border.all(color: Colors.grey.withOpacity(0.15), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 30,
+            spreadRadius: 2,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(40),
+        borderRadius: BorderRadius.circular(35),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildNavIcon(Icons.home_rounded, 'Home', '/home', currentLocation),
+              _buildNavIcon(Icons.home_outlined, 'Home', '/home', currentLocation),
               _buildNavIcon(Icons.search_rounded, 'Search', '/search', currentLocation),
-              _buildNavIcon(Icons.groups_rounded, 'Groups', '/groups', currentLocation),
-              _buildNavIcon(Icons.add_circle_outline_rounded, 'Post', '/home', currentLocation, isSpecial: true),
+              _buildNavIcon(Icons.people_outline_rounded, 'Network', '/network', currentLocation),
+              _buildNavIcon(Icons.add_box_outlined, 'Post', '/home', currentLocation, isSpecial: true),
               _buildNavIcon(Icons.chat_bubble_outline_rounded, 'Messages', '/messages', currentLocation),
-              _buildNavIcon(Icons.work_rounded, 'Jobs', '/jobs', currentLocation),
+              _buildNavIcon(Icons.work_outline_rounded, 'Jobs', '/jobs', currentLocation),
             ],
           ),
         ),
