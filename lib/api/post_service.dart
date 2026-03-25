@@ -101,6 +101,7 @@ class PostService {
         baseQuery = baseQuery
             .gt('created_at', sevenDaysAgo)
             .order('like_count', ascending: false)
+            .order('comment_count', ascending: false)
             .order('created_at', ascending: false);
         break;
     }

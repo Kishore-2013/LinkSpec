@@ -70,6 +70,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   StreamSubscription? _latestPostsSub;
   StreamSubscription? _jobsSub;
   StreamSubscription? _applicationsSub;
+  RealtimeChannel? _activitySub;
   int _latestPostsBadgeCount = 0;
   DateTime? _lastViewedPostAt;
 
@@ -207,6 +208,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             callback: (payload) => _onNewNotification(payload),
           )
           .subscribe((RealtimeSubscribeStatus status, Object? error) {});
+
+      _activitySub = SupabaseService.subscribeToUserActivity(
+        userId: userId,
+        callback: (_) => _loadMyRecentActivity(),
+      );
     }
 
     _scrollController = ref.read(globalScrollControllerProvider);
@@ -229,6 +235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _badgeTimer?.cancel();
     _messagesChannel?.unsubscribe();
     _notificationsChannel?.unsubscribe();
+    _activitySub?.unsubscribe();
     _latestPostsSub?.cancel();
     _jobsSub?.cancel();
     _applicationsSub?.cancel();

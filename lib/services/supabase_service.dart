@@ -30,6 +30,22 @@ class SupabaseService {
 
   static String? getCurrentUserId() => _client.auth.currentUser?.id;
 
+  /// Internal helper to log user activity into the denormalized log table.
+  /// This enables the scalable "Recent Activity" feed.
+  static Future<void> _logActivity(String actionType, String? targetPostId) async {
+    final userId = getCurrentUserId();
+    if (userId == null) return;
+    try {
+      await _client.from('user_activity').insert({
+        'user_id': userId,
+        'action_type': actionType,
+        'target_post_id': targetPostId,
+      });
+    } catch (e) {
+      debugPrint('LOGGING: Error recording user_activity: $e');
+    }
+  }
+
   /// Send a password reset email
   static Future<void> sendPasswordResetEmail(String email) async {
     // Redirect to the dedicated reset-password path on Web
@@ -726,6 +742,9 @@ class SupabaseService {
         .single();
     debugPrint('DEBUG: Post created response: $response');
 
+    // ── LOG ACTIVITY ──
+    unawaited(_logActivity('post', response['id']));
+
     return response;
   }
 
@@ -895,6 +914,9 @@ class SupabaseService {
       'post_id': postId,
       'user_id': userId,
     });
+
+    // ── LOG ACTIVITY ──
+    unawaited(_logActivity('like', postId));
   }
 
   /// Unlike a post
@@ -1465,6 +1487,27 @@ class SupabaseService {
         .subscribe();
   }
 
+  /// Subscribe to user activity logs (INSERT only)
+  static RealtimeChannel subscribeToUserActivity({
+    required String userId,
+    required void Function(PostgresChangePayload payload) callback,
+  }) {
+    return _client
+        .channel('public:user_activity:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'user_activity',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: callback,
+        )
+        .subscribe();
+  }
+
   /// Get jobs for the user's domain (Optimized)
   static Future<List<Map<String, dynamic>>> getJobs() async {
     final userId = _client.auth.currentUser?.id;
@@ -1637,6 +1680,9 @@ class SupabaseService {
       'content': content,
       'parent_id': parentId,
     });
+
+    // ── LOG ACTIVITY ──
+    unawaited(_logActivity('comment', postId));
   }
 
   /// Update an existing comment
@@ -2031,76 +2077,55 @@ class SupabaseService {
     }
   }
 
-  // ============================================================================
-  // SIDEBAR — MY RECENT ACTIVITY  (current user only, auth.uid()-gated)
-  // Returns a flat list of activity items sorted by recency.
-  //   type: 'post' | 'like' | 'comment'
-  // ============================================================================
+  /// SIDEBAR — MY RECENT ACTIVITY  (Scalable: uses the denormalized user_activity table)
   static Future<List<Map<String, dynamic>>> getMyRecentActivity({int limit = 10}) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return [];
 
-    // Run parallel fetches for posts, comments, and likes
-    final results = await Future.wait([
-      _client.from('posts_dim').select('id, content, created_at').eq('author_id', userId).order('created_at', ascending: false).limit(limit),
-      _client.from('comments_fact').select('''
-        id, content, created_at, post_id,
-        post:posts_dim(
-          author:profiles_dim(full_name)
-        )
-      ''').eq('author_id', userId).order('created_at', ascending: false).limit(limit),
-      _client.from('likes_fact').select('''
-        id, created_at, post_id,
-        post:posts_dim(
-          author:profiles_dim(full_name)
-        )
-      ''').eq('user_id', userId).order('created_at', ascending: false).limit(limit),
-    ]);
+    try {
+      final response = await _client
+          .from('user_activity')
+          .select('''
+            *,
+            post:posts_dim(
+              id,
+              content,
+              author:profiles_dim(full_name)
+            )
+          ''')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(limit);
 
-    final List<dynamic> myPosts = results[0];
-    final List<dynamic> myComments = results[1];
-    final List<dynamic> myLikes = results[2];
+      final List<dynamic> rows = response;
+      return rows.map((r) {
+        final type = r['action_type'] as String? ?? 'post';
+        final post = r['post'];
+        final targetAuthor = post?['author']?['full_name'] ?? 'the community';
+        
+        String summary = 'You interacted with a post';
+        if (type == 'post') {
+          summary = 'You posted a new update';
+        } else if (type == 'like') {
+          summary = 'You liked $targetAuthor\'s post';
+        } else if (type == 'comment') {
+          summary = 'You commented on $targetAuthor\'s post';
+        }
 
-    final activities = <Map<String, dynamic>>[];
-
-    for (final p in myPosts) {
-      activities.add({
-        'type': 'post',
-        'id': p['id'],
-        'summary': 'You posted a new update',
-        'content': (p['content'] as String? ?? ''),
-        'created_at': p['created_at'],
-      });
+        return {
+          'type': type,
+          'id': r['id'],
+          'post_id': r['target_post_id'],
+          'summary': summary,
+          'content': type == 'post' ? (post?['content'] ?? '') : '',
+          'created_at': r['created_at'],
+        };
+      }).toList();
+    } catch (e) {
+      debugPrint('ACTIVITY: Error fetching from user_activity: $e');
+      // Fallback: This allows for graceful migration if the table isn't ready yet.
+      return []; 
     }
-    for (final c in myComments) {
-      final targetAuthor = c['post']?['author']?['full_name'] ?? 'the community';
-      activities.add({
-        'type': 'comment',
-        'id': c['id'],
-        'post_id': c['post_id'],
-        'summary': 'You commented on $targetAuthor\'s post',
-        'content': c['content'],
-        'created_at': c['created_at'],
-      });
-    }
-    for (final l in myLikes) {
-      final targetAuthor = l['post']?['author']?['full_name'] ?? 'the community';
-      activities.add({
-        'type': 'like',
-        'id': l['id'],
-        'post_id': l['post_id'],
-        'summary': 'You liked $targetAuthor\'s post',
-        'created_at': l['created_at'],
-      });
-    }
-
-    activities.sort((a, b) {
-      final ta = DateTime.tryParse(a['created_at'] as String? ?? '') ?? DateTime(0);
-      final tb = DateTime.tryParse(b['created_at'] as String? ?? '') ?? DateTime(0);
-      return tb.compareTo(ta);
-    });
-
-    return activities.take(limit).toList();
   }
 
   // ============================================================================
@@ -2213,5 +2238,3 @@ class SupabaseService {
     }
   }
 }
-
-
