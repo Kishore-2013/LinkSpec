@@ -1,8 +1,6 @@
-|
-]47]54\
-{"import 'package:flutter/material.dart';
-0?port 'package:go_router/go_router.dart';0?
-import 'package:flutter_riverpod/flutter_riv568\.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/job.dart';
 import '../api/job_service.dart';
 import '../services/supabase_service.dart';
