@@ -92,8 +92,8 @@ class PostWindowManager {
     final event = payload.eventType;
     final data = event == PostgresChangeEvent.delete ? payload.oldRecord : payload.newRecord;
 
-    // Filter by domain
-    if (domain != 'Global' && domain != 'All' && data['domain_id'] != domain) {
+    final bool isGlobalMode = (mode == FeedMode.chronological || mode == FeedMode.topWeekly);
+    if (!isGlobalMode && domain != 'Global' && domain != 'All' && data['domain_id'] != domain) {
       return;
     }
 
