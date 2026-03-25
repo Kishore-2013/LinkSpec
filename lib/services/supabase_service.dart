@@ -2042,9 +2042,19 @@ class SupabaseService {
 
     // Run all fetches in parallel
     final results = await Future.wait([
-      _client.from('posts_dim').select('id, content, created_at').eq('author_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
-      _client.from('comments_fact').select('id, content, created_at, post_id').eq('author_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
-      _client.from('likes_fact').select('id, created_at, post_id').eq('user_id', userId).order('created_at', ascending: false).limit(limit ~/ 2),
+      _client.from('posts_dim').select('id, content, created_at').eq('author_id', userId).order('created_at', ascending: false).limit(limit),
+      _client.from('comments_fact').select('''
+        id, content, created_at, post_id,
+        post:posts_dim!inner(
+          author:profiles_dim!author_id(full_name)
+        )
+      ''').eq('author_id', userId).order('created_at', ascending: false).limit(limit),
+      _client.from('likes_fact').select('''
+        id, created_at, post_id,
+        post:posts_dim!inner(
+          author:profiles_dim!author_id(full_name)
+        )
+      ''').eq('user_id', userId).order('created_at', ascending: false).limit(limit),
     ]);
 
     final List<dynamic> myPosts = results[0];
@@ -2064,22 +2074,23 @@ class SupabaseService {
       });
     }
     for (final c in myComments) {
+      final targetAuthor = c['post']?['author']?['full_name'] ?? 'someone';
       activities.add({
         'type': 'comment',
         'id': c['id'],
         'post_id': c['post_id'],
-        'summary': (c['content'] as String? ?? '').length > 80
-            ? '${(c['content'] as String).substring(0, 80)}…'
-            : c['content'],
+        'summary': 'You commented on $targetAuthor\'s post',
+        'content': c['content'],
         'created_at': c['created_at'],
       });
     }
     for (final l in myLikes) {
+      final targetAuthor = l['post']?['author']?['full_name'] ?? 'someone';
       activities.add({
         'type': 'like',
         'id': l['id'],
         'post_id': l['post_id'],
-        'summary': 'You liked a post',
+        'summary': 'You liked $targetAuthor\'s post',
         'created_at': l['created_at'],
       });
     }

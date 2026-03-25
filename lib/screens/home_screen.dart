@@ -537,7 +537,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await _feedCtrl.refresh(onUpdate: () {
       if (mounted) setState(() {});
     });
-    await _loadGroups();
+    await Future.wait([
+      _loadGroups(),
+      _loadSidebarData(),
+    ]);
   }
 
   @override

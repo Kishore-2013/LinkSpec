@@ -7,14 +7,14 @@ import '../models/event.dart';
 import 'group_detail_screen.dart';
 
 // ─── Unified activity item ────────────────────────────────────────────────────
-enum _ActivityType { post, group, event }
+enum _ActivityType { post, group, event, comment, like }
 
 class _ActivityItem {
   final _ActivityType type;
   final DateTime timestamp;
   final String id;
 
-  // Post fields
+  // Post fields (used for post, comment, like)
   final Post? post;
 
   // Group fields
@@ -25,6 +25,20 @@ class _ActivityItem {
 
   _ActivityItem.fromPost(this.post)
       : type = _ActivityType.post,
+        id = post!.id,
+        timestamp = post.createdAt,
+        group = null,
+        event = null;
+
+  _ActivityItem.fromComment(this.post)
+      : type = _ActivityType.comment,
+        id = post!.id,
+        timestamp = post.createdAt,
+        group = null,
+        event = null;
+
+  _ActivityItem.fromLike(this.post)
+      : type = _ActivityType.like,
         id = post!.id,
         timestamp = post.createdAt,
         group = null,
@@ -82,24 +96,35 @@ class _RecentActivityScreenState extends State<RecentActivityScreen> {
           final p = Post(
             id: raw['id'],
             authorId: SupabaseService.getCurrentUserId() ?? '',
-            domainId: '', 
+            domainId: 'POST', 
             content: raw['summary'] ?? '',
             createdAt: ts,
             updatedAt: ts,
             authorName: 'You',
           );
           items.add(_ActivityItem.fromPost(p));
-        } else if (type == 'comment' || type == 'like') {
+        } else if (type == 'comment') {
           final p = Post(
             id: raw['id'],
             authorId: SupabaseService.getCurrentUserId() ?? '',
-            domainId: type.toUpperCase(),
+            domainId: 'COMMENT',
+            content: '${raw['summary']}\n\n"${raw['content']}"',
+            createdAt: ts,
+            updatedAt: ts,
+            authorName: 'You',
+          );
+          items.add(_ActivityItem.fromComment(p));
+        } else if (type == 'like') {
+          final p = Post(
+            id: raw['id'],
+            authorId: SupabaseService.getCurrentUserId() ?? '',
+            domainId: 'LIKE',
             content: raw['summary'] ?? '',
             createdAt: ts,
             updatedAt: ts,
             authorName: 'You',
           );
-          items.add(_ActivityItem.fromPost(p));
+          items.add(_ActivityItem.fromLike(p));
         }
       }
 
@@ -154,7 +179,11 @@ class _RecentActivityScreenState extends State<RecentActivityScreen> {
   Widget _buildCard(_ActivityItem item) {
     switch (item.type) {
       case _ActivityType.post:
-        return _buildPostCard(item.post!);
+        return _buildPostCard(item.post!, 'POST', Colors.blue, Icons.article_outlined);
+      case _ActivityType.comment:
+        return _buildPostCard(item.post!, 'COMMENT', Colors.green, Icons.comment_outlined);
+      case _ActivityType.like:
+        return _buildPostCard(item.post!, 'LIKE', Colors.red, Icons.favorite_outline);
       case _ActivityType.group:
         return _buildGroupCard(item.group!, item.timestamp);
       case _ActivityType.event:
@@ -163,11 +192,11 @@ class _RecentActivityScreenState extends State<RecentActivityScreen> {
   }
 
   // ── Post card ───────────────────────────────────────────────────────────────
-  Widget _buildPostCard(Post post) {
+  Widget _buildPostCard(Post post, String label, Color color, IconData icon) {
     return _ActivityCard(
-      typeLabel: 'POST',
-      typeColor: Colors.blue,
-      typeIcon: Icons.article_outlined,
+      typeLabel: label,
+      typeColor: color,
+      typeIcon: icon,
       timestamp: post.createdAt,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
