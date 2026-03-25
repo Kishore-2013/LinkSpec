@@ -144,6 +144,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       unawaited(_loadBadgeCounts());
     });
 
+    _initFeedListeners();
+    _initHRNotifications();
+  }
+
   // ── MASTER FIX: SIDEBAR HANDLERS ───────────────────────────────
 
   void onLatestPostsPressed() {
@@ -185,7 +189,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       : 'TOP WEEKLY');
   }
 
-  void _initHRNotifications() {
+  Future<void> _initFeedListeners() async {
 
     _latestPostsSub =
         SupabaseService.getLatestPostsStream(limit: 1).listen((newest) {
