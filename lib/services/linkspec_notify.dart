@@ -150,9 +150,10 @@ class _NotifyCardState extends State<_NotifyCard> with SingleTickerProviderState
       LinkSpecNotifyType.error: const Color(0xFF991B1B),
     }[widget.type] ?? const Color(0xFF1C1C1E);
 
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.only(top: 80, left: 32, right: 32),
         child: Material(
           color: Colors.transparent,
           child: FadeTransition(
