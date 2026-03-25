@@ -78,12 +78,17 @@ class PostService {
     ''');
 
     // ── Reactive Domain Filter ──────────────────────────────────────────
-    // If 'Global' or 'All' is selected, we omit the filter to show everyone's posts.
     // Latest (chronological) and Top Weekly modes are forced global.
-    final bool isGlobal = (mode == FeedMode.chronological || mode == FeedMode.topWeekly);
+    final bool isForcedGlobal = (mode == FeedMode.chronological || mode == FeedMode.topWeekly);
+    
+    // Normalize domain string for comparison
+    final String? dNormal = domain?.trim();
+    final bool isGlobalLabel = dNormal == null || 
+                               dNormal.toLowerCase() == 'global' || 
+                               dNormal.toLowerCase() == 'all';
 
-    if (!isGlobal && domain != null && domain != 'Global' && domain != 'All') {
-      final domainIds = _getDomainIds(domain);
+    if (!isForcedGlobal && !isGlobalLabel) {
+      final domainIds = _getDomainIds(dNormal);
       if (domainIds.length == 1) {
         baseQuery = baseQuery.eq('domain_id', domainIds.first);
       } else {
