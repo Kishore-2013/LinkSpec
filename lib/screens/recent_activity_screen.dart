@@ -96,33 +96,39 @@ class _RecentActivityScreenState extends State<RecentActivityScreen> {
           final p = Post(
             id: raw['id'],
             authorId: SupabaseService.getCurrentUserId() ?? '',
-            domainId: 'POST', 
+            domainId: raw['domain_id'] ?? 'POST', 
             content: raw['summary'] ?? '',
             createdAt: ts,
             updatedAt: ts,
             authorName: 'You',
+            likesCount: (raw['likes_count'] as num?)?.toInt() ?? 0,
+            commentsCount: (raw['comments_count'] as num?)?.toInt() ?? 0,
           );
           items.add(_ActivityItem.fromPost(p));
         } else if (type == 'comment') {
           final p = Post(
             id: raw['id'],
             authorId: SupabaseService.getCurrentUserId() ?? '',
-            domainId: 'COMMENT',
+            domainId: raw['domain_id'] ?? 'COMMENT',
             content: '${raw['summary']}\n\n"${raw['content']}"',
             createdAt: ts,
             updatedAt: ts,
             authorName: 'You',
+            likesCount: (raw['likes_count'] as num?)?.toInt() ?? 0,
+            commentsCount: (raw['comments_count'] as num?)?.toInt() ?? 0,
           );
           items.add(_ActivityItem.fromComment(p));
         } else if (type == 'like') {
           final p = Post(
             id: raw['id'],
             authorId: SupabaseService.getCurrentUserId() ?? '',
-            domainId: 'LIKE',
+            domainId: raw['domain_id'] ?? 'LIKE',
             content: raw['summary'] ?? '',
             createdAt: ts,
             updatedAt: ts,
             authorName: 'You',
+            likesCount: (raw['likes_count'] as num?)?.toInt() ?? 0,
+            commentsCount: (raw['comments_count'] as num?)?.toInt() ?? 0,
           );
           items.add(_ActivityItem.fromLike(p));
         }
