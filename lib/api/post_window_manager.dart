@@ -108,6 +108,7 @@ class PostWindowManager {
         // Only prepend if it's not already there (prevent double insertion if fetch happened)
         if (!_window.any((p) => p.id == newPost.id)) {
           _window.insert(0, newPost);
+          debugPrint('DEBUG: Realtime PREPENDED post ${newPost.id} at index 0');
           if (_window.length > maxWindowSize) {
              _evictBottom();
           }
@@ -206,7 +207,11 @@ class PostWindowManager {
       final page     = _pageCache[nextPage] ?? await _fetchPage(nextPage);
       _pageCache[nextPage] = page;
 
-      _window.addAll(page);
+      // Duplicate protection: filter out any posts already in the window
+      final uniquePage = page.where((p) => !_window.any((wp) => wp.id == p.id)).toList();
+      debugPrint('DEBUG: loadOlder fetched ${page.length} posts, ${uniquePage.length} are new');
+      
+      _window.addAll(uniquePage);
       _lastPage     = nextPage;
       _hasMoreOlder = page.length >= pageSize;
 
@@ -237,9 +242,13 @@ class PostWindowManager {
       final page     = _pageCache[prevPage] ?? await _fetchPage(prevPage);
       _pageCache[prevPage] = page;
 
-      _window.insertAll(0, page);
+      // Duplicate protection: filter out any posts already in the window
+      final uniquePage = page.where((p) => !_window.any((wp) => wp.id == p.id)).toList();
+      debugPrint('DEBUG: loadNewer fetched ${page.length} posts, ${uniquePage.length} are new');
+
+      _window.insertAll(0, uniquePage);
       _firstPage = prevPage;
-      prepended  = page.length;
+      prepended  = uniquePage.length;
 
       // Keep window bounded – evict the bottom page
       if (_window.length > maxWindowSize) {

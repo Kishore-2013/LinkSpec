@@ -98,7 +98,7 @@ class PostService {
     switch (mode) {
       case FeedMode.popularity:
         baseQuery = baseQuery
-            .order('like_count', ascending: false)
+            .order('likes_count', ascending: false)
             .order('created_at', ascending: false);
         break;
 
@@ -107,17 +107,23 @@ class PostService {
         break;
 
       case FeedMode.topWeekly:
-        final sevenDaysAgo = DateTime.now().toUtc().subtract(const Duration(days: 7)).toIso8601String();
+        final lastWeekISO = DateTime.now().toUtc().subtract(const Duration(days: 7)).toIso8601String();
         baseQuery = baseQuery
-            .gt('created_at', sevenDaysAgo)
-            .order('like_count', ascending: false)
-            .order('comment_count', ascending: false)
-            .order('created_at', ascending: false);
+            .gte('created_at', lastWeekISO)
+            .order('likes_count', ascending: false)
+            .order('comments_count', ascending: false);
         break;
     }
 
     final response = await baseQuery.range(offset, offset + limit - 1);
     final posts = List<Map<String, dynamic>>.from(response);
+
+    if (posts.isNotEmpty) {
+      debugPrint('DEBUG: Fetched ${posts.length} posts for mode $mode');
+      for (var p in posts.take(3)) {
+        debugPrint('DEBUG: Post ID: ${p['id']} | CreatedAt: ${p['created_at']} | Likes: ${p['likes_count'] ?? p['like_count']}');
+      }
+    }
 
     if (posts.isEmpty) return [];
 
@@ -144,8 +150,8 @@ class PostService {
         ...post,
         'author_name':   author?['full_name'] ?? 'Unknown',
         'author_avatar': author?['avatar_url'],
-        'like_count':    (post['like_count']    as num?)?.toInt() ?? 0,
-        'comment_count': (post['comment_count'] as num?)?.toInt() ?? 0,
+        'likes_count':   (post['likes_count']   as num?)?.toInt() ?? (post['like_count'] as num?)?.toInt() ?? 0,
+        'comments_count': (post['comments_count'] as num?)?.toInt() ?? (post['comment_count'] as num?)?.toInt() ?? 0,
         'is_liked':      likedSet.contains(postId),
         'is_following':  followingSet.contains(authorId),
         'is_trending':   mode == FeedMode.topWeekly,

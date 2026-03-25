@@ -640,8 +640,8 @@ class SupabaseService {
         'author_avatar': profile?['avatar_url'] ?? post['author_avatar'],
         'author_domain': profile?['domain_id'] ?? post['author_domain'],
         'author_verification_status': profile?['verification_status'] ?? post['author_verification_status'],
-        'like_count': (likeCount as num).toInt(),
-        'comment_count': (commentCount as num).toInt(),
+        'likes_count': (likeCount as num).toInt(),
+        'comments_count': (commentCount as num).toInt(),
         'is_liked': likedSet.contains(postId),
         'is_following': followingSet.contains(authorId),
       };
@@ -916,6 +916,22 @@ class SupabaseService {
       'user_id': userId,
     });
 
+    // ── OPTION A: Maintain likes_count column ──
+    try {
+      await _client.rpc('increment_likes_count', params: {'p_post_id': postId});
+    } catch (_) {
+      // Fallback if RPC fails: manual update
+      try {
+        final current = await _client.from('posts_dim').select('likes_count, like_count').eq('id', postId).single();
+        final countKey = current.containsKey('likes_count') ? 'likes_count' : 'like_count';
+        await _client.from('posts_dim').update({
+          countKey: (current[countKey] ?? 0) + 1
+        }).eq('id', postId);
+      } catch (e) {
+        debugPrint('ERROR: Failed manual likes_count increment: $e');
+      }
+    }
+
     // ── LOG ACTIVITY ──
     unawaited(_logActivity('like', postId));
   }
@@ -933,6 +949,21 @@ class SupabaseService {
         .delete()
         .eq('post_id', postId)
         .eq('user_id', userId);
+
+    // ── OPTION A: Maintain likes_count column ──
+    try {
+      await _client.rpc('decrement_likes_count', params: {'p_post_id': postId});
+    } catch (_) {
+      try {
+        final current = await _client.from('posts_dim').select('likes_count, like_count').eq('id', postId).single();
+        final countKey = current.containsKey('likes_count') ? 'likes_count' : 'like_count';
+        await _client.from('posts_dim').update({
+          countKey: ((current[countKey] ?? 0) - 1).clamp(0, 999999)
+        }).eq('id', postId);
+      } catch (e) {
+        debugPrint('ERROR: Failed manual likes_count decrement: $e');
+      }
+    }
   }
 
   /// Check if current user has liked a post
