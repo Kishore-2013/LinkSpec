@@ -144,7 +144,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       unawaited(_loadBadgeCounts());
     });
 
-    _initHRNotifications();
+  // ── MASTER FIX: SIDEBAR HANDLERS ───────────────────────────────
+
+  void onLatestPostsPressed() {
+    // MUST call getLatestPosts() - NOT getTopWeeklyPosts()
+    loadPosts(PostFilter.latest);
+  }
+
+  void onTopWeeklyPressed() {
+    // MUST call getTopWeeklyPosts() - NOT getLatestPosts()
+    loadPosts(PostFilter.topWeekly);
+  }
+
+  Future<void> loadPosts(PostFilter filter) async {
+    List<Map<String, dynamic>> rawPosts = [];
+    if (filter == PostFilter.latest) {
+      rawPosts = await PostService.getLatestPosts();
+    } else if (filter == PostFilter.topWeekly) {
+      rawPosts = await PostService.getTopWeeklyPosts();
+    }
+
+    final postObjects = rawPosts.map((json) => Post.fromJson(json)).toList();
+    
+    // Update the feed controller with the fresh data
+    _feedCtrl.resetWithPosts(postObjects);
+    
+    // Sidebar/Badge bookkeeping
+    setState(() {
+      _latestPostsBadgeCount = 0;
+      _lastViewedPostAt = DateTime.now();
+      _currentIndex = 0; // Ensure we are on the main feed tab
+    });
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
+    }
+
+    // DEBUG VERIFICATION
+    PostService.debugVerifyPosts(rawPosts, filter == PostFilter.latest ? 'LATEST POSTS' 
+      : 'TOP WEEKLY');
+  }
+
+  void _initHRNotifications() {
 
     _latestPostsSub =
         SupabaseService.getLatestPostsStream(limit: 1).listen((newest) {
@@ -1198,34 +1239,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             'Latest posts',
             showBadge: _latestPostsBadgeCount > 0,
             badgeValue: _latestPostsBadgeCount,
-            onTap: () async {
-              setState(() {
-                _latestPostsBadgeCount = 0;
-                _lastViewedPostAt = DateTime.now();
-              });
-              SessionCache.invalidatePrefix('feed:chronological');
-              _navigateTo(0);
-              await _loadPosts(mode: FeedMode.chronological);
-              if (_scrollController.hasClients) {
-                _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
-              }
-            },
+            onTap: onLatestPostsPressed,
           ),
           _buildSidebarItem(
             Icons.bar_chart_rounded,
             'Top weekly',
-            onTap: () async {
-              setState(() {
-                _latestPostsBadgeCount = 0;
-                _lastViewedPostAt = DateTime.now();
-              });
-              SessionCache.invalidatePrefix('feed:topWeekly');
-              _navigateTo(0);
-              await _loadPosts(mode: FeedMode.topWeekly);
-              if (_scrollController.hasClients) {
-                _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
-              }
-            },
+            onTap: onTopWeeklyPressed,
           ),
           _buildSidebarItem(
             Icons.event_note_outlined,

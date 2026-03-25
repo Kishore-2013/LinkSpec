@@ -9,6 +9,7 @@ import '../config/app_constants.dart';
 
 /// Service for handling post-related database operations.
 enum FeedMode { popularity, chronological, topWeekly }
+enum PostFilter { latest, topWeekly }
 
 class PostService {
   static final _client = Supabase.instance.client;
@@ -22,6 +23,60 @@ class PostService {
     FeedMode mode = FeedMode.popularity,
   }) {
     return getPostsByMode(mode: mode, limit: limit, offset: offset, domain: domain);
+  }
+
+  // ============================================================================
+  // MASTER FIX: LATEST POSTS & TOP WEEKLY
+  // ============================================================================
+
+  static Future<List<Map<String, dynamic>>> getLatestPosts() async {
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    
+    final response = await _client
+        .from('posts')
+        .select('*, profiles!inner(*)')
+        .gte('created_at', sevenDaysAgo.toIso8601String())
+        .order('created_at', ascending: false)
+        .limit(20);
+        
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  static Future<List<Map<String, dynamic>>> getTopWeeklyPosts() async {
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    
+    final response = await _client
+        .from('posts')
+        .select('*, profiles!inner(*)')
+        .gte('created_at', sevenDaysAgo.toIso8601String())
+        .order('likes_count', ascending: false)
+        .order('comments_count', ascending: false)
+        .limit(20);
+        
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  static void debugVerifyPosts(List<dynamic> posts, String filterName) {
+    debugPrint('========== $filterName ==========');
+    debugPrint('Total: ${posts.length} posts');
+    debugPrint('Last 7 days from: ${DateTime.now().subtract(const Duration(days: 7)).toIso8601String()}');
+    debugPrint('');
+    
+    for (int i = 0; i < posts.length; i++) {
+      final post = posts[i] is Map ? posts[i] : (posts[i] as dynamic).toJson();
+      final createdAt = post['created_at'] != null 
+          ? DateTime.parse(post['created_at']) 
+          : DateTime.now();
+      final daysAgo = DateTime.now().difference(createdAt).inDays;
+      debugPrint('${i+1}. ${post['title'] ?? post['content']?.toString().substring(0, 20)}');
+      debugPrint('   Created: $createdAt ($daysAgo days ago)');
+      debugPrint('   Likes: ${post['likes_count']}');
+      debugPrint('   Comments: ${post['comments_count']}');
+      debugPrint('');
+    }
+    debugPrint('===================================');
   }
 
   /// Unified dispatcher for different feed types.

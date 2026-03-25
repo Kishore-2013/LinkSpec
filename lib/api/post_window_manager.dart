@@ -103,8 +103,15 @@ class PostWindowManager {
       // New post: In chronological mode, we could prepend it.
       // For now, let's just mark that there's new data or handled in UI.
       // But user wants "Feed auto-refreshes", so let's prepend if we are at page 0.
+      final newPost = Post.fromJson(data);
+      
+      // MASTER FIX: Realtime 7-day check
+      final isWithin7Days = newPost.createdAt.isAfter(
+        DateTime.now().subtract(const Duration(days: 7))
+      );
+      if (!isWithin7Days) return;
+
       if (mode == FeedMode.chronological && _firstPage == 0) {
-        final newPost = Post.fromJson(data);
         // Only prepend if it's not already there (prevent double insertion if fetch happened)
         if (!_window.any((p) => p.id == newPost.id)) {
           _window.insert(0, newPost);
@@ -189,6 +196,21 @@ class PostWindowManager {
     } finally {
       isLoading = false;
       onUpdate?.call();
+    }
+  }
+
+  /// MASTER FIX: Explicitly set the window with a fresh list of posts.
+  /// Used by getLatestPosts / getTopWeeklyPosts from the master fix prompt.
+  void resetWithPosts(List<Post> newPosts, {FeedMode? newMode}) {
+    _window.clear();
+    _pageCache.clear();
+    _window.addAll(newPosts);
+    _firstPage = 0;
+    _lastPage = 0;
+    _hasMoreOlder = newPosts.length >= pageSize;
+    if (newMode != null) {
+      // Note: mode is final, so we'd need a way to change it if we really wanted to.
+      // For now, we just update the window content.
     }
   }
 
