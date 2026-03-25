@@ -1202,6 +1202,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _latestPostsBadgeCount = 0;
                 _lastViewedPostAt = DateTime.now();
               });
+              SessionCache.invalidatePrefix('feed:chronological');
               _navigateTo(0);
               await _loadPosts(mode: FeedMode.chronological);
               if (_scrollController.hasClients) {
@@ -1217,6 +1218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _latestPostsBadgeCount = 0;
                 _lastViewedPostAt = DateTime.now();
               });
+              SessionCache.invalidatePrefix('feed:topWeekly');
               _navigateTo(0);
               await _loadPosts(mode: FeedMode.topWeekly);
               if (_scrollController.hasClients) {
