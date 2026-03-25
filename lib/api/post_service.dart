@@ -34,8 +34,8 @@ class PostService {
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     
     final response = await _client
-        .from('posts')
-        .select('*, profiles!inner(*)')
+        .from('posts_dim')
+        .select('*, profiles:profiles_dim!inner(*)')
         .gte('created_at', sevenDaysAgo.toIso8601String())
         .order('created_at', ascending: false)
         .limit(20);
@@ -48,8 +48,8 @@ class PostService {
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     
     final response = await _client
-        .from('posts')
-        .select('*, profiles!inner(*)')
+        .from('posts_dim')
+        .select('*, profiles:profiles_dim!inner(*)')
         .gte('created_at', sevenDaysAgo.toIso8601String())
         .order('likes_count', ascending: false)
         .order('comments_count', ascending: false)
