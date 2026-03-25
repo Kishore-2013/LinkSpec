@@ -2040,19 +2040,19 @@ class SupabaseService {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return [];
 
-    // Run all fetches in parallel
+    // Run parallel fetches for posts, comments, and likes
     final results = await Future.wait([
       _client.from('posts_dim').select('id, content, created_at').eq('author_id', userId).order('created_at', ascending: false).limit(limit),
       _client.from('comments_fact').select('''
         id, content, created_at, post_id,
-        post:posts_dim!inner(
-          author:profiles_dim!author_id(full_name)
+        post:posts_dim(
+          author:profiles_dim(full_name)
         )
       ''').eq('author_id', userId).order('created_at', ascending: false).limit(limit),
       _client.from('likes_fact').select('''
         id, created_at, post_id,
-        post:posts_dim!inner(
-          author:profiles_dim!author_id(full_name)
+        post:posts_dim(
+          author:profiles_dim(full_name)
         )
       ''').eq('user_id', userId).order('created_at', ascending: false).limit(limit),
     ]);
@@ -2067,14 +2067,13 @@ class SupabaseService {
       activities.add({
         'type': 'post',
         'id': p['id'],
-        'summary': (p['content'] as String? ?? '').length > 80
-            ? '${(p['content'] as String).substring(0, 80)}…'
-            : p['content'],
+        'summary': 'You posted a new update',
+        'content': (p['content'] as String? ?? ''),
         'created_at': p['created_at'],
       });
     }
     for (final c in myComments) {
-      final targetAuthor = c['post']?['author']?['full_name'] ?? 'someone';
+      final targetAuthor = c['post']?['author']?['full_name'] ?? 'the community';
       activities.add({
         'type': 'comment',
         'id': c['id'],
@@ -2085,7 +2084,7 @@ class SupabaseService {
       });
     }
     for (final l in myLikes) {
-      final targetAuthor = l['post']?['author']?['full_name'] ?? 'someone';
+      final targetAuthor = l['post']?['author']?['full_name'] ?? 'the community';
       activities.add({
         'type': 'like',
         'id': l['id'],
@@ -2095,7 +2094,6 @@ class SupabaseService {
       });
     }
 
-    // Sort all by recency
     activities.sort((a, b) {
       final ta = DateTime.tryParse(a['created_at'] as String? ?? '') ?? DateTime(0);
       final tb = DateTime.tryParse(b['created_at'] as String? ?? '') ?? DateTime(0);

@@ -1157,39 +1157,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _buildSidebarItem(
             Icons.trending_up,
             'Recent activity',
-            showPlus: true,
             onTap: () => _navigateTo(6),
-            onPlusTap: () {
-              showDialog(
-                context: context,
-                builder: (_) => CreatePostDialog(
-                  onPostCreated: () => _loadPosts(),
-                ),
-              );
-            },
           ),
-          // Mixed recent content
+          ..._myRecentActivity.take(3).map((act) {
+            final type = act['type'] as String;
+            final summary = act['summary'] as String? ?? '';
+            final icon = switch (type) {
+              'post' => Icons.article_outlined,
+              'comment' => Icons.comment_outlined,
+              'like' => Icons.favorite_border,
+              _ => Icons.circle,
+            };
+            final color = switch (type) {
+              'post' => Colors.blue,
+              'comment' => Colors.green,
+              'like' => Colors.red,
+              _ => Colors.grey,
+            };
+
+            return _buildSidebarItem(
+              icon,
+              summary,
+              isAction: false,
+              iconColor: color,
+              fontSize: 12,
+              onTap: () => _navigateTo(6),
+            );
+          }),
+          const Divider(height: 1),
           _buildSidebarItem(
             Icons.article_outlined,
             'Latest posts',
             showBadge: _latestPostsBadgeCount > 0,
             badgeValue: _latestPostsBadgeCount,
             onTap: () async {
-              // Forced Chronological View: Bypass popularity weights
               setState(() {
                 _latestPostsBadgeCount = 0;
                 _lastViewedPostAt = DateTime.now();
               });
-
-              _navigateTo(0); // Jump to Home tab
-
-              // Re-load posts in explicit chronological mode
+              _navigateTo(0);
               await _loadPosts(mode: FeedMode.chronological);
-
               if (_scrollController.hasClients) {
-                _scrollController.animateTo(0,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeOut);
+                _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
               }
             },
           ),
@@ -1197,32 +1206,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Icons.bar_chart_rounded,
             'Top weekly',
             onTap: () async {
-              // Ranked View: Most liked in the last 7 days
               setState(() {
                 _latestPostsBadgeCount = 0;
                 _lastViewedPostAt = DateTime.now();
               });
-
-              _navigateTo(0); // Jump to Home tab
-
-              // Load in Top Weekly mode
+              _navigateTo(0);
               await _loadPosts(mode: FeedMode.topWeekly);
-
               if (_scrollController.hasClients) {
-                _scrollController.animateTo(0,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeOut);
+                _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
               }
             },
           ),
           _buildSidebarItem(
             Icons.event_note_outlined,
-            _upcomingEvents.isEmpty
-                ? 'Upcoming events'
-                : 'Events (${_upcomingEvents.length})',
+            _upcomingEvents.isEmpty ? 'Upcoming events' : 'Events (${_upcomingEvents.length})',
             onTap: () => _navigateTo(10),
           ),
-          /* Removed dynamic group tags */
         ]),
         const SizedBox(height: 12),
         // Groups & Events — combined container
@@ -1287,6 +1286,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     int badgeValue = 0,
     VoidCallback? onTap,
     VoidCallback? onPlusTap,
+    Color? iconColor,
+    double? fontSize,
   }) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -1302,20 +1303,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Icon(
                   icon,
                   size: 20,
-                  color: isAction
+                  color: iconColor ?? (isAction
                       ? Theme.of(context).primaryColor
-                      : Theme.of(context).iconTheme.color,
+                      : Theme.of(context).iconTheme.color),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: fontSize != null ? FontWeight.w500 : FontWeight.w600,
                       color: isAction
                           ? Theme.of(context).primaryColor
                           : Theme.of(context).textTheme.bodyLarge?.color,
-                      fontSize: 14,
+                      fontSize: fontSize ?? 14,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
