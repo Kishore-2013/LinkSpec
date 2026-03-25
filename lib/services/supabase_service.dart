@@ -36,7 +36,7 @@ class SupabaseService {
     final userId = getCurrentUserId();
     if (userId == null) return;
     try {
-      await _client.from('user_activity').insert({
+      await _client.from('user_activity_fact').insert({
         'user_id': userId,
         'action_type': actionType,
         'target_post_id': targetPostId,
@@ -1493,11 +1493,11 @@ class SupabaseService {
     required void Function(PostgresChangePayload payload) callback,
   }) {
     return _client
-        .channel('public:user_activity:$userId')
+        .channel('public:user_activity_fact:$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
-          table: 'user_activity',
+          table: 'user_activity_fact',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'user_id',
@@ -2084,7 +2084,7 @@ class SupabaseService {
 
     try {
       final response = await _client
-          .from('user_activity')
+          .from('user_activity_fact')
           .select('''
             *,
             post:posts_dim(
