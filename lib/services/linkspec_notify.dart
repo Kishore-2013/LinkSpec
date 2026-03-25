@@ -151,6 +151,7 @@ class _NotifyCardState extends State<_NotifyCard> with SingleTickerProviderState
     }[widget.type] ?? const Color(0xFF1C1C1E);
 
     return Align(
+      
       alignment: Alignment.topCenter,
       child: Padding(
         padding: const EdgeInsets.only(top: 80, left: 32, right: 32),
