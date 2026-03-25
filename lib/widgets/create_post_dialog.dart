@@ -559,6 +559,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                         maxLines: widget.postType == PostType.article ? 15 : 12,
                         maxLength: maxL,
                         textInputAction: TextInputAction.newline,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
                             return 'Please enter some content';
