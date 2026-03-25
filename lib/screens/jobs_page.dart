@@ -273,13 +273,15 @@ class _JobsPageState extends ConsumerState<JobsPage> {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            job.description, 
-            style: TextStyle(color: Colors.grey[700], fontSize: 13, height: 1.4),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+          if (isMobile) ...[
+            const SizedBox(height: 12),
+            Text(
+              job.description, 
+              style: TextStyle(color: Colors.grey[700], fontSize: 13, height: 1.4),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
           const Spacer(),
           Text(job.salary, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14)),
           Text('${job.location} • ${timeago.format(job.postedAt, locale: 'en_short')}', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
