@@ -35,9 +35,9 @@ class PostService {
     
     final response = await _client
         .from('posts_dim')
-        .select('*, profiles:profiles_dim!inner(*)')
+        .select('*, profiles:profiles_dim!inner(*)') // ✓ MATCH user's !inner join
         .gte('created_at', sevenDaysAgo.toIso8601String())
-        .order('created_at', ascending: false)
+        .order('created_at', ascending: false) // NEWEST FIRST
         .limit(20);
         
     return List<Map<String, dynamic>>.from(response);
@@ -49,10 +49,10 @@ class PostService {
     
     final response = await _client
         .from('posts_dim')
-        .select('*, profiles:profiles_dim!inner(*)')
+        .select('*, profiles:profiles_dim!inner(*)') // ✓ MATCH user's !inner join
         .gte('created_at', sevenDaysAgo.toIso8601String())
-        .order('likes_count', ascending: false)
-        .order('comments_count', ascending: false)
+        .order('likes_count', ascending: false) // MOST LIKES FIRST
+        .order('comments_count', ascending: false) // TIEBREAKER
         .limit(20);
         
     return List<Map<String, dynamic>>.from(response);

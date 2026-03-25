@@ -18,6 +18,8 @@ class Post {
   final String? authorAvatar;
   final int likeCount;
   final int commentCount;
+  final int likesCount;  // ✓ Use this for ranking
+  final int commentsCount;  // ✓ Use this for tiebreaker
   final bool isLiked;
   final bool isFollowing;
   final bool isTrending; 
@@ -35,6 +37,8 @@ class Post {
     this.authorAvatar,
     this.likeCount = 0,
     this.commentCount = 0,
+    required this.likesCount,
+    required this.commentsCount,
     this.isLiked = false,
     this.isFollowing = false,
     this.isTrending = false,
@@ -59,6 +63,8 @@ class Post {
       authorAvatar: json['author_avatar'] as String?,
       likeCount: (json['likes_count'] as num?)?.toInt() ?? (json['like_count'] as num?)?.toInt() ?? 0,
       commentCount: (json['comments_count'] as num?)?.toInt() ?? (json['comment_count'] as num?)?.toInt() ?? 0,
+      likesCount: (json['likes_count'] as num?)?.toInt() ?? 0,
+      commentsCount: (json['comments_count'] as num?)?.toInt() ?? 0,
       isLiked: json['is_liked'] as bool? ?? false,
       isFollowing: json['is_following'] as bool? ?? false,
       isTrending: json['is_trending'] as bool? ?? false,
@@ -81,6 +87,8 @@ class Post {
       'author_avatar': authorAvatar,
       'like_count': likeCount,
       'comment_count': commentCount,
+      'likes_count': likesCount,
+      'comments_count': commentsCount,
       'is_automated': isAutomated,
       'linked_job_id': linkedJobId,
       'author_verification_status': authorVerificationStatus,
@@ -99,6 +107,8 @@ class Post {
     String? authorAvatar,
     int? likeCount,
     int? commentCount,
+    int? likesCount,
+    int? commentsCount,
     bool? isLiked,
     bool? isFollowing,
     bool? isTrending,
@@ -118,6 +128,8 @@ class Post {
       authorAvatar: authorAvatar ?? this.authorAvatar,
       likeCount: likeCount ?? this.likeCount,
       commentCount: commentCount ?? this.commentCount,
+      likesCount: likesCount ?? this.likesCount,
+      commentsCount: commentsCount ?? this.commentsCount,
       isLiked: isLiked ?? this.isLiked,
       isFollowing: isFollowing ?? this.isFollowing,
       isTrending: isTrending ?? this.isTrending,

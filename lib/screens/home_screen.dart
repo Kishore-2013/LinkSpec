@@ -108,6 +108,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   RealtimeChannel? _messagesChannel;
   RealtimeChannel? _notificationsChannel;
+  RealtimeChannel? _likesChannel;
+  PostFilter _currentFilter = PostFilter.latest;
 
   @override
   void initState() {
@@ -161,6 +163,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> loadPosts(PostFilter filter) async {
+    _currentFilter = filter;
     List<Map<String, dynamic>> rawPosts = [];
     if (filter == PostFilter.latest) {
       rawPosts = await PostService.getLatestPosts();
@@ -259,6 +262,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         userId: userId,
         callback: (_) => _loadMyRecentActivity(),
       );
+
+      // subscribeToLikeChanges (FIX 7)
+      _likesChannel = Supabase.instance.client
+          .channel('public:likes_fact')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'likes_fact',
+            callback: (payload) {
+              if (_currentFilter == PostFilter.topWeekly) {
+                // Refresh to update ranking
+                loadPosts(PostFilter.topWeekly);
+              }
+            },
+          )
+          .subscribe();
     }
 
     _scrollController = ref.read(globalScrollControllerProvider);
@@ -281,6 +300,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _badgeTimer?.cancel();
     _messagesChannel?.unsubscribe();
     _notificationsChannel?.unsubscribe();
+    _likesChannel?.unsubscribe();
     _activitySub?.unsubscribe();
     _latestPostsSub?.cancel();
     _jobsSub?.cancel();
