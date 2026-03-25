@@ -70,8 +70,12 @@ class PostService {
     required String? domain,
     required String userId,
   }) async {
-    // Use the posts_with_stats view which has aggregated counts
-    dynamic baseQuery = _client.from('posts_with_stats').select();
+    // Use the denormalized posts_dim table directly for maximum performance.
+    // Joined with profiles_dim for author details.
+    dynamic baseQuery = _client.from('posts_dim').select('''
+      *,
+      author:profiles_dim(full_name, avatar_url)
+    ''');
 
     // ── Reactive Domain Filter ──────────────────────────────────────────
     // If 'Global' or 'All' is selected, we omit the filter to show everyone's posts.
@@ -112,8 +116,6 @@ class PostService {
     final response = await baseQuery.range(offset, offset + limit - 1);
     final posts = List<Map<String, dynamic>>.from(response);
 
-
-
     if (posts.isEmpty) return [];
 
     // Batch-fetch follows and likes in parallel for speed
@@ -131,8 +133,14 @@ class PostService {
     return posts.map((post) {
       final postId   = post['id']        as String;
       final authorId = post['author_id'] as String;
+      
+      // Flatten the joined author profile
+      final author = post['author'] as Map<String, dynamic>?;
+
       return {
         ...post,
+        'author_name':   author?['full_name'] ?? 'Unknown',
+        'author_avatar': author?['avatar_url'],
         'like_count':    (post['like_count']    as num?)?.toInt() ?? 0,
         'comment_count': (post['comment_count'] as num?)?.toInt() ?? 0,
         'is_liked':      likedSet.contains(postId),
