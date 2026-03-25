@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+|
+]47]54\
+{"import 'package:flutter/material.dart';
+0?port 'package:go_router/go_router.dart';0?
+import 'package:flutter_riverpod/flutter_riv568\.dart';
 import '../models/job.dart';
 import '../api/job_service.dart';
 import '../services/supabase_service.dart';
@@ -272,6 +274,13 @@ class _JobsPageState extends ConsumerState<JobsPage> {
                   child: const Text('Applied', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            job.description, 
+            style: TextStyle(color: Colors.grey[700], fontSize: 13, height: 1.4),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
           const Spacer(),
           Text(job.salary, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14)),
