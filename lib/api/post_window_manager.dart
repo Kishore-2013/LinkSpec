@@ -92,11 +92,10 @@ class PostWindowManager {
     final event = payload.eventType;
     final data = event == PostgresChangeEvent.delete ? payload.oldRecord : payload.newRecord;
 
-    final bool isGlobalMode = (mode == FeedMode.chronological || mode == FeedMode.topWeekly);
     final String? dNormal = domain?.trim().toLowerCase();
     final bool isGlobalLabel = dNormal == null || dNormal == 'global' || dNormal == 'all';
 
-    if (!isGlobalMode && !isGlobalLabel && data['domain_id'] != domain) {
+    if (!isGlobalLabel && data['domain_id'] != domain) {
       return;
     }
 

@@ -78,16 +78,14 @@ class PostService {
     ''');
 
     // ── Reactive Domain Filter ──────────────────────────────────────────
-    // Latest (chronological) and Top Weekly modes are forced global.
-    final bool isForcedGlobal = (mode == FeedMode.chronological || mode == FeedMode.topWeekly);
-    
-    // Normalize domain string for comparison
+    // Normalize domain string for comparison. 
+    // Filter results by domain unless 'Global' or 'All' is selected.
     final String? dNormal = domain?.trim();
     final bool isGlobalLabel = dNormal == null || 
                                dNormal.toLowerCase() == 'global' || 
                                dNormal.toLowerCase() == 'all';
 
-    if (!isForcedGlobal && !isGlobalLabel) {
+    if (!isGlobalLabel) {
       final domainIds = _getDomainIds(dNormal);
       if (domainIds.length == 1) {
         baseQuery = baseQuery.eq('domain_id', domainIds.first);
