@@ -163,13 +163,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> loadPosts(PostFilter filter) async {
-    _currentFilter = filter;
-    List<Map<String, dynamic>> rawPosts = [];
-    if (filter == PostFilter.latest) {
-      rawPosts = await PostService.getLatestPosts();
-    } else if (filter == PostFilter.topWeekly) {
-      rawPosts = await PostService.getTopWeeklyPosts();
-    }
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      debugPrint('=== DEBUG START ===');
+      debugPrint('User logged in: ${user != null}');
+      debugPrint('User ID: ${user?.id}');
+      
+      if (user != null) {
+        final profile = await Supabase.instance.client
+            .from('profiles_dim')
+            .select('domain_id')
+            .eq('id', user.id)
+            .maybeSingle();
+        
+        debugPrint('User profile exists: ${profile != null}');
+        debugPrint('User domain: ${profile?['domain_id']}');
+      }
+
+      _currentFilter = filter;
+      List<Map<String, dynamic>> rawPosts = [];
+      if (filter == PostFilter.latest) {
+        rawPosts = await PostService.getLatestPosts();
+      } else if (filter == PostFilter.topWeekly) {
+        rawPosts = await PostService.getTopWeeklyPosts();
+      }
+
+      debugPrint('Posts returned: ${rawPosts.length}');
+      for (int i = 0; i < rawPosts.length; i++) {
+        debugPrint('Post $i: domain=${rawPosts[i]['domain_id']}, created=${rawPosts[i]['created_at']}, likes=${rawPosts[i]['likes_count']}');
+      }
 
     final postObjects = rawPosts.map((json) => Post.fromJson(json)).toList();
     
@@ -190,6 +212,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // DEBUG VERIFICATION
     PostService.debugVerifyPosts(rawPosts, filter == PostFilter.latest ? 'LATEST POSTS' 
       : 'TOP WEEKLY');
+    } catch (e) {
+      debugPrint('ERROR in loadPosts: $e');
+    }
   }
 
   Future<void> _initFeedListeners() async {

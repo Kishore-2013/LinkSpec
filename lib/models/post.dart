@@ -48,6 +48,11 @@ class Post {
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
+    debugPrint('Parsing post: ${json['id']}');
+    debugPrint('  domain: ${json['domain_id']}');
+    debugPrint('  created: ${json['created_at']}');
+    debugPrint('  likes: ${json['likes_count']}');
+
     if (json['image_url'] != null) {
       debugPrint('DEBUG: Model parsing post ${json['id']} with image: ${json['image_url']}');
     }
