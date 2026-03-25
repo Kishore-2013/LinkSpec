@@ -97,7 +97,7 @@ class PostService {
         break;
 
       case FeedMode.topWeekly:
-        final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
+        final sevenDaysAgo = DateTime.now().toUtc().subtract(const Duration(days: 7)).toIso8601String();
         baseQuery = baseQuery
             .gt('created_at', sevenDaysAgo)
             .order('like_count', ascending: false)
@@ -108,16 +108,7 @@ class PostService {
     final response = await baseQuery.range(offset, offset + limit - 1);
     final posts = List<Map<String, dynamic>>.from(response);
 
-    // Fallback for Weekly Top: If no trending posts exist, show latest
-    if (posts.isEmpty && mode == FeedMode.topWeekly && offset == 0) {
-      return _fetchPostsByMode(
-        mode: FeedMode.chronological,
-        limit: limit,
-        offset: offset,
-        domain: domain,
-        userId: userId,
-      );
-    }
+
 
     if (posts.isEmpty) return [];
 
