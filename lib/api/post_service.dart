@@ -30,32 +30,65 @@ class PostService {
   // ============================================================================
 
   static Future<List<Map<String, dynamic>>> getLatestPosts() async {
-    final now = DateTime.now();
-    final sevenDaysAgo = now.subtract(const Duration(days: 7));
-    
     final response = await _client
         .from('posts_dim')
-        .select('*, profiles:profiles_dim!inner(*)') // ✓ MATCH user's !inner join
-        .gte('created_at', sevenDaysAgo.toIso8601String())
-        .order('created_at', ascending: false) // NEWEST FIRST
-        .limit(20);
+        .select('''
+          *,
+          author:profiles_dim(full_name, avatar_url)
+        ''')
+        .order('created_at', ascending: false);
         
     return List<Map<String, dynamic>>.from(response);
   }
 
   static Future<List<Map<String, dynamic>>> getTopWeeklyPosts() async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     
     final response = await _client
         .from('posts_dim')
-        .select('*, profiles:profiles_dim!inner(*)') // ✓ MATCH user's !inner join
+        .select('''
+          *,
+          author:profiles_dim(full_name, avatar_url)
+        ''')
         .gte('created_at', sevenDaysAgo.toIso8601String())
-        .order('likes_count', ascending: false) // MOST LIKES FIRST
-        .order('comments_count', ascending: false) // TIEBREAKER
-        .limit(20);
+        .order('likes_count', ascending: false)
+        .order('created_at', ascending: false);
         
     return List<Map<String, dynamic>>.from(response);
+  }
+
+  /// Reusable function to fetch posts by filter type.
+  static Future<List<Post>> fetchPosts(String filterType) async {
+    List<Map<String, dynamic>> rawPosts = [];
+    
+    if (filterType == "latest") {
+      rawPosts = await getLatestPosts();
+    } else if (filterType == "top_weekly") {
+      rawPosts = await getTopWeeklyPosts();
+    } else {
+      // Fallback to popularity/default if needed
+      rawPosts = await getPostsByMode(mode: FeedMode.popularity);
+    }
+
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    // Map to Post objects, handling author fields like in _fetchPostsByMode
+    return rawPosts.map((post) {
+      final author = post['author'] as Map<String, dynamic>?;
+      
+      // Ensure likes_count and comments_count are correct
+      final Map<String, dynamic> enrichedPost = {
+        ...post,
+        'author_name': author?['full_name'] ?? 'Unknown',
+        'author_avatar': author?['avatar_url'],
+        'likes_count': (post['likes_count'] as num?)?.toInt() ?? 0,
+        'comments_count': (post['comments_count'] as num?)?.toInt() ?? 0,
+      };
+      
+      return Post.fromJson(enrichedPost);
+    }).toList();
   }
 
   static void debugVerifyPosts(List<dynamic> posts, String filterName) {
@@ -166,7 +199,7 @@ class PostService {
         baseQuery = baseQuery
             .gte('created_at', lastWeekISO)
             .order('likes_count', ascending: false)
-            .order('comments_count', ascending: false);
+            .order('created_at', ascending: false);
         break;
     }
 

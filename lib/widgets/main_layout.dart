@@ -9,6 +9,8 @@ import '../widgets/aw_logo.dart';
 import '../api/sidebar_data_service.dart';
 import '../widgets/create_post_dialog.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../providers/post_filter_provider.dart';
+import '../api/post_service.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   final Widget child;
@@ -494,8 +496,22 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         const SizedBox(height: 12),
         _buildSidebarGroup([
           _buildSidebarItem(Icons.trending_up, 'Recent activity', showPlus: true, onTap: () => _navigateTo('/home')),
-          _buildSidebarItem(Icons.article_outlined, 'Latest posts', onTap: () => _navigateTo('/home')),
-          _buildSidebarItem(Icons.bar_chart_rounded, 'Top weekly', onTap: () => _navigateTo('/home')),
+          _buildSidebarItem(
+            Icons.article_outlined, 
+            'Latest posts', 
+            onTap: () {
+              ref.read(postFilterProvider.notifier).state = PostFilter.latest;
+              _navigateTo('/home');
+            },
+          ),
+          _buildSidebarItem(
+            Icons.bar_chart_rounded, 
+            'Top weekly', 
+            onTap: () {
+              ref.read(postFilterProvider.notifier).state = PostFilter.topWeekly;
+              _navigateTo('/home');
+            },
+          ),
           _buildSidebarItem(Icons.event_note_outlined, 'Upcoming events', onTap: () => _navigateTo('/events')),
         ]),
         const SizedBox(height: 12),

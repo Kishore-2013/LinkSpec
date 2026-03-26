@@ -39,6 +39,7 @@ import '../api/web_cache_manager.dart';
 import '../providers/domain_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/scroll_provider.dart';
+import '../providers/post_filter_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -153,65 +154,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ── MASTER FIX: SIDEBAR HANDLERS ───────────────────────────────
 
   void onLatestPostsPressed() {
-    // MUST call getLatestPosts() - NOT getTopWeeklyPosts()
+    ref.read(postFilterProvider.notifier).state = PostFilter.latest;
     loadPosts(PostFilter.latest);
   }
 
   void onTopWeeklyPressed() {
-    // MUST call getTopWeeklyPosts() - NOT getLatestPosts()
+    ref.read(postFilterProvider.notifier).state = PostFilter.topWeekly;
     loadPosts(PostFilter.topWeekly);
   }
 
   Future<void> loadPosts(PostFilter filter) async {
     try {
-      final user = Supabase.instance.client.auth.currentUser;
-      debugPrint('=== DEBUG START ===');
-      debugPrint('User logged in: ${user != null}');
-      debugPrint('User ID: ${user?.id}');
-      
-      if (user != null) {
-        final profile = await Supabase.instance.client
-            .from('profiles_dim')
-            .select('domain_id')
-            .eq('id', user.id)
-            .maybeSingle();
-        
-        debugPrint('User profile exists: ${profile != null}');
-        debugPrint('User domain: ${profile?['domain_id']}');
-      }
-
       _currentFilter = filter;
-      List<Map<String, dynamic>> rawPosts = [];
-      if (filter == PostFilter.latest) {
-        rawPosts = await PostService.getLatestPosts();
-      } else if (filter == PostFilter.topWeekly) {
-        rawPosts = await PostService.getTopWeeklyPosts();
+      final FeedMode mode = filter == PostFilter.latest 
+        ? FeedMode.chronological 
+        : FeedMode.topWeekly;
+        
+      await _loadPosts(mode: mode);
+
+      // Reset badge and scroll
+      setState(() {
+        _latestPostsBadgeCount = 0;
+        _lastViewedPostAt = DateTime.now();
+        _currentIndex = 0;
+      });
+
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
       }
-
-      debugPrint('Posts returned: ${rawPosts.length}');
-      for (int i = 0; i < rawPosts.length; i++) {
-        debugPrint('Post $i: domain=${rawPosts[i]['domain_id']}, created=${rawPosts[i]['created_at']}, likes=${rawPosts[i]['likes_count']}');
-      }
-
-    final postObjects = rawPosts.map((json) => Post.fromJson(json)).toList();
-    
-    // Update the feed controller with the fresh data
-    _feedCtrl.resetWithPosts(postObjects);
-    
-    // Sidebar/Badge bookkeeping
-    setState(() {
-      _latestPostsBadgeCount = 0;
-      _lastViewedPostAt = DateTime.now();
-      _currentIndex = 0; // Ensure we are on the main feed tab
-    });
-
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
-    }
-
-    // DEBUG VERIFICATION
-    PostService.debugVerifyPosts(rawPosts, filter == PostFilter.latest ? 'LATEST POSTS' 
-      : 'TOP WEEKLY');
     } catch (e) {
       debugPrint('ERROR in loadPosts: $e');
     }
@@ -646,6 +616,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.listen(currentDomainProvider, (prev, next) {
       if (prev != next) {
         _loadPosts(domain: next);
+      }
+    });
+
+    ref.listen(postFilterProvider, (prev, next) {
+      if (prev != next) {
+        loadPosts(next);
       }
     });
 
