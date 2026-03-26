@@ -11,6 +11,8 @@ import '../widgets/create_post_dialog.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../providers/post_filter_provider.dart';
 import '../api/post_service.dart';
+import 'package:flutter/rendering.dart';
+import '../providers/scroll_provider.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   final Widget child;
@@ -131,6 +133,14 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final bool isDesktop = screenWidth >= 1200;
     final activeDomain = ref.watch(currentDomainProvider);
     final String location = GoRouterState.of(context).uri.path;
+    final bool isChatScreen = location.contains('/chat');
+
+    // Update force hidden state
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ref.read(navForceHiddenProvider) != isChatScreen) {
+        ref.read(navForceHiddenProvider.notifier).state = isChatScreen;
+      }
+    });
 
     final bool showNavbar =
         !location.contains('/login') &&
@@ -150,13 +160,28 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       key: _scaffoldKey,
       backgroundColor: Colors.white,
       drawer: isMobile ? Drawer(child: SafeArea(child: SingleChildScrollView(padding: const EdgeInsets.all(16), child: _buildLeftSideBar()))) : null,
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              _buildHeader(isMobile, activeDomain),
-              Expanded(
-                child: Padding(
+      body: NotificationListener<UserScrollNotification>(
+        onNotification: (notification) {
+          if (!isChatScreen) {
+            if (notification.direction == ScrollDirection.reverse) {
+              if (ref.read(navVisibilityProvider)) {
+                ref.read(navVisibilityProvider.notifier).state = false;
+              }
+            } else if (notification.direction == ScrollDirection.forward) {
+              if (!ref.read(navVisibilityProvider)) {
+                ref.read(navVisibilityProvider.notifier).state = true;
+              }
+            }
+          }
+          return false;
+        },
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                _buildHeader(isMobile, activeDomain),
+                Expanded(
+                  child: Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: screenWidth > 1400 ? screenWidth * 0.05 : 12,
                   ),

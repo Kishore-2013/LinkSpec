@@ -35,6 +35,7 @@ import 'screens/jobs_page.dart';
 import 'screens/messages_list_screen.dart';
 import 'screens/network_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'screens/chat_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -153,6 +154,13 @@ final _router = GoRouter(
           builder: (context, state) {
             final job = state.extra as Job;
             return JobDetailScreen(job: job);
+          },
+        ),
+        GoRoute(
+          path: '/chat',
+          builder: (context, state) {
+            final otherUser = state.extra as Map<String, dynamic>;
+            return ChatScreen(otherUser: otherUser);
           },
         ),
         GoRoute(

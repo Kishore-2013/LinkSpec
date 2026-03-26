@@ -209,10 +209,7 @@ class _MessagesListScreenState extends ConsumerState<MessagesListScreen> {
             setState(() => _hasUnreadFrom.remove(userId));
             SupabaseService.markMessagesAsRead(userId);
           }
-          Navigator.push(
-            context, 
-            MaterialPageRoute(builder: (context) => ChatScreen(otherUser: user))
-          ).then((_) => _loadData());
+          context.push('/chat', extra: user).then((_) => _loadData());
         },
       ),
     );

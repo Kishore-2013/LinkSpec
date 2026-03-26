@@ -11,3 +11,6 @@ final globalScrollControllerProvider = Provider<ScrollController>((ref) {
 
 /// Provider to track bottom navigation bar visibility.
 final navVisibilityProvider = StateProvider<bool>((ref) => true);
+
+/// Provider to force hide the navbar (e.g. on Chat screen).
+final navForceHiddenProvider = StateProvider<bool>((ref) => false);

@@ -1,17 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/scroll_provider.dart';
 
 /// A modern, LinkedIn-style floating bottom navigation bar.
-/// 
-/// Features:
-/// - Pill-shaped floating container
-/// - 6 items: Home, Search, Network, Post (centered & highlighted), Messages, Jobs
-/// - Responsive center alignment
-/// - Smooth animations and transitions
-class BottomNavBar extends StatelessWidget {
+class BottomNavBar extends ConsumerWidget {
   final int currentIndex;
   final Function(int) onTap;
   final int? unreadMessages;
-  final int? unreadNotifications; // Though not in specific items list, good for extensibility
+  final int? unreadNotifications;
 
   const BottomNavBar({
     Key? key,
@@ -22,12 +17,20 @@ class BottomNavBar extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(40),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isVisible = ref.watch(navVisibilityProvider);
+    final isForceHidden = ref.watch(navForceHiddenProvider);
+    final bool effectiveVisible = isVisible && !isForceHidden;
+
+    return AnimatedSlide(
+      offset: effectiveVisible ? Offset.zero : const Offset(0, 2),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOutCubic,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(40),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
@@ -49,7 +52,7 @@ class BottomNavBar extends StatelessWidget {
           _buildNavItem(5, Icons.business_center_rounded, 'Jobs'),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildNavItem(int index, IconData icon, String label, {int? badge}) {
