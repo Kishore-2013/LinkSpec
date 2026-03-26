@@ -623,7 +623,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _loadSidebarData(),
     ]);
   }
-
+  @override
+  Widget build(BuildContext context) {
     ref.listen(currentDomainProvider, (prev, next) {
       if (prev != next) {
         _loadPosts(domain: next);
