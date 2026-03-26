@@ -163,11 +163,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       body: NotificationListener<UserScrollNotification>(
         onNotification: (notification) {
           if (!isChatScreen) {
-            if (notification.direction == ScrollDirection.reverse) {
+            if (notification.direction == ScrollDirection.forward) {
+              // Scroll UP -> Hide
               if (ref.read(navVisibilityProvider)) {
                 ref.read(navVisibilityProvider.notifier).state = false;
               }
-            } else if (notification.direction == ScrollDirection.forward) {
+            } else if (notification.direction == ScrollDirection.reverse) {
+              // Scroll DOWN -> Show
               if (!ref.read(navVisibilityProvider)) {
                 ref.read(navVisibilityProvider.notifier).state = true;
               }
