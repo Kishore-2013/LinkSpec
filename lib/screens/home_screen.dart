@@ -163,14 +163,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     loadPosts(PostFilter.topWeekly);
   }
 
+  void onRecentActivityPressed() {
+    ref.read(postFilterProvider.notifier).state = PostFilter.recentActivity;
+    loadPosts(PostFilter.recentActivity);
+  }
+
   Future<void> loadPosts(PostFilter filter) async {
     try {
       _currentFilter = filter;
-      final FeedMode mode = filter == PostFilter.latest 
-        ? FeedMode.chronological 
-        : FeedMode.topWeekly;
+      final String feedType = switch (filter) {
+        PostFilter.home => "home",
+        PostFilter.latest => "latest",
+        PostFilter.topWeekly => "top_weekly",
+        PostFilter.recentActivity => "recent_activity",
+      };
         
-      await _loadPosts(mode: mode);
+      final postObjects = await PostService.fetchFeed(
+        feedType, 
+        domain: ref.read(currentDomainProvider)
+      );
+      
+      _feedCtrl.resetWithPosts(postObjects);
 
       // Reset badge and scroll
       setState(() {
@@ -1255,7 +1268,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               isAction: false,
               iconColor: color,
               fontSize: 12,
-              onTap: () => _navigateTo(6),
+              onTap: onRecentActivityPressed,
             );
           }),
           const Divider(height: 1),

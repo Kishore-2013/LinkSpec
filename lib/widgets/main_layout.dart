@@ -221,14 +221,24 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 icon: const Icon(Icons.menu_rounded),
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
-            const AWLogo(size: 30),
-            if (!isMobile) ...[
-              const SizedBox(width: 10),
-              const Text(
-                'linkspec',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            GestureDetector(
+              onTap: () {
+                ref.read(postFilterProvider.notifier).state = PostFilter.home;
+                _navigateTo('/home');
+              },
+              child: Row(
+                children: [
+                  const AWLogo(size: 30),
+                  if (!isMobile) ...[
+                    const SizedBox(width: 10),
+                    const Text(
+                      'linkspec',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
             const Spacer(),
             InkWell(
               onTap: () => _showDomainSwitcher(context, ref, activeDomain),
@@ -495,7 +505,15 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         ]),
         const SizedBox(height: 12),
         _buildSidebarGroup([
-          _buildSidebarItem(Icons.trending_up, 'Recent activity', showPlus: true, onTap: () => _navigateTo('/home')),
+          _buildSidebarItem(
+            Icons.trending_up, 
+            'Recent activity', 
+            showPlus: true, 
+            onTap: () {
+              ref.read(postFilterProvider.notifier).state = PostFilter.recentActivity;
+              _navigateTo('/home');
+            },
+          ),
           _buildSidebarItem(
             Icons.article_outlined, 
             'Latest posts', 

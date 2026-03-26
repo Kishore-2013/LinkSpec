@@ -9,8 +9,8 @@ import '../config/app_constants.dart';
 import '../models/post.dart';
 
 /// Service for handling post-related database operations.
-enum FeedMode { popularity, chronological, topWeekly }
-enum PostFilter { latest, topWeekly }
+enum FeedMode { popularity, chronological, topWeekly, recentActivity }
+enum PostFilter { home, latest, topWeekly, recentActivity }
 
 class PostService {
   static final _client = Supabase.instance.client;
@@ -30,28 +30,36 @@ class PostService {
   // MASTER FIX: LATEST POSTS & TOP WEEKLY
   // ============================================================================
 
-  static Future<List<Map<String, dynamic>>> getLatestPosts() async {
-    final response = await _client
-        .from('posts_dim')
-        .select('''
+  static Future<List<Map<String, dynamic>>> getLatestPosts({String? domain}) async {
+    dynamic query = _client.from('posts_dim').select('''
           *,
           author:profiles_dim(full_name, avatar_url)
-        ''')
-        .order('created_at', ascending: false);
-        
+        ''');
+    
+    if (domain != null && domain.toLowerCase() != 'global' && domain.toLowerCase() != 'all') {
+      final ids = _getDomainIds(domain);
+      query = query.inFilter('domain_id', ids);
+    }
+
+    final response = await query.order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(response);
   }
 
-  static Future<List<Map<String, dynamic>>> getTopWeeklyPosts() async {
+  static Future<List<Map<String, dynamic>>> getTopWeeklyPosts({String? domain}) async {
     final now = DateTime.now().toUtc();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
     
-    final response = await _client
-        .from('posts_dim')
-        .select('''
+    dynamic query = _client.from('posts_dim').select('''
           *,
           author:profiles_dim(full_name, avatar_url)
-        ''')
+        ''');
+
+    if (domain != null && domain.toLowerCase() != 'global' && domain.toLowerCase() != 'all') {
+      final ids = _getDomainIds(domain);
+      query = query.inFilter('domain_id', ids);
+    }
+
+    final response = await query
         .gte('created_at', sevenDaysAgo.toIso8601String())
         .order('likes_count', ascending: false)
         .order('created_at', ascending: false);
@@ -59,27 +67,101 @@ class PostService {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  /// Reusable function to fetch posts by filter type.
-  static Future<List<Post>> fetchPosts(String filterType) async {
+  static Future<List<Map<String, dynamic>>> getRecentActivityPosts() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    // 1. Fetch user activities (posts, likes, comments)
+    final results = await Future.wait([
+      _client.from('posts_dim').select('id, created_at').eq('author_id', userId).limit(20),
+      _client.from('likes_fact').select('post_id, created_at').eq('user_id', userId).limit(20),
+      _client.from('comments_fact').select('post_id, created_at').eq('author_id', userId).limit(20),
+    ]);
+
+    final List<Map<String, dynamic>> activities = [];
+    
+    // Process Posts
+    for (var p in results[0]) {
+      activities.add({
+        'post_id': p['id'],
+        'type': 'Posted',
+        'at': DateTime.parse(p['created_at']),
+      });
+    }
+    // Process Likes
+    for (var l in results[1]) {
+      activities.add({
+        'post_id': l['post_id'],
+        'type': 'Liked',
+        'at': DateTime.parse(l['created_at']),
+      });
+    }
+    // Process Comments
+    for (var c in results[2]) {
+      activities.add({
+        'post_id': c['post_id'],
+        'type': 'Commented',
+        'at': DateTime.parse(c['created_at']),
+      });
+    }
+
+    // Sort by activity time DESC
+    activities.sort((a, b) => (b['at'] as DateTime).compareTo(a['at'] as DateTime));
+    
+    if (activities.isEmpty) return [];
+
+    // 2. Fetch full post details for these IDs
+    final postIds = activities.map((a) => a['post_id'] as String).toSet().toList();
+    final postsResponse = await _client
+        .from('posts_dim')
+        .select('''
+          *,
+          author:profiles_dim(full_name, avatar_url)
+        ''')
+        .inFilter('id', postIds);
+        
+    final List<Map<String, dynamic>> rawPosts = List<Map<String, dynamic>>.from(postsResponse);
+    final Map<String, Map<String, dynamic>> postMap = {for (var p in rawPosts) p['id']: p};
+
+    // 3. Map back to activities with full post data
+    return activities.map((act) {
+      final postData = postMap[act['post_id']];
+      if (postData == null) return null;
+      return {
+        ...postData,
+        'activity_label': act['type'],
+        'activity_at': (act['at'] as DateTime).toIso8601String(),
+      };
+    }).whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// Reusable function to fetch posts by feed type.
+  static Future<List<Post>> fetchFeed(String feedType, {String? domain}) async {
     List<Map<String, dynamic>> rawPosts = [];
     
-    if (filterType == "latest") {
-      rawPosts = await getLatestPosts();
-    } else if (filterType == "top_weekly") {
-      rawPosts = await getTopWeeklyPosts();
-    } else {
-      // Fallback to popularity/default if needed
-      rawPosts = await getPostsByMode(mode: FeedMode.popularity);
+    switch (feedType) {
+      case "home":
+        // Default home feed: newest posts by domain (or global if null)
+        rawPosts = await getPostsByMode(mode: FeedMode.chronological, domain: domain);
+        break;
+      case "latest":
+        rawPosts = await getLatestPosts(domain: domain);
+        break;
+      case "top_weekly":
+        rawPosts = await getTopWeeklyPosts(domain: domain);
+        break;
+      case "recent_activity":
+        rawPosts = await getRecentActivityPosts();
+        break;
+      default:
+        rawPosts = await getPostsByMode(mode: FeedMode.popularity);
     }
 
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return [];
 
-    // Map to Post objects, handling author fields like in _fetchPostsByMode
     return rawPosts.map((post) {
       final author = post['author'] as Map<String, dynamic>?;
-      
-      // Ensure likes_count and comments_count are correct
       final Map<String, dynamic> enrichedPost = {
         ...post,
         'author_name': author?['full_name'] ?? 'Unknown',
@@ -87,7 +169,6 @@ class PostService {
         'likes_count': (post['likes_count'] as num?)?.toInt() ?? 0,
         'comments_count': (post['comments_count'] as num?)?.toInt() ?? 0,
       };
-      
       return Post.fromJson(enrichedPost);
     }).toList();
   }
@@ -201,6 +282,11 @@ class PostService {
             .gte('created_at', lastWeekISO)
             .order('likes_count', ascending: false)
             .order('created_at', ascending: false);
+        break;
+
+      case FeedMode.recentActivity:
+        // Handled specially in getRecentActivityPosts, but added here for dispatcher safety
+        baseQuery = baseQuery.order('created_at', ascending: false);
         break;
     }
 

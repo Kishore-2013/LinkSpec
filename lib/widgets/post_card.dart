@@ -205,6 +205,33 @@ class _PostCardState extends ConsumerState<PostCard> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (widget.post.activityLabel != null) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8, left: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        widget.post.activityLabel == 'Liked' 
+                            ? Icons.favorite 
+                            : widget.post.activityLabel == 'Commented' 
+                                ? Icons.comment 
+                                : Icons.edit_note,
+                        size: 14,
+                        color: Colors.blueGrey,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${widget.post.activityLabel} • ${widget.post.activityAt != null ? timeago.format(widget.post.activityAt!) : ""}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blueGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
           // Header: Avatar, Name, Unite
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),

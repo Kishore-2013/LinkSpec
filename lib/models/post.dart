@@ -22,8 +22,9 @@ class Post {
   final int commentsCount;  // ✓ Use this for tiebreaker
   final bool isLiked;
   final bool isFollowing;
-  final bool isTrending; 
   final String? authorVerificationStatus;
+  final String? activityLabel; // "Liked", "Commented", "Posted"
+  final DateTime? activityAt;  // Timestamp of the specific activity
 
   Post({
     required this.id,
@@ -45,6 +46,8 @@ class Post {
     this.isAutomated = false,
     this.linkedJobId,
     this.authorVerificationStatus = 'none',
+    this.activityLabel,
+    this.activityAt,
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
@@ -76,6 +79,8 @@ class Post {
       isAutomated: json['is_automated'] as bool? ?? false,
       linkedJobId: json['linked_job_id'] as String?,
       authorVerificationStatus: json['author_verification_status'] as String? ?? 'none',
+      activityLabel: json['activity_label'] as String?,
+      activityAt: json['activity_at'] != null ? DateTime.parse(json['activity_at'] as String) : null,
     );
   }
 
@@ -97,6 +102,8 @@ class Post {
       'is_automated': isAutomated,
       'linked_job_id': linkedJobId,
       'author_verification_status': authorVerificationStatus,
+      'activity_label': activityLabel,
+      'activity_at': activityAt?.toIso8601String(),
     };
   }
 
@@ -141,6 +148,8 @@ class Post {
       isAutomated: isAutomated ?? this.isAutomated,
       linkedJobId: linkedJobId ?? this.linkedJobId,
       authorVerificationStatus: authorVerificationStatus ?? this.authorVerificationStatus,
+      activityLabel: activityLabel ?? this.activityLabel,
+      activityAt: activityAt ?? this.activityAt,
     );
   }
 
