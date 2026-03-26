@@ -100,6 +100,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
     if (!currentLocation.startsWith(targetRoute)) {
       context.go(targetRoute);
+    } else if (targetRoute == '/home') {
+      // Already on home route, reset filter if needed and trigger refresh
+      if (ref.read(postFilterProvider) != PostFilter.home) {
+        ref.read(postFilterProvider.notifier).state = PostFilter.home;
+      } else {
+        ref.read(homeRefreshProvider.notifier).update((s) => s + 1);
+      }
     }
   }
 
@@ -223,6 +230,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               ),
             GestureDetector(
               onTap: () {
+                if (ref.read(postFilterProvider) == PostFilter.home) {
+                  ref.read(homeRefreshProvider.notifier).update((s) => s + 1);
+                }
                 ref.read(postFilterProvider.notifier).state = PostFilter.home;
                 _navigateTo('/home');
               },

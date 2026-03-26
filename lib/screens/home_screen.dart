@@ -624,8 +624,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ]);
   }
 
-  @override
-  Widget build(BuildContext context) {
     ref.listen(currentDomainProvider, (prev, next) {
       if (prev != next) {
         _loadPosts(domain: next);
@@ -635,6 +633,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.listen(postFilterProvider, (prev, next) {
       if (prev != next) {
         loadPosts(next);
+      }
+    });
+
+    ref.listen(homeRefreshProvider, (prev, next) {
+      if (next > 0) {
+        _refreshPosts();
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(0, duration: const Duration(milliseconds: 500), curve: Curves.easeOut);
+        }
       }
     });
 
