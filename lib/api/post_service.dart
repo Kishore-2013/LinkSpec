@@ -6,6 +6,7 @@ import '../services/supabase_service.dart';
 import 'session_cache.dart';
 import '../config/supabase_config.dart';
 import '../config/app_constants.dart';
+import '../models/post.dart';
 
 /// Service for handling post-related database operations.
 enum FeedMode { popularity, chronological, topWeekly }
@@ -16,7 +17,7 @@ class PostService {
 
   /// High-level API to fetch filtered and sorted posts.
   /// Accepts [domain] for professional filtering (uses 'Global' for all).
-  static Future<List<Map<String, dynamic>>> fetchPosts({
+  static Future<List<Map<String, dynamic>>> getPosts({
     int limit = 10,
     int offset = 0,
     String? domain,
