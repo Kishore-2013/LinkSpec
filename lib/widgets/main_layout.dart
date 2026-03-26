@@ -236,7 +236,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildHeader(bool isMobile, String activeDomain) {
