@@ -23,6 +23,7 @@ class Post {
   final bool isLiked;
   final bool isFollowing;
   final String? authorVerificationStatus;
+  final bool isTrending;
   final String? activityLabel; // "Liked", "Commented", "Posted"
   final DateTime? activityAt;  // Timestamp of the specific activity
 
