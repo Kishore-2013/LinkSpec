@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 
 class SupabaseConfig {
   static String get supabaseUrl => dotenv.get(
@@ -90,11 +92,16 @@ class SupabaseConfig {
   );
 
   /// Google Identity Services (GIS) — OAuth 2.0 Web Client ID
-  static String get googleClientId => dotenv.get(
-    'GOOGLE_CLIENT_ID',
-    fallback: const String.fromEnvironment(
-      'GOOGLE_CLIENT_ID',
-      defaultValue: '997802400886-o01jhgr7c5d6ises1kra9mmnmu4ibrhj.apps.googleusercontent.com',
-    ),
-  );
+  static String get googleClientId {
+    final String? envId = dotenv.maybeGet('GOOGLE_CLIENT_ID');
+    if (envId != null && envId.isNotEmpty) return envId;
+
+    if (kIsWeb) {
+      // REGISTERED Web Client ID (matches origins in Google Console)
+      return '761906978717-tvdv5e4ju6tdc4i12u8e5sepuvhsegla.apps.googleusercontent.com';
+    } else {
+      // Mobile Client ID (matches Android google-services.json)
+      return '997802400886-o01jhgr7c5d6ises1kra9mmnmu4ibrhj.apps.googleusercontent.com';
+    }
+  }
 }
