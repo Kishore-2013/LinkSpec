@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Linkspec App</string>
+	<string>LinkSpec</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -22,6 +22,52 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+
+	<!-- ─── Privacy Usage Descriptions ────────────────────────────── -->
+	<!-- Required by App Store Review & iOS permission dialogs -->
+	<key>NSCameraUsageDescription</key>
+	<string>LinkSpec needs camera access to let you capture photos for your profile and posts.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>LinkSpec needs photo library access to let you pick images for your profile and posts.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>LinkSpec needs permission to save photos to your library.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>LinkSpec needs microphone access if you choose to record a video.</string>
+
+	<!-- ─── URL Scheme for Supabase OAuth Deep-Link ────────────────── -->
+	<!-- Must match: linkspec://login-callback (same as Android intent filter) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.linkspec.linkspec_app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>linkspec</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- TODO: Replace with your REVERSED_CLIENT_ID from GoogleService-Info.plist -->
+				<string>com.googleusercontent.apps.REPLACE_WITH_YOUR_REVERSED_ID</string>
+			</array>
+		</dict>
+	</array>
+
+
+	<!-- ─── App Transport Security (enforce HTTPS) ─────────────────── -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
+
+	<!-- ─── UI Configuration ───────────────────────────────────────── -->
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

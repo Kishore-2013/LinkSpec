@@ -2,13 +2,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'firebase_options.dart'; // Ensure this file is generated via "flutterfire configure"
 
 // Use path URL strategy on web to remove the '#' from URLs.
 import 'utils/url_strategy_stub.dart'
     if (dart.library.html) 'utils/url_strategy_web.dart';
+
+// Session storage: persistent on mobile (dart:io), stub (EmptyLocalStorage) on web.
+import 'utils/storage_stub.dart'
+    if (dart.library.io) 'utils/storage_mobile.dart';
 
 import 'config/supabase_config.dart';
 import 'screens/splash_screen.dart';
@@ -47,11 +53,22 @@ void main() async {
     debugPrint("Note: assets/.env not found, relying on environment variables/dart-defines.");
   }
 
+  // Initialize Firebase (Required for Mobile Google Sign-In)
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint("Firebase initialization failed: $e. Make sure to run 'flutterfire configure'.");
+  }
+
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
     authOptions: FlutterAuthClientOptions(
-      localStorage: kIsWeb ? WebSessionStorage() : const EmptyLocalStorage(),
+      // buildSessionStorage() resolves to MobileSessionStorage on Android/iOS
+      // and EmptyLocalStorage on Web (conditional import above).
+      localStorage: kIsWeb ? WebSessionStorage() : buildSessionStorage(),
     ),
   );
 

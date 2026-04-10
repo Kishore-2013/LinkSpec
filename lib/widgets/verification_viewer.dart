@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:webview_flutter/webview_flutter.dart';
-import 'dart:ui_web' as ui;
-import 'package:web/web.dart' as web;
-import 'dart:js_interop';
+import '../utils/iframe_helper_stub.dart'
+    if (dart.library.html) '../utils/iframe_helper_web.dart';
 
 class VerificationViewer extends StatefulWidget {
   final String url;
@@ -22,46 +21,31 @@ class VerificationViewer extends StatefulWidget {
 class _VerificationViewerState extends State<VerificationViewer> {
   WebViewController? _controller;
   final String _viewId = 'verification-iframe';
-  web.EventListener? _messageListener;
+  Object? _messageListener;
 
   @override
   void initState() {
     super.initState();
     if (kIsWeb) {
-      // Register IFrame for Web
-      // ignore: undefined_prefixed_name
-      ui.platformViewRegistry.registerViewFactory(_viewId, (int viewId) {
-        final iframe = web.HTMLIFrameElement();
-        iframe.src = widget.url;
-        iframe.style.border = 'none';
-        iframe.style.width = '100%';
-        iframe.style.height = '100%';
-        // Allow scripts and same-origin if needed
-        iframe.setAttribute('allow', 'fullscreen');
-        return iframe;
-      });
+      // Register IFrame platform view on web
+      registerIframeView(_viewId, widget.url);
 
-      // Listen for postMessage from the verification tab/iframe
-      _messageListener = (web.MessageEvent event) {
-        final data = event.data.toString();
+      // Listen for postMessage from the verification iframe
+      _messageListener = addWebMessageListener(_viewId, (String data) {
         if (data.contains('verification_success') || data.contains('verification-completed')) {
           if (mounted && widget.onComplete != null) {
             widget.onComplete!();
           }
         }
-      }.toJS as web.EventListener;
-
-      web.window.addEventListener('message', _messageListener!);
+      });
     } else {
-      // Initialize WebView for Mobile
+      // Mobile: use WebView
       _controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setBackgroundColor(const Color(0x00000000))
         ..setNavigationDelegate(
           NavigationDelegate(
-            onProgress: (int progress) {
-              // Update loading bar
-            },
+            onProgress: (int progress) {},
             onPageStarted: (String url) {},
             onPageFinished: (String url) {},
             onWebResourceError: (WebResourceError error) {},
@@ -76,8 +60,8 @@ class _VerificationViewerState extends State<VerificationViewer> {
 
   @override
   void dispose() {
-    if (kIsWeb && _messageListener != null) {
-      web.window.removeEventListener('message', _messageListener!);
+    if (kIsWeb) {
+      removeWebMessageListener(_messageListener);
     }
     super.dispose();
   }
@@ -95,7 +79,7 @@ class _VerificationViewerState extends State<VerificationViewer> {
           if (widget.onComplete != null)
             TextButton(
               onPressed: widget.onComplete,
-              child: const Text('I\'m Done', style: TextStyle(color: Colors.white)),
+              child: const Text("I'm Done", style: TextStyle(color: Colors.white)),
             ),
         ],
       ),
@@ -120,9 +104,7 @@ class _VerificationViewerState extends State<VerificationViewer> {
                     ),
                     const SizedBox(height: 32),
                     ElevatedButton.icon(
-                      onPressed: () {
-                        web.window.open(widget.url, '_blank');
-                      },
+                      onPressed: () => openUrlInNewTab(widget.url),
                       icon: const Icon(Icons.open_in_new),
                       label: const Text('Launch Verification'),
                       style: ElevatedButton.styleFrom(

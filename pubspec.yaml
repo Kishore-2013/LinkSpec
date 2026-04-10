@@ -10,15 +10,17 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  web: ^1.0.0
 
   # UI & Fonts
   cupertino_icons: ^1.0.8
-  google_fonts: ^8.0.0
+  google_fonts: ^6.2.1
   jwt_decoder: ^2.0.1
 
   # Backend & Database
   supabase_flutter: ^2.8.4
+  firebase_core: ^3.1.0
+  firebase_auth: ^5.0.0
+  google_sign_in: ^6.2.1
 
   # State Management
   flutter_riverpod: ^2.5.1
@@ -71,3 +73,13 @@ flutter_launcher_icons:
   image_path: "assets/images/apply_wizz_logo.jpg"
   min_sdk_android: 21
 
+# flutter_native_splash config — uncomment and run 'dart run flutter_native_splash:create'
+# when you upgrade Flutter to 3.29+ (Dart >=3.7.0).
+# flutter_native_splash:
+#   color: "#FFFFFF"
+#   image: assets/images/apply_wizz_logo.jpg
+#   android: true
+#   ios: true
+#   android_gravity: center
+#   ios_content_mode: center
+#   fullscreen: false

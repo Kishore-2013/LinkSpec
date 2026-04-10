@@ -5,7 +5,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../services/linkspec_notify.dart';
 import 'dart:async';
-import 'dart:js_interop'; // Added for proper .toJS conversion if needed
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/aw_logo.dart';
@@ -13,6 +12,7 @@ import '../services/supabase_service.dart';
 import '../config/supabase_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/google_signin_button.dart';
+import '../services/auth_service.dart';
 
 /// Login Screen — Unified Microsoft 365 Authentication.
 /// Features a single, premium 'Sign in with Microsoft' entry point.
@@ -224,8 +224,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
         final fullName = session?.user.userMetadata?['full_name'] as String?;
         context.go('/domain-selection', extra: {'fullName': fullName});
       }
-      // Existing user: AuthWrapper detects the new Supabase session automatically
-      // and routes to HomeScreen — no explicit navigation needed here.
     } on sb.AuthException catch (e) {
       if (mounted) {
         LinkSpecNotify.show(
@@ -241,6 +239,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
           'Google sign-in failed. Please try again.',
           LinkSpecNotifyType.warning,
         );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Triggered by Native SDK on Android/iOS
+  Future<void> _handleGoogleMobileSignIn() async {
+    setState(() => _isLoading = true);
+    try {
+      final userCredential = await AuthService.signInWithGoogleMobile();
+      if (userCredential == null) {
+        setState(() => _isLoading = false);
+        return; 
+      }
+
+      // After Firebase + Supabase sync, check onboarding
+      final bool hasProfile = await SupabaseService.hasCompletedDomainSelection();
+      
+      if (!mounted) return;
+      if (!hasProfile) {
+        final fullName = userCredential.user?.displayName;
+        context.go('/domain-selection', extra: {'fullName': fullName});
+      }
+      // AuthWrapper will handle navigation to Home if profile already exists.
+    } catch (e) {
+      if (mounted) {
+        LinkSpecNotify.show(context, 'Google Sign-In failed: $e', LinkSpecNotifyType.warning);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -473,24 +499,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
         const SizedBox(height: 24),
 
         // ── Google Sign-In divider + button ──────────────────────────────────
-        if (kIsWeb) ...[
-          Row(
-            children: [
-              const Expanded(child: Divider(color: Color(0xFFE5E5EA))),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  'or continue with',
-                  style: TextStyle(color: _textMid, fontSize: 13, fontWeight: FontWeight.w500),
-                ),
+        Row(
+          children: [
+            const Expanded(child: Divider(color: Color(0xFFE5E5EA))),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'or continue with',
+                style: TextStyle(color: _textMid, fontSize: 13, fontWeight: FontWeight.w500),
               ),
-              const Expanded(child: Divider(color: Color(0xFFE5E5EA))),
-            ],
-          ),
-          const SizedBox(height: 16),
-          GoogleSignInButton(onCredential: _handleGoogleCredential),
-          const SizedBox(height: 8),
-        ],
+            ),
+            const Expanded(child: Divider(color: Color(0xFFE5E5EA))),
+          ],
+        ),
+        const SizedBox(height: 16),
+        GoogleSignInButton(
+          onCredential: _handleGoogleCredential,
+          onMobileTap: _handleGoogleMobileSignIn,
+        ),
+        const SizedBox(height: 8),
 
         const SizedBox(height: 8),
         

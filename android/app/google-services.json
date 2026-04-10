@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "997802400886",
+    "project_id": "flutter-auth-app-ca270",
+    "storage_bucket": "flutter-auth-app-ca270.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:997802400886:android:5a3fa4d711a7c67e9e1357",
+        "android_client_info": {
+          "package_name": "com.linkspec.linkspec_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "997802400886-o01jhgr7c5d6ises1kra9mmnmu4ibrhj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADp30eyREuq3RGw3ddoOd0q_wkKOYqoyw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "997802400886-o01jhgr7c5d6ises1kra9mmnmu4ibrhj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
