@@ -98,7 +98,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
   }
 
   bool _isValidEmail(String email) {
-    // Scalable Regex: Supports all professional and corporate domains (e.g., applywizz.com)
+    // Scalable Regex: Supports all professional and corporate domains (e.g., applywizz.ai)
     final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
     return regex.hasMatch(email);
   }
@@ -431,6 +431,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
                   label: 'Full Name',
                   controller: _nameCtrl,
                   icon: Icons.person_outline_rounded,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   validator: (v) => (v == null || v.isEmpty) ? 'Name is required' : null,
                 ),
                 const SizedBox(height: 16),
@@ -450,7 +451,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
                     return "Email is required";
                   }
                   if (!_isValidEmail(value)) {
-                    return "Enter a valid email (Gmail, Outlook, Yahoo, applywizz.com, etc.)";
+                    return "Enter a valid email (Gmail, Outlook, Yahoo, applywizz.ai, etc.)";
                   }
                   return null;
                 },
