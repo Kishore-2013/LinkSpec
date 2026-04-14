@@ -6,9 +6,11 @@ echo "--- Installing Node dependencies ---"
 npm install
 
 # 1. Setup Flutter SDK
+# We pin the Flutter version to match the local environment (3.27.4)
+# This prevents the "Constant evaluation error" in old dependencies when the stable channel advances.
 echo "--- Ensuring Flutter SDK is present ---"
 if [ ! -d "flutter" ]; then
-  git clone https://github.com/flutter/flutter.git -b stable --depth 1
+  git clone https://github.com/flutter/flutter.git -b 3.27.4 --depth 1
 fi
 
 # Use absolute path for the build session to avoid "command not found"

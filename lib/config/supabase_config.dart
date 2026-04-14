@@ -62,12 +62,9 @@ class SupabaseConfig {
     final String? envId = dotenv.maybeGet('GOOGLE_CLIENT_ID');
     if (envId != null && envId.isNotEmpty) return envId;
 
-    if (kIsWeb) {
-      // REGISTERED Web Client ID (matches origins in Google Console)
-      return '761906978717-tvdv5e4ju6tdc4i12u8e5sepuvhsegla.apps.googleusercontent.com';
-    } else {
-      // Mobile Client ID (matches Android google-services.json)
-      return '997802400886-o01jhgr7c5d6ises1kra9mmnmu4ibrhj.apps.googleusercontent.com';
-    }
+    // Use the Web Client ID for ALL platforms.
+    // Supabase and Firebase require the Web Client ID as the 'audience' in the ID token 
+    // to perform server-side verification, even on Android/iOS.
+    return '761906978717-tvdv5e4ju6tdc4i12u8e5sepuvhsegla.apps.googleusercontent.com';
   }
 }
