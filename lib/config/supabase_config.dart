@@ -5,7 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class SupabaseConfig {
   static String get supabaseUrl => dotenv.get(
     'SUPABASE_URL',
-    fallback: const String.fromEnvironment(
+    fallback: String.fromEnvironment(
       'SUPABASE_URL',
       defaultValue: 'https://prghjnknjkrckbiqydgi.supabase.co',
     ),
@@ -13,7 +13,7 @@ class SupabaseConfig {
 
   static String get supabaseAnonKey => dotenv.get(
     'SUPABASE_ANON_KEY',
-    fallback: const String.fromEnvironment(
+    fallback: String.fromEnvironment(
       'SUPABASE_ANON_KEY',
       defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByZ2hqbmtuamtyY2tiaXF5Z2dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDA4MDksImV4cCI6MjA4NjkxNjgwOX0.xJLCs_dNbPX514vHcjQ_FU_CctS22BKTICzHvRoR4HM',
     ),
@@ -21,7 +21,7 @@ class SupabaseConfig {
 
   static String get apiBaseUrl => dotenv.get(
     'API_BASE_URL',
-    fallback: const String.fromEnvironment(
+    fallback: String.fromEnvironment(
       'API_BASE_URL',
       defaultValue: 'https://link-spec.vercel.app',
     ),
@@ -29,7 +29,7 @@ class SupabaseConfig {
 
   static String get otpApiUrl => dotenv.get(
     'OTP_API_URL',
-    fallback: const String.fromEnvironment(
+    fallback: String.fromEnvironment(
       'OTP_API_URL',
       defaultValue: 'https://otp-sender-seven.vercel.app',
     ),
@@ -37,7 +37,7 @@ class SupabaseConfig {
 
   static String get profileBucket => dotenv.get(
     'SUPABASE_PROFILE_BUCKET',
-    fallback: const String.fromEnvironment(
+    fallback: String.fromEnvironment(
       'SUPABASE_PROFILE_BUCKET',
       defaultValue: 'profiles',
     ),
@@ -45,7 +45,7 @@ class SupabaseConfig {
 
   static String get postBucket => dotenv.get(
     'SUPABASE_POST_BUCKET',
-    fallback: const String.fromEnvironment(
+    fallback: String.fromEnvironment(
       'SUPABASE_POST_BUCKET',
       defaultValue: 'post-images',
     ),
@@ -53,7 +53,7 @@ class SupabaseConfig {
 
   static String get apiSecretKey => dotenv.get(
     'API_SECRET_KEY',
-    fallback: const String.fromEnvironment(
+    fallback: String.fromEnvironment(
       'API_SECRET_KEY',
       defaultValue: '',
     ),
@@ -61,7 +61,7 @@ class SupabaseConfig {
 
   static String get ms365TenantId => dotenv.get(
     'MS365_TENANT_ID',
-    fallback: const String.fromEnvironment(
+    fallback: String.fromEnvironment(
       'MS365_TENANT_ID',
       defaultValue: '',
     ),
@@ -69,7 +69,7 @@ class SupabaseConfig {
 
   static String get ms365ClientId => dotenv.get(
     'MS365_CLIENT_ID',
-    fallback: const String.fromEnvironment(
+    fallback: String.fromEnvironment(
       'MS365_CLIENT_ID',
       defaultValue: '',
     ),
@@ -77,7 +77,7 @@ class SupabaseConfig {
 
   static String get ms365ClientSecret => dotenv.get(
     'MS365_CLIENT_SECRET',
-    fallback: const String.fromEnvironment(
+    fallback: String.fromEnvironment(
       'MS365_CLIENT_SECRET',
       defaultValue: '',
     ),
@@ -85,7 +85,7 @@ class SupabaseConfig {
 
   static String get senderEmail => dotenv.get(
     'SENDER_EMAIL',
-    fallback: const String.fromEnvironment(
+    fallback: String.fromEnvironment(
       'SENDER_EMAIL',
       defaultValue: '',
     ),

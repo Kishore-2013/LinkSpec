@@ -29,6 +29,12 @@ flutter doctor -v
 
 # 4. Create Dummy Assets/.env for Build (Vercel Support)
 echo "--- Injecting Environment Variables into assets/.env ---"
+
+# Trim any accidental whitespace from variables
+SUPABASE_URL=$(echo $SUPABASE_URL | xargs)
+SUPABASE_ANON_KEY=$(echo $SUPABASE_ANON_KEY | xargs)
+API_BASE_URL=$(echo $API_BASE_URL | xargs)
+
 mkdir -p assets
 cat <<EOF > assets/.env
 API_BASE_URL=$API_BASE_URL
