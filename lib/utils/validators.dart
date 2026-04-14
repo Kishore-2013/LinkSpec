@@ -31,4 +31,30 @@ class Validators {
 
     return null;
   }
+
+  /// Specialized validator for work emails (blocks personal domains)
+  static String? validateWorkEmail(String? value) {
+    final basicError = validateEmail(value);
+    if (basicError != null) return basicError;
+
+    final email = value!.trim().toLowerCase();
+    final domain = email.split('@').last;
+
+    final blockedPersonalDomains = [
+      "gmail.com",
+      "yahoo.com",
+      "outlook.com",
+      "hotmail.com",
+      "icloud.com",
+      "aol.com",
+      "protonmail.com",
+      "zoho.com"
+    ];
+
+    if (blockedPersonalDomains.contains(domain)) {
+      return "Personal email domains are not allowed. Please use your company email";
+    }
+
+    return null;
+  }
 }

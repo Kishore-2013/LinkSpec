@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../services/supabase_service.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/validators.dart';
 
 class VerificationService {
   static const String _baseUrl = 'https://link-spec.vercel.app/api';
@@ -56,6 +57,12 @@ class VerificationService {
     required String workEmail,
     required Map<String, dynamic> otherFields,
   }) async {
+    final error = Validators.validateWorkEmail(workEmail);
+    if (error != null) {
+      debugPrint('VerificationService: Blocked experience update due to invalid work email: $workEmail');
+      return false;
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/profile/experience/add'),
@@ -79,6 +86,11 @@ class VerificationService {
     required String userId,
     required String workEmail,
   }) async {
+    final error = Validators.validateWorkEmail(workEmail);
+    if (error != null) {
+      return {'success': false, 'message': error};
+    }
+
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/work-email/request-otp'),
@@ -155,5 +167,30 @@ class VerificationService {
   static Future<bool> isUserVerified(String userId) async {
     final profile = await SupabaseService.getUserProfile(userId);
     return profile?['verification_status'] == 'verified';
+  }
+
+  /// Update profile visibility settings
+  static Future<bool> updateVisibility({
+    required String userId,
+    required bool isWorkEmailPublic,
+    required bool isPhonePublic,
+    required bool isPersonalEmailPublic,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/profile/visibility/update'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'is_work_email_public': isWorkEmailPublic,
+          'is_phone_public': isPhonePublic,
+          'is_personal_email_public': isPersonalEmailPublic,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('VerificationService visibility error: $e');
+      return false;
+    }
   }
 }

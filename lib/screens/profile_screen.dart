@@ -21,6 +21,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart'; // for Clipboard if needed
 import 'package:go_router/go_router.dart';
 import '../providers/scroll_provider.dart';
+import '../utils/validators.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   final String? userId; // Optional; if null, defaults to current user
@@ -43,6 +44,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isGuestMode = false;
   final _bioController = TextEditingController();
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   int _followersCount = 0;
   int _followingCount = 0;
   int _connectionsCount = 0;
@@ -126,6 +128,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _profile         = profile;
           _bioController.text  = profile.bio ?? '';
           _nameController.text = profile.fullName;
+          _phoneController.text = profile.phone ?? '';
           _followersCount  = counts['followers'] ?? 0;
           _followingCount  = counts['following'] ?? 0;
           _connectionsCount = cCount;
@@ -162,6 +165,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         education: _profile!.education,
         projects: _profile!.projects,
         skills: _profile!.skills,
+        phone: _phoneController.text.trim(),
       );
       await _loadProfile();
       
@@ -428,7 +432,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _showExperienceDialog({Map<String, dynamic>? existingExp, int? editIndex}) {
     final roleC = TextEditingController(text: existingExp?['role'] ?? '');
     final companyC = TextEditingController(text: existingExp?['company'] ?? '');
-    final workEmailC = TextEditingController(text: existingExp?['work_email'] ?? (_isOwnProfile ? _profile?.workEmail : ''));
     DateTime? startDate;
     DateTime? endDate;
     String? dateError;
@@ -448,6 +451,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     }
 
+    final workEmailC = TextEditingController(text: existingExp?['work_email'] ?? '');
+    String? emailCaution;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -459,16 +465,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 8),
               TextField(controller: companyC, decoration: const InputDecoration(labelText: 'Company*')),
               const SizedBox(height: 8),
-              if (_isOwnProfile)
+              if (_isOwnProfile) ...[
                 TextField(
                   controller: workEmailC, 
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Work Email*',
                     hintText: 'e.g. name@company.com',
                     helperText: 'Enter to verify your professional identity',
+                    errorText: emailCaution,
+                    errorStyle: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
                   ),
                   keyboardType: TextInputType.emailAddress,
+                  onChanged: (val) {
+                    final error = Validators.validateWorkEmail(val);
+                    setDialogState(() {
+                      if (error != null && val.contains('@')) {
+                        emailCaution = "Caution: Please use your work email id";
+                      } else {
+                        emailCaution = null;
+                      }
+                    });
+                  },
                 ),
+              ],
               const SizedBox(height: 16),
                // Currently Working Checkbox
                CheckboxListTile(
@@ -526,42 +545,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                ),
               const SizedBox(height: 8),
               // End Date
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 18, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: InkWell(
-                      onTap: isCurrentRole ? null : () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: endDate ?? DateTime.now(),
-                          firstDate: DateTime(1950),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) {
-                          setDialogState(() {
-                            endDate = picked;
-                            dateError = null;
-                          });
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: isCurrentRole ? Colors.grey.shade300 : Colors.grey),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          endDate != null
-                              ? '${_monthName(endDate!.month)}-${endDate!.day.toString().padLeft(2, '0')}-${endDate!.year}'
-                              : 'End Date (leave empty if current)',
-                          style: TextStyle(color: endDate != null ? Colors.black : (isCurrentRole ? Colors.grey.shade400 : Colors.grey)),
+              Opacity(
+                opacity: isCurrentRole ? 0.5 : 1.0,
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 18, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: isCurrentRole ? null : () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: endDate ?? DateTime.now(),
+                            firstDate: DateTime(1950),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setDialogState(() {
+                              endDate = picked;
+                              dateError = null;
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: isCurrentRole ? Colors.grey.shade300 : Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                            color: isCurrentRole ? Colors.grey[100] : Colors.transparent,
+                          ),
+                          child: Text(
+                            endDate != null
+                                ? '${_monthName(endDate!.month)}-${endDate!.day.toString().padLeft(2, '0')}-${endDate!.year}'
+                                : 'End Date (leave empty if current)',
+                            style: TextStyle(color: endDate != null ? Colors.black : (isCurrentRole ? Colors.grey.shade400 : Colors.grey)),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               if (dateError != null) ...[  
                 const SizedBox(height: 8),
@@ -646,9 +669,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     DateTime? endDate;
     String? dateError;
 
+    bool isCurrentlyStudying = false;
     if (existingEdu != null) {
       final startStr = existingEdu['start_date'] as String?;
       final endStr = existingEdu['end_date'] as String?;
+      isCurrentlyStudying = existingEdu['is_current'] as bool? ?? false;
       if (startStr != null && startStr.isNotEmpty) startDate = DateTime.tryParse(startStr);
       if (endStr != null && endStr.isNotEmpty) endDate = DateTime.tryParse(endStr);
     }
@@ -664,6 +689,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 8),
               TextField(controller: instC, decoration: const InputDecoration(labelText: 'Institution / School')),
               const SizedBox(height: 16),
+              // Currently Studying Checkbox
+              CheckboxListTile(
+                title: const Text('I am currently studying here', style: TextStyle(fontSize: 14)),
+                value: isCurrentlyStudying,
+                onChanged: (val) {
+                  setDialogState(() {
+                    isCurrentlyStudying = val ?? false;
+                    if (isCurrentlyStudying) {
+                      endDate = null;
+                    }
+                  });
+                },
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   const Icon(Icons.calendar_today, size: 18, color: Colors.blue),
@@ -694,34 +735,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 18, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: endDate ?? DateTime.now(),
-                          firstDate: DateTime(1950),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) {
-                          setDialogState(() { endDate = picked; dateError = null; });
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(8)),
-                        child: Text(
-                          endDate != null ? '${_monthName(endDate!.month)}-${endDate!.day.toString().padLeft(2,'0')}-${endDate!.year}' : 'End Date (leave empty if current)',
-                          style: TextStyle(color: endDate != null ? Colors.black : Colors.grey),
+              Opacity(
+                opacity: isCurrentlyStudying ? 0.5 : 1.0,
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 18, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: isCurrentlyStudying ? null : () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: endDate ?? DateTime.now(),
+                            firstDate: DateTime(1950),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setDialogState(() { endDate = picked; dateError = null; });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: isCurrentlyStudying ? Colors.grey.shade300 : Colors.grey), 
+                            borderRadius: BorderRadius.circular(8),
+                            color: isCurrentlyStudying ? Colors.grey[100] : Colors.transparent,
+                          ),
+                          child: Text(
+                            endDate != null ? '${_monthName(endDate!.month)}-${endDate!.day.toString().padLeft(2,'0')}-${endDate!.year}' : 'End Date (leave empty if current)',
+                            style: TextStyle(color: endDate != null ? Colors.black : (isCurrentlyStudying ? Colors.grey.shade400 : Colors.grey)),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               if (dateError != null) ...[  
                 const SizedBox(height: 8),
@@ -739,14 +787,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   return;
                 }
                 final duration = startDate != null
-                    ? '${_monthName(startDate!.month)} ${startDate!.year} - ${endDate != null ? "${_monthName(endDate!.month)} ${endDate!.year}" : "Present"}'
+                    ? '${_monthName(startDate!.month)} ${startDate!.year} - ${isCurrentlyStudying ? "Present" : (endDate != null ? "${_monthName(endDate!.month)} ${endDate!.year}" : "Present")}'
                     : '';
                 final entry = {
                   'degree': degC.text.trim(),
                   'institution': instC.text.trim(),
                   'duration': duration,
                   'start_date': startDate?.toIso8601String() ?? '',
-                  'end_date': endDate?.toIso8601String() ?? '',
+                  'end_date': isCurrentlyStudying ? '' : (endDate?.toIso8601String() ?? ''),
+                  'is_current': isCurrentlyStudying,
                 };
                 setState(() {
                   if (editIndex != null) {
@@ -958,14 +1007,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: Colors.grey[300]!),
                                 ),
-                                child: Text(
-                                  _profile?.domainId.toUpperCase() ?? 'NONE',
-                                  style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _profile?.domainId.toUpperCase() ?? 'NONE',
+                                      style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold),
+                                    ),
+                                    if (_isEditing) ...[
+                                      const SizedBox(height: 12),
+                                      TextField(
+                                        controller: _phoneController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Phone Number',
+                                          prefixIcon: Icon(Icons.phone),
+                                          hintText: '+1 234 567 890',
+                                        ),
+                                        keyboardType: TextInputType.phone,
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ]
-                            else if (_profile?.bio != null && _profile!.bio!.isNotEmpty)
+                            else if (_profile?.bio != null && _profile!.bio!.isNotEmpty) ...[
                                Text(_profile!.bio!, style: const TextStyle(fontSize: 15, height: 1.5, color: Color(0xFF1A2740))),
+                               if (_isEditing) ...[
+                                 const SizedBox(height: 12),
+                                 TextField(
+                                   controller: _phoneController,
+                                   decoration: const InputDecoration(
+                                     labelText: 'Phone Number',
+                                     prefixIcon: Icon(Icons.phone),
+                                   ),
+                                   keyboardType: TextInputType.phone,
+                                 ),
+                               ],
+                            ],
                             if (_isEditing) ...[
                               const SizedBox(height: 12),
                               Row(
@@ -1040,7 +1118,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         _buildFloatingAction(Icons.share, _shareProfile),
                         if (_isOwnProfile) ...[
                           const SizedBox(width: 8),
-                          _buildFloatingAction(Icons.settings, () => context.go('/settings')),
+                          _buildFloatingAction(Icons.privacy_tip_outlined, _showPrivacyDialog),
                           const SizedBox(width: 8),
                           _buildFloatingAction(_isEditing ? Icons.check : Icons.edit, _isEditing ? _updateProfile : () => setState(() => _isEditing = true)),
                           const SizedBox(width: 8),
@@ -1133,6 +1211,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
             ),
+
+            SliverToBoxAdapter(child: _buildContactSection()),
 
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
@@ -1293,6 +1373,234 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  void _showPrivacyDialog() {
+    if (_profile == null) return;
+    
+    // Local state for the dialog toggles
+    bool isWorkEmailPublic = _profile!.isWorkEmailPublic;
+    bool isPhonePublic = _profile!.isPhonePublic;
+    bool isPersonalEmailPublic = _profile!.isPersonalEmailPublic;
+    final bool isWorkEmailVerified = (_profile?.verifiedWorkEmails ?? []).isNotEmpty;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Privacy Settings'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Control which information is visible to the public on your profile.'),
+              const SizedBox(height: 16),
+              
+              // Work Email Toggle
+              SwitchListTile(
+                title: const Text('Show Work Email'),
+                subtitle: isWorkEmailVerified 
+                  ? const Text('Visible to everyone') 
+                  : const Text('Verify your work email to make it public', style: TextStyle(color: Colors.orange, fontSize: 12)),
+                value: isWorkEmailPublic,
+                onChanged: isWorkEmailVerified 
+                  ? (val) => setDialogState(() => isWorkEmailPublic = val)
+                  : null,
+              ),
+              
+              // Phone Toggle
+              SwitchListTile(
+                title: const Text('Show Phone Number'),
+                value: isPhonePublic,
+                onChanged: (val) => setDialogState(() => isPhonePublic = val),
+              ),
+              
+              // Personal Email Toggle
+              SwitchListTile(
+                title: const Text('Show Personal Email'),
+                value: isPersonalEmailPublic,
+                onChanged: (val) => setDialogState(() => isPersonalEmailPublic = val),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final userId = SupabaseService.getCurrentUserId();
+                if (userId == null) return;
+
+                Navigator.pop(context); // Close dialog
+                setState(() => _isLoading = true);
+
+                // Use the specified API endpoint for visibility update
+                final success = await VerificationService.updateVisibility(
+                  userId: userId,
+                  isWorkEmailPublic: isWorkEmailPublic,
+                  isPhonePublic: isPhonePublic,
+                  isPersonalEmailPublic: isPersonalEmailPublic,
+                );
+
+                if (success) {
+                  // Also update Supabase record directly to ensure UI consistency if API is just a proxy
+                  await SupabaseService.updateProfile(
+                    isWorkEmailPublic: isWorkEmailPublic,
+                    isPhonePublic: isPhonePublic,
+                    isPersonalEmailPublic: isPersonalEmailPublic,
+                  );
+                  await _loadProfile();
+                  if (mounted) LinkSpecNotify.show(context, 'Privacy settings updated!', LinkSpecNotifyType.success);
+                } else {
+                  setState(() => _isLoading = false);
+                  if (mounted) LinkSpecNotify.show(context, 'Failed to update privacy settings', LinkSpecNotifyType.error);
+                }
+              },
+              child: const Text('Save Settings'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContactSection() {
+    if (_profile == null) return const SizedBox.shrink();
+
+    final List<Widget> contactItems = [];
+
+    // 1. Work Email(s) - Only if verified and public (or own profile)
+    final verifiedEmails = _profile!.verifiedWorkEmails;
+    if (verifiedEmails.isNotEmpty) {
+      if (_isOwnProfile || _profile!.isWorkEmailPublic) {
+        for (var email in verifiedEmails) {
+          contactItems.add(_buildContactItem(
+            Icons.business_center, 
+            email, 
+            'Verified Work Email', 
+            _profile!.isWorkEmailPublic,
+            () => _directToggleVisibility('work_email', _profile!.isWorkEmailPublic),
+          ));
+        }
+      }
+    }
+
+    // 2. Phone - Only if public (or own profile)
+    if (_profile!.phone != null && _profile!.phone!.isNotEmpty) {
+      if (_isOwnProfile || _profile!.isPhonePublic) {
+        contactItems.add(_buildContactItem(
+          Icons.phone, 
+          _profile!.phone!, 
+          'Phone Number', 
+          _profile!.isPhonePublic,
+          () => _directToggleVisibility('phone', _profile!.isPhonePublic),
+        ));
+      }
+    }
+
+    // 3. Personal Email - Only if public (or own profile)
+    if (_profile!.email != null && _profile!.email!.isNotEmpty) {
+      if (_isOwnProfile || _profile!.isPersonalEmailPublic) {
+        contactItems.add(_buildContactItem(
+          Icons.mail_outline, 
+          _profile!.email!, 
+          'Personal Email', 
+          _profile!.isPersonalEmailPublic,
+          () => _directToggleVisibility('personal_email', _profile!.isPersonalEmailPublic),
+        ));
+      }
+    }
+
+    if (contactItems.isEmpty) return const SizedBox.shrink();
+
+    return _buildSection(
+      title: 'Contact Details',
+      content: Column(children: contactItems),
+    );
+  }
+
+  Future<void> _directToggleVisibility(String field, bool currentVal) async {
+    if (_profile == null) return;
+    final userId = SupabaseService.getCurrentUserId();
+    if (userId == null) return;
+
+    // Special case for work email: must be verified first
+    if (field == 'work_email' && _profile!.verifiedWorkEmails.isEmpty) {
+      if (mounted) LinkSpecNotify.show(context, 'Please verify your work email first.', LinkSpecNotifyType.error);
+      return;
+    }
+
+    final bool newVal = !currentVal;
+    
+    // 1. Calculate the new state
+    final updatedProfile = _profile!.copyWith(
+      isWorkEmailPublic: field == 'work_email' ? newVal : _profile!.isWorkEmailPublic,
+      isPhonePublic: field == 'phone' ? newVal : _profile!.isPhonePublic,
+      isPersonalEmailPublic: field == 'personal_email' ? newVal : _profile!.isPersonalEmailPublic,
+    );
+
+    // 2. Optimistic UI update
+    setState(() => _profile = updatedProfile);
+
+    try {
+      // 3. Persist to Supabase first (Source of Truth for App)
+      await SupabaseService.updateProfile(
+        isWorkEmailPublic: updatedProfile.isWorkEmailPublic,
+        isPhonePublic: updatedProfile.isPhonePublic,
+        isPersonalEmailPublic: updatedProfile.isPersonalEmailPublic,
+      );
+
+      // 4. Update the Visibility API (Backend notification)
+      // We don't rollback the UI if only this fails, but we log it
+      final success = await VerificationService.updateVisibility(
+        userId: userId,
+        isWorkEmailPublic: updatedProfile.isWorkEmailPublic,
+        isPhonePublic: updatedProfile.isPhonePublic,
+        isPersonalEmailPublic: updatedProfile.isPersonalEmailPublic,
+      );
+
+      if (!success) {
+        debugPrint('DirectToggle: Visibility API notification failed, but Supabase was updated.');
+      }
+    } catch (e) {
+      debugPrint('DirectToggle: Error in persistence: $e');
+      // Rollback only on total failure
+      await _loadProfile();
+      if (mounted) LinkSpecNotify.show(context, 'Failed to update visibility.', LinkSpecNotifyType.error);
+    }
+  }
+
+  Widget _buildContactItem(IconData icon, String value, String label, bool isPublic, VoidCallback onToggle) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, color: Colors.blue, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.bold)),
+                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          if (_isOwnProfile)
+             IconButton(
+               icon: Icon(
+                 isPublic ? Icons.visibility : Icons.visibility_off,
+                 size: 18, 
+                 color: isPublic ? Colors.blue : Colors.grey[400],
+               ),
+               onPressed: onToggle,
+               tooltip: isPublic ? 'Make Private' : 'Make Public',
+             ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSection({required String title, required Widget content, VoidCallback? onAdd, VoidCallback? onHeaderTap}) {
     return Container(
       width: double.infinity,
@@ -1328,7 +1636,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildExpItem(Map<String, dynamic> exp, int index) {
     final String? workEmail = exp['work_email'];
-    final bool isVerified = _isOwnProfile && (_profile?.isWorkEmailVerified ?? false) && (_profile?.workEmail == workEmail);
+    final bool isVerified = _isOwnProfile && (_profile?.isEmailVerified(workEmail) ?? false);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -1352,11 +1660,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Row(
               children: [
                 Text(workEmail, style: TextStyle(color: Colors.blue[300], fontSize: 13, fontStyle: FontStyle.italic)),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isVerified ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    isVerified ? 'Verified' : 'Unverified',
+                    style: TextStyle(
+                      color: isVerified ? Colors.green : Colors.orange,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
                 if (!isVerified) ...[
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => _verifyWorkEmail(workEmail),
-                    child: const Text('Verify Now', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: Text(
+                      'Verify Now', 
+                      style: TextStyle(
+                        color: Colors.blue[700], 
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 11,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -1383,32 +1715,54 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final userId = SupabaseService.getCurrentUserId();
     if (userId == null) return;
 
-    // 1. First persist the JSON list to Supabase to ensure it stays even after refresh
-    await SupabaseService.updateProfile(experience: updatedList);
+    final String newEmail = exp['work_email'] ?? '';
+    
+    // Validation: Block personal email domains
+    if (newEmail.isNotEmpty) {
+      final error = Validators.validateWorkEmail(newEmail);
+      if (error != null) {
+        if (mounted) LinkSpecNotify.show(context, error, LinkSpecNotifyType.error);
+        return; // Abort saving and OTP
+      }
+    }
 
-    // 2. Call the specialized backend for work email verification
-    final success = await VerificationService.addExperienceWithEmail(
-      userId: userId,
-      companyName: exp['company'] ?? '',
-      workEmail: exp['work_email'] ?? '',
-      otherFields: {
-        'role': exp['role'],
-        'duration': exp['duration'],
-        'start_date': exp['start_date'],
-        'end_date': exp['end_date'],
-        'is_current': exp['is_current'],
-      },
+    // 1. First persist to Supabase experience list
+    // Note: We no longer update the top-level work_email field here because 
+    // it now stores verified emails only, and we don't want to unverify anything.
+    await SupabaseService.updateProfile(
+      experience: updatedList,
     );
 
-    if (success) {
-      // Refresh profile to reflect any server-side changes (like profiles_dim updates)
-      await _loadProfile();
+    // 2. Call the specialized backend for work email verification (send OTP etc)
+    // We trigger this if it's a new email that isn't already verified
+    final bool isAlreadyVerified = _profile?.isEmailVerified(newEmail) ?? false;
+    
+    if (newEmail.isNotEmpty && !isAlreadyVerified) {
+      final result = await VerificationService.requestWorkEmailOtp(
+        userId: userId,
+        workEmail: newEmail,
+      );
+      
+      if (result['success'] == true) {
+        final token = result['token'];
+        if (token != null) {
+          _showOtpDialog(newEmail, token);
+        }
+      }
     }
+
+    // Refresh profile to reflect changes
+    await _loadProfile();
   }
 
   Future<void> _verifyWorkEmail(String email) async {
     final userId = SupabaseService.getCurrentUserId();
     if (userId == null) return;
+
+    if (_profile?.isEmailVerified(email) ?? false) {
+      if (mounted) LinkSpecNotify.show(context, 'This email is already verified.', LinkSpecNotifyType.success);
+      return;
+    }
 
     setState(() => _isLoading = true);
     final result = await VerificationService.requestWorkEmailOtp(
@@ -1472,6 +1826,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               );
               
               if (success) {
+                // ADDITIVE SUCCESS: Add the newly verified email to our list
+                final currentVerified = _profile?.verifiedWorkEmails ?? [];
+                if (!currentVerified.contains(email.toLowerCase().trim())) {
+                  final newList = [...currentVerified, email.toLowerCase().trim()];
+                  await SupabaseService.updateProfile(
+                    workEmail: newList.join(';'),
+                    isWorkEmailVerified: true, // Keep this as true if at least one is verified
+                  );
+                }
+                
                 await _loadProfile();
                 if (mounted) {
                   LinkSpecNotify.show(context, 'Work email verified successfully!', LinkSpecNotifyType.success);

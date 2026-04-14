@@ -230,6 +230,12 @@ class SupabaseService {
     List<Map<String, dynamic>>? education,
     List<Map<String, dynamic>>? projects,
     List<String>? skills,
+    String? workEmail,
+    bool? isWorkEmailVerified,
+    String? phone,
+    bool? isWorkEmailPublic,
+    bool? isPhonePublic,
+    bool? isPersonalEmailPublic,
   }) async {
     final userId = _client.auth.currentUser?.id;
     
@@ -245,6 +251,12 @@ class SupabaseService {
     if (education != null) updates['education'] = education;
     if (projects != null) updates['projects'] = projects;
     if (skills != null) updates['skills'] = skills;
+    if (workEmail != null) updates['work_email'] = workEmail;
+    if (isWorkEmailVerified != null) updates['is_work_email_verified'] = isWorkEmailVerified;
+    if (phone != null) updates['phone'] = phone;
+    if (isWorkEmailPublic != null) updates['is_work_email_public'] = isWorkEmailPublic;
+    if (isPhonePublic != null) updates['is_phone_public'] = isPhonePublic;
+    if (isPersonalEmailPublic != null) updates['is_personal_email_public'] = isPersonalEmailPublic;
 
     if (updates.isNotEmpty) {
       await _client
@@ -252,7 +264,7 @@ class SupabaseService {
           .update(updates)
           .eq('id', userId);
       
-      // Update local cache if avatar or fullName changed
+      // Update local cache if fields changed
       final profile = _currentUserProfile;
       if (profile != null) {
         if (fullName != null) profile['full_name'] = fullName;
@@ -262,6 +274,12 @@ class SupabaseService {
         if (education != null) profile['education'] = education;
         if (projects != null) profile['projects'] = projects;
         if (skills != null) profile['skills'] = skills;
+        if (workEmail != null) profile['work_email'] = workEmail;
+        if (isWorkEmailVerified != null) profile['is_work_email_verified'] = isWorkEmailVerified;
+        if (phone != null) profile['phone'] = phone;
+        if (isWorkEmailPublic != null) profile['is_work_email_public'] = isWorkEmailPublic;
+        if (isPhonePublic != null) profile['is_phone_public'] = isPhonePublic;
+        if (isPersonalEmailPublic != null) profile['is_personal_email_public'] = isPersonalEmailPublic;
       }
     }
   }

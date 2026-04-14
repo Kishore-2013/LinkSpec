@@ -13,8 +13,12 @@ class UserProfile {
   final String? tag; // Legacy support
   final String? email;
   final String? verificationStatus; // 'none', 'pending', 'verified'
-  final String? workEmail;
+  final String? workEmail; // Stores semicolon-separated verified emails
   final bool isWorkEmailVerified;
+  final String? phone;
+  final bool isWorkEmailPublic;
+  final bool isPhonePublic;
+  final bool isPersonalEmailPublic;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -35,9 +39,25 @@ class UserProfile {
     this.verificationStatus = 'none',
     this.workEmail,
     this.isWorkEmailVerified = false,
+    this.phone,
+    this.isWorkEmailPublic = false,
+    this.isPhonePublic = false,
+    this.isPersonalEmailPublic = false,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// Returns a list of all verified work emails
+  List<String> get verifiedWorkEmails {
+    if (workEmail == null || workEmail!.isEmpty) return [];
+    return workEmail!.split(';').where((e) => e.isNotEmpty).toList();
+  }
+
+  /// Checks if a specific email is in the verified collection
+  bool isEmailVerified(String? email) {
+    if (email == null || email.isEmpty) return false;
+    return verifiedWorkEmails.contains(email.toLowerCase().trim());
+  }
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
@@ -57,6 +77,10 @@ class UserProfile {
       verificationStatus: json['verification_status'] as String? ?? 'none',
       workEmail: json['work_email'] as String?,
       isWorkEmailVerified: json['is_work_email_verified'] as bool? ?? false,
+      phone: json['phone'] as String?,
+      isWorkEmailPublic: json['is_work_email_public'] as bool? ?? false,
+      isPhonePublic: json['is_phone_public'] as bool? ?? false,
+      isPersonalEmailPublic: json['is_personal_email_public'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -80,6 +104,10 @@ class UserProfile {
       'verification_status': verificationStatus,
       'work_email': workEmail,
       'is_work_email_verified': isWorkEmailVerified,
+      'phone': phone,
+      'is_work_email_public': isWorkEmailPublic,
+      'is_phone_public': isPhonePublic,
+      'is_personal_email_public': isPersonalEmailPublic,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -102,6 +130,10 @@ class UserProfile {
     String? verificationStatus,
     String? workEmail,
     bool? isWorkEmailVerified,
+    String? phone,
+    bool? isWorkEmailPublic,
+    bool? isPhonePublic,
+    bool? isPersonalEmailPublic,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -122,6 +154,10 @@ class UserProfile {
       verificationStatus: verificationStatus ?? this.verificationStatus,
       workEmail: workEmail ?? this.workEmail,
       isWorkEmailVerified: isWorkEmailVerified ?? this.isWorkEmailVerified,
+      phone: phone ?? this.phone,
+      isWorkEmailPublic: isWorkEmailPublic ?? this.isWorkEmailPublic,
+      isPhonePublic: isPhonePublic ?? this.isPhonePublic,
+      isPersonalEmailPublic: isPersonalEmailPublic ?? this.isPersonalEmailPublic,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
