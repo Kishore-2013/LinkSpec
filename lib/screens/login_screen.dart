@@ -431,7 +431,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
                   label: 'Full Name',
                   controller: _nameCtrl,
                   icon: Icons.person_outline_rounded,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   validator: (v) => (v == null || v.isEmpty) ? 'Name is required' : null,
                 ),
                 const SizedBox(height: 16),
