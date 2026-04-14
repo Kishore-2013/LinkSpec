@@ -1382,22 +1382,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (userId == null) return;
 
     setState(() => _isLoading = true);
-    final success = await VerificationService.requestWorkEmailOtp(
+    final result = await VerificationService.requestWorkEmailOtp(
       userId: userId,
       workEmail: email,
     );
     setState(() => _isLoading = false);
 
-    if (success) {
-      _showOtpDialog(email);
+    if (result['success'] == true) {
+      final token = result['token'];
+      if (token != null) {
+        _showOtpDialog(email, token);
+      } else {
+        if (mounted) LinkSpecNotify.show(context, 'Critical Error: Missing verification token', LinkSpecNotifyType.error);
+      }
     } else {
       if (mounted) {
-        LinkSpecNotify.show(context, 'Failed to send OTP. Please try again later.', LinkSpecNotifyType.error);
+        LinkSpecNotify.show(context, result['message'] ?? 'Failed to send OTP. Please try again later.', LinkSpecNotifyType.error);
       }
     }
   }
 
-  void _showOtpDialog(String email) {
+  void _showOtpDialog(String email, String token) {
     final otpC = TextEditingController();
     showDialog(
       context: context,
@@ -1434,6 +1439,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 userId: userId,
                 workEmail: email,
                 otp: otp,
+                token: token,
               );
               
               if (success) {

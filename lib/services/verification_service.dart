@@ -75,7 +75,7 @@ class VerificationService {
   }
 
   /// Request OTP for work email verification
-  static Future<bool> requestWorkEmailOtp({
+  static Future<Map<String, dynamic>> requestWorkEmailOtp({
     required String userId,
     required String workEmail,
   }) async {
@@ -88,10 +88,14 @@ class VerificationService {
           'work_email': workEmail,
         }),
       );
-      return response.statusCode == 200;
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'success': false, 'message': 'Failed to request OTP'};
     } catch (e) {
       debugPrint('VerificationService error: $e');
-      return false;
+      return {'success': false, 'message': e.toString()};
     }
   }
 
@@ -100,6 +104,7 @@ class VerificationService {
     required String userId,
     required String workEmail,
     required String otp,
+    required String token,
   }) async {
     try {
       final response = await http.post(
@@ -109,6 +114,7 @@ class VerificationService {
           'user_id': userId,
           'work_email': workEmail,
           'otp': otp,
+          'token': token,
         }),
       );
       return response.statusCode == 200;
