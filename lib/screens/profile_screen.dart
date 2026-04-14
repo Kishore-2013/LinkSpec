@@ -1398,7 +1398,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 title: const Text('Show Work Email'),
                 subtitle: isWorkEmailVerified 
                   ? const Text('Visible to everyone') 
-                  : const Text('Verify your work email to make it public', style: TextStyle(color: Colors.orange, fontSize: 12)),
+                  : Text('Verify your work email to make it public', style: TextStyle(color: Colors.orange, fontSize: 12)),
                 value: isWorkEmailPublic,
                 onChanged: isWorkEmailVerified 
                   ? (val) => setDialogState(() => isWorkEmailPublic = val)
@@ -1608,7 +1608,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(20),
-         boxShadow: [BoxShadow(color: const Color(0xFF1A2740).withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+         boxShadow: [BoxShadow(color: Color(0xFF1A2740).withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -1647,9 +1647,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Row(
             children: [
               Text(exp['role'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              if (isVerified) const Padding(
-                padding: EdgeInsets.only(left: 4),
-                child: Icon(Icons.verified, color: Colors.blue, size: 14),
+              if (isVerified) Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: const Icon(Icons.verified, color: Colors.blue, size: 14),
               ),
             ],
           ),
