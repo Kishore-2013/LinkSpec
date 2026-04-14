@@ -432,11 +432,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     DateTime? startDate;
     DateTime? endDate;
     String? dateError;
-
+    bool isCurrentRole = false;
+    
     // Parse existing dates if editing
     if (existingExp != null) {
       final startStr = existingExp['start_date'] as String?;
       final endStr = existingExp['end_date'] as String?;
+      isCurrentRole = existingExp['is_current'] as bool? ?? false;
+
       if (startStr != null && startStr.isNotEmpty) {
         startDate = DateTime.tryParse(startStr);
       }
@@ -452,59 +455,75 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           title: Text(editIndex != null ? 'Edit Experience' : 'Add Experience'),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(controller: roleC, decoration: const InputDecoration(labelText: 'Role / Title')),
+              TextField(controller: roleC, decoration: const InputDecoration(labelText: 'Role / Title*')),
               const SizedBox(height: 8),
-              TextField(controller: companyC, decoration: const InputDecoration(labelText: 'Company')),
+              TextField(controller: companyC, decoration: const InputDecoration(labelText: 'Company*')),
               const SizedBox(height: 8),
               if (_isOwnProfile)
                 TextField(
                   controller: workEmailC, 
                   decoration: const InputDecoration(
-                    labelText: 'Work Email (Optional)',
+                    labelText: 'Work Email*',
                     hintText: 'e.g. name@company.com',
                     helperText: 'Enter to verify your professional identity',
                   ),
                   keyboardType: TextInputType.emailAddress,
                 ),
               const SizedBox(height: 16),
-              // Start Date
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 18, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: startDate ?? DateTime.now(),
-                          firstDate: DateTime(1950),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) {
-                          setDialogState(() {
-                            startDate = picked;
-                            dateError = null;
-                          });
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          startDate != null
-                              ? '${_monthName(startDate!.month)}-${startDate!.day.toString().padLeft(2, '0')}-${startDate!.year}'
-                              : 'Start Date',
-                          style: TextStyle(color: startDate != null ? Colors.black : Colors.grey),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+               // Currently Working Checkbox
+               CheckboxListTile(
+                 title: const Text('I am currently working in this role', style: TextStyle(fontSize: 14)),
+                 value: isCurrentRole,
+                 onChanged: (val) {
+                   setDialogState(() {
+                     isCurrentRole = val ?? false;
+                     if (isCurrentRole) {
+                       endDate = null;
+                     }
+                   });
+                 },
+                 controlAffinity: ListTileControlAffinity.leading,
+                 contentPadding: EdgeInsets.zero,
+               ),
+               const SizedBox(height: 8),
+               // Start Date
+               Row(
+                 children: [
+                   const Icon(Icons.calendar_today, size: 18, color: Colors.blue),
+                   const SizedBox(width: 8),
+                   Expanded(
+                     child: InkWell(
+                       onTap: () async {
+                         final picked = await showDatePicker(
+                           context: context,
+                           initialDate: startDate ?? DateTime.now(),
+                           firstDate: DateTime(1950),
+                           lastDate: DateTime(2100),
+                         );
+                         if (picked != null) {
+                           setDialogState(() {
+                             startDate = picked;
+                             dateError = null;
+                           });
+                         }
+                       },
+                       child: Container(
+                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                         decoration: BoxDecoration(
+                           border: Border.all(color: Colors.grey),
+                           borderRadius: BorderRadius.circular(8),
+                         ),
+                         child: Text(
+                           startDate != null
+                               ? '${_monthName(startDate!.month)}-${startDate!.day.toString().padLeft(2, '0')}-${startDate!.year}'
+                               : 'Start Date',
+                           style: TextStyle(color: startDate != null ? Colors.black : Colors.grey),
+                         ),
+                       ),
+                     ),
+                   ),
+                 ],
+               ),
               const SizedBox(height: 8),
               // End Date
               Row(
@@ -513,7 +532,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: InkWell(
-                      onTap: () async {
+                      onTap: isCurrentRole ? null : () async {
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: endDate ?? DateTime.now(),
@@ -530,14 +549,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
+                          border: Border.all(color: isCurrentRole ? Colors.grey.shade300 : Colors.grey),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           endDate != null
                               ? '${_monthName(endDate!.month)}-${endDate!.day.toString().padLeft(2, '0')}-${endDate!.year}'
                               : 'End Date (leave empty if current)',
-                          style: TextStyle(color: endDate != null ? Colors.black : Colors.grey),
+                          style: TextStyle(color: endDate != null ? Colors.black : (isCurrentRole ? Colors.grey.shade400 : Colors.grey)),
                         ),
                       ),
                     ),
@@ -561,35 +580,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     dateError = 'Incorrect data: End date cannot be before start date');
                   return;
                 }
-                final duration = startDate != null
-                    ? '${_monthName(startDate!.month)} ${startDate!.year} - ${endDate != null ? "${_monthName(endDate!.month)} ${endDate!.year}" : "Present"}'
-                    : '';
-                final entry = {
-                  'role': roleC.text.trim(),
-                  'company': companyC.text.trim(),
-                  'work_email': workEmailC.text.trim(),
-                  'duration': duration,
-                  'start_date': startDate?.toIso8601String() ?? '',
-                  'end_date': endDate?.toIso8601String() ?? '',
-                };
+                 final duration = startDate != null
+                     ? '${_monthName(startDate!.month)} ${startDate!.year} - ${isCurrentRole ? "Present" : (endDate != null ? "${_monthName(endDate!.month)} ${endDate!.year}" : "Present")}'
+                     : '';
+                 final entry = {
+                   'role': roleC.text.trim(),
+                   'company': companyC.text.trim(),
+                   'work_email': workEmailC.text.trim(),
+                   'duration': duration,
+                   'start_date': startDate?.toIso8601String() ?? '',
+                   'end_date': isCurrentRole ? '' : (endDate?.toIso8601String() ?? ''),
+                   'is_current': isCurrentRole,
+                 };
 
-                // If this is a new experience or work email changed, and it's own profile, 
-                // we call the specific backend endpoint for work email.
-                if (_isOwnProfile && workEmailC.text.trim().isNotEmpty) {
-                  _saveExperienceWithWorkEmail(entry);
-                }
+                 // PERSISTENCE FIX: Compute the final updated list immediately
+                 List<Map<String, dynamic>> updatedList;
+                 if (editIndex != null) {
+                   updatedList = [..._profile!.experience];
+                   updatedList[editIndex] = entry;
+                 } else {
+                   updatedList = [..._profile!.experience, entry];
+                 }
 
-                setState(() {
-                  if (editIndex != null) {
-                    final l = [..._profile!.experience];
-                    l[editIndex] = entry;
-                    _profile = _profile!.copyWith(experience: l);
-                  } else {
-                    _profile = _profile?.copyWith(
-                      experience: [..._profile!.experience, entry],
-                    );
-                  }
-                });
+                 // If this is a new experience or work email changed, and it's own profile, 
+                 // we call the specific backend endpoint for work email.
+                 if (_isOwnProfile && workEmailC.text.trim().isNotEmpty) {
+                   _saveExperienceWithWorkEmail(entry, updatedList);
+                 } else {
+                   // Even if no work email, persist to Supabase JSON list
+                   SupabaseService.updateProfile(experience: updatedList);
+                 }
+
+                 setState(() {
+                   _profile = _profile!.copyWith(experience: updatedList);
+                 });
                 Navigator.pop(context);
               },
               child: Text(editIndex != null ? 'Save' : 'Add'),
@@ -1355,10 +1379,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Future<void> _saveExperienceWithWorkEmail(Map<String, dynamic> exp) async {
+  Future<void> _saveExperienceWithWorkEmail(Map<String, dynamic> exp, List<Map<String, dynamic>> updatedList) async {
     final userId = SupabaseService.getCurrentUserId();
     if (userId == null) return;
 
+    // 1. First persist the JSON list to Supabase to ensure it stays even after refresh
+    await SupabaseService.updateProfile(experience: updatedList);
+
+    // 2. Call the specialized backend for work email verification
     final success = await VerificationService.addExperienceWithEmail(
       userId: userId,
       companyName: exp['company'] ?? '',
@@ -1368,11 +1396,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'duration': exp['duration'],
         'start_date': exp['start_date'],
         'end_date': exp['end_date'],
+        'is_current': exp['is_current'],
       },
     );
 
     if (success) {
-      // Refresh profile to reflect the changes in profiles_dim
+      // Refresh profile to reflect any server-side changes (like profiles_dim updates)
       await _loadProfile();
     }
   }
