@@ -13,6 +13,8 @@ class UserProfile {
   final String? tag; // Legacy support
   final String? email;
   final String? verificationStatus; // 'none', 'pending', 'verified'
+  final String? workEmail;
+  final bool isWorkEmailVerified;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -31,6 +33,8 @@ class UserProfile {
     this.tag = 'User',
     this.email,
     this.verificationStatus = 'none',
+    this.workEmail,
+    this.isWorkEmailVerified = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -51,6 +55,8 @@ class UserProfile {
       tag: json['tag'] as String? ?? 'User',
       email: json['email'] as String?,
       verificationStatus: json['verification_status'] as String? ?? 'none',
+      workEmail: json['work_email'] as String?,
+      isWorkEmailVerified: json['is_work_email_verified'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -72,6 +78,8 @@ class UserProfile {
       'tag': tag,
       'email': email,
       'verification_status': verificationStatus,
+      'work_email': workEmail,
+      'is_work_email_verified': isWorkEmailVerified,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -92,6 +100,8 @@ class UserProfile {
     String? tag,
     String? email,
     String? verificationStatus,
+    String? workEmail,
+    bool? isWorkEmailVerified,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -110,6 +120,8 @@ class UserProfile {
       tag: tag ?? this.tag,
       email: email ?? this.email,
       verificationStatus: verificationStatus ?? this.verificationStatus,
+      workEmail: workEmail ?? this.workEmail,
+      isWorkEmailVerified: isWorkEmailVerified ?? this.isWorkEmailVerified,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -49,6 +49,75 @@ class VerificationService {
     }
   }
 
+  /// Add experience and work email
+  static Future<bool> addExperienceWithEmail({
+    required String userId,
+    required String companyName,
+    required String workEmail,
+    required Map<String, dynamic> otherFields,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/profile/experience/add'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'company_name': companyName,
+          'work_email': workEmail,
+          ...otherFields,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('VerificationService error: $e');
+      return false;
+    }
+  }
+
+  /// Request OTP for work email verification
+  static Future<bool> requestWorkEmailOtp({
+    required String userId,
+    required String workEmail,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/work-email/request-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'work_email': workEmail,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('VerificationService error: $e');
+      return false;
+    }
+  }
+
+  /// Verify OTP for work email
+  static Future<bool> verifyWorkEmailOtp({
+    required String userId,
+    required String workEmail,
+    required String otp,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/work-email/verify-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'work_email': workEmail,
+          'otp': otp,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('VerificationService error: $e');
+      return false;
+    }
+  }
+
   /// Fetch results for a specific user and lab
   static Future<Map<String, dynamic>?> getLabResults({
     required String userId,

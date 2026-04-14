@@ -428,6 +428,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _showExperienceDialog({Map<String, dynamic>? existingExp, int? editIndex}) {
     final roleC = TextEditingController(text: existingExp?['role'] ?? '');
     final companyC = TextEditingController(text: existingExp?['company'] ?? '');
+    final workEmailC = TextEditingController(text: existingExp?['work_email'] ?? (_isOwnProfile ? _profile?.workEmail : ''));
     DateTime? startDate;
     DateTime? endDate;
     String? dateError;
@@ -454,6 +455,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               TextField(controller: roleC, decoration: const InputDecoration(labelText: 'Role / Title')),
               const SizedBox(height: 8),
               TextField(controller: companyC, decoration: const InputDecoration(labelText: 'Company')),
+              const SizedBox(height: 8),
+              if (_isOwnProfile)
+                TextField(
+                  controller: workEmailC, 
+                  decoration: const InputDecoration(
+                    labelText: 'Work Email (Optional)',
+                    hintText: 'e.g. name@company.com',
+                    helperText: 'Enter to verify your professional identity',
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
               const SizedBox(height: 16),
               // Start Date
               Row(
@@ -555,10 +567,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 final entry = {
                   'role': roleC.text.trim(),
                   'company': companyC.text.trim(),
+                  'work_email': workEmailC.text.trim(),
                   'duration': duration,
                   'start_date': startDate?.toIso8601String() ?? '',
                   'end_date': endDate?.toIso8601String() ?? '',
                 };
+
+                // If this is a new experience or work email changed, and it's own profile, 
+                // we call the specific backend endpoint for work email.
+                if (_isOwnProfile && workEmailC.text.trim().isNotEmpty) {
+                  _saveExperienceWithWorkEmail(entry);
+                }
+
                 setState(() {
                   if (editIndex != null) {
                     final l = [..._profile!.experience];
@@ -1283,15 +1303,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildExpItem(Map<String, dynamic> exp, int index) {
+    final String? workEmail = exp['work_email'];
+    final bool isVerified = _isOwnProfile && (_profile?.isWorkEmailVerified ?? false) && (_profile?.workEmail == workEmail);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Icon(Icons.business, color: Colors.grey),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(exp['role'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          Row(
+            children: [
+              Text(exp['role'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              if (isVerified) const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Icon(Icons.verified, color: Colors.blue, size: 14),
+              ),
+            ],
+          ),
           Text(exp['company'] ?? '', style: const TextStyle(color: Colors.grey)),
           Text(exp['duration'] ?? '', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+          if (_isOwnProfile && workEmail != null && workEmail.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Text(workEmail, style: TextStyle(color: Colors.blue[300], fontSize: 13, fontStyle: FontStyle.italic)),
+                if (!isVerified) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _verifyWorkEmail(workEmail),
+                    child: const Text('Verify Now', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                ],
+              ],
+            ),
+          ],
         ])),
         if (_isEditing) ...[
           IconButton(
@@ -1306,6 +1352,106 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           }),
         ],
       ]),
+    );
+  }
+
+  Future<void> _saveExperienceWithWorkEmail(Map<String, dynamic> exp) async {
+    final userId = SupabaseService.getCurrentUserId();
+    if (userId == null) return;
+
+    final success = await VerificationService.addExperienceWithEmail(
+      userId: userId,
+      companyName: exp['company'] ?? '',
+      workEmail: exp['work_email'] ?? '',
+      otherFields: {
+        'role': exp['role'],
+        'duration': exp['duration'],
+        'start_date': exp['start_date'],
+        'end_date': exp['end_date'],
+      },
+    );
+
+    if (success) {
+      // Refresh profile to reflect the changes in profiles_dim
+      await _loadProfile();
+    }
+  }
+
+  Future<void> _verifyWorkEmail(String email) async {
+    final userId = SupabaseService.getCurrentUserId();
+    if (userId == null) return;
+
+    setState(() => _isLoading = true);
+    final success = await VerificationService.requestWorkEmailOtp(
+      userId: userId,
+      workEmail: email,
+    );
+    setState(() => _isLoading = false);
+
+    if (success) {
+      _showOtpDialog(email);
+    } else {
+      if (mounted) {
+        LinkSpecNotify.show(context, 'Failed to send OTP. Please try again later.', LinkSpecNotifyType.error);
+      }
+    }
+  }
+
+  void _showOtpDialog(String email) {
+    final otpC = TextEditingController();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Verify Work Email'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('A 6-digit verification code has been sent to:\n$email'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: otpC,
+              decoration: const InputDecoration(labelText: 'Verification Code', hintText: '123456'),
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final otp = otpC.text.trim();
+              if (otp.length != 6) return;
+              
+              final userId = SupabaseService.getCurrentUserId();
+              if (userId == null) return;
+
+              Navigator.pop(context); // Close dialog
+              setState(() => _isLoading = true);
+              
+              final success = await VerificationService.verifyWorkEmailOtp(
+                userId: userId,
+                workEmail: email,
+                otp: otp,
+              );
+              
+              if (success) {
+                await _loadProfile();
+                if (mounted) {
+                  LinkSpecNotify.show(context, 'Work email verified successfully!', LinkSpecNotifyType.success);
+                }
+              } else {
+                setState(() => _isLoading = false);
+                if (mounted) {
+                  LinkSpecNotify.show(context, 'Invalid or expired OTP.', LinkSpecNotifyType.error);
+                }
+              }
+            },
+            child: const Text('Verify'),
+          ),
+        ],
+      ),
     );
   }
 
